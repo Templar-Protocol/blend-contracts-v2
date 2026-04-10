@@ -27,3 +27,6 @@ pub use storage::{
     AuctionKey, PoolConfig, PoolDataKey, PoolEmissionConfig, ReserveConfig, ReserveData,
     ReserveEmissionData, UserEmissionData, UserReserveKey,
 };
+
+#[cfg(test)]
+mod tests;
