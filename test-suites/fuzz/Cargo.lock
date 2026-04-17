@@ -164,8 +164,9 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "backstop"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
+ "blend-contract-sdk",
  "cast",
  "sep-41-token",
  "soroban-fixed-point-math",
@@ -198,7 +199,9 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
 name = "blend-contract-sdk"
-version = "1.0.0"
+version = "1.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8970f7b0c211fd20a85f8f4161bc40b3963f2f13c76f980c914b2c0bbf01de6c"
 dependencies = [
  "soroban-sdk",
 ]
@@ -799,6 +802,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "moderc3156"
+version = "0.1.0"
+source = "git+https://github.com/xycloo/xycloans?rev=d9a7ae1#d9a7ae163e6c7120000532bf4b15b6a96b3a82bc"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "moderc3156-example"
+version = "0.1.0"
+dependencies = [
+ "pool",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -875,9 +894,10 @@ dependencies = [
 
 [[package]]
 name = "pool"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "cast",
+ "moderc3156",
  "sep-40-oracle",
  "sep-41-token",
  "soroban-fixed-point-math",
@@ -886,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "pool-factory"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1268,9 +1288,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "22.0.5"
+version = "22.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22fa784df79d0d30432ba999906bd47fcad12b2980d1bd651992f2191c7c92f4"
+checksum = "c30035cf1e8f02f65de3e594b6da113ecdaf1cd134d8480961d62568bb15adaf"
 dependencies = [
  "serde",
  "serde_json",
@@ -1282,9 +1302,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "22.0.5"
+version = "22.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84bf0c0e19b20977d27b66a5659951893b0ea25f2a01692196861c6db700ada3"
+checksum = "ff18e8d7ca6d5340a211605ca2c86383bd4dfacc4f8253d72a1573974ffffe69"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -1304,9 +1324,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "22.0.5"
+version = "22.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9612ffb704c7a36703e86a60f286dbd3e1ffca42237a8b353328a05d88f8b028"
+checksum = "42b205cd86b34d530db87667bd287fbb194166d79b368227fd842110a914fde8"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -1324,9 +1344,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "22.0.5"
+version = "22.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "709db692196f0600678cd8ec2a7e2b269dd63a32477dcdec5b3a353fb26bb128"
+checksum = "cb6a16f2de28852c759f4da5f28cda54ec0d8dfa4c0e6e8cb3495234a72b0cea"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr",
@@ -1336,9 +1356,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "22.0.5"
+version = "22.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "457bba1f081b7b78ef219bc5a523649df4927dd0625dfa723a0682b36fb198de"
+checksum = "cdc6db5902ab21290dddf63fec4ee95703fe59891a947646e7b8607536f043fc"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1454,6 +1474,7 @@ dependencies = [
  "blend-contract-sdk",
  "cast",
  "mock-pool-factory",
+ "moderc3156-example",
  "pool",
  "pool-factory",
  "rand 0.7.3",
