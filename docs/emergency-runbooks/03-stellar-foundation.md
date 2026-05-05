@@ -10,9 +10,10 @@ curators, bridge operators, stablecoin issuers, validators, and exchanges.
 **Scope.** Coordination, communication, and ecosystem-level mitigations.
 You do not call any contract function in Blend or in the curator vaults; you
 *coordinate* the parties that do, and you can apply Stellar-network-level
-mitigations (e.g. validator outreach, sequencer / RPC operator coordination,
-stablecoin freezing requests, asset-issuer revocation actions, network
-upgrade coordination).
+mitigations (e.g. validator / quorum outreach, RPC and Horizon operator
+coordination, issuer / bridge controls including stablecoin freezing
+requests and asset-issuer revocation actions, and network upgrade
+coordination).
 
 Read [`README.md`](./README.md) first for the severity matrix, Hypernative
 classification, war room template, and Safe Chain coordination model.

@@ -107,7 +107,11 @@ allows withdrawals — if the exploit is a withdraw-path exploit you cannot
 fully stop it from on-chain admin alone. Coordinate immediately with the
 dev team and Stellar Foundation Safe Chain
 ([`03-stellar-foundation.md`](./03-stellar-foundation.md)) for cross-stack
-mitigations (sequencer pause, RPC gating, etc).
+mitigations: validator / quorum coordination, RPC and Horizon endpoint
+throttling and gating, bridge and stablecoin operator controls (denylists,
+issuer freezes), and complementary pool / vault status actions on adjacent
+pools or vaults that share exposure (status 4, sentinel `Pause`,
+allocator deallocation).
 
 ### 2.2 What you should *not* do
 
@@ -129,12 +133,14 @@ Recovery from a protocol hack is dev-team-led
 2.3). Your role is to:
 
 1. Hold the pool at status 4 until the dev on-call lead and at least one
-   second Safe Chain role sign off.
-2. When migration to a patched pool is ready, step status 4 → 3 (do this
-   by waiting for `q4w_pct` to drive the backstop to status 5 and then
-   manually issuing the corresponding admin transition) so that
-   withdrawals stay available for users to migrate, but new borrows are
-   blocked.
+   second Safe Chain role sign off. Status 4 already permits withdrawals
+   and liquidations, so users can migrate while supplies and new borrows
+   are blocked.
+2. If during migration you need to allow new supplies (e.g. backfill a
+   reserve to support orderly liquidations), step `set_status(2)` admin
+   on-ice (requires `q4w_pct` < 75%). Borrows and liquidation
+   cancellations remain blocked. Do *not* step to 0 — admin active —
+   until the dev team has signed off on the patched contract.
 3. Once user funds are migrated, leave the old pool at status 4 forever.
 
 ---

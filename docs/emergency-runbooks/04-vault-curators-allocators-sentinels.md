@@ -51,10 +51,7 @@ The vault governance contract additionally has:
 | Governance role | Actions |
 |-----------------|---------|
 | **Admin / Owner** of governance contract | Acts as the canonical proposer / canonical timelock controller. Holds emergency abdication. |
-| **Guardian** | Configurable; in Templar's
-  [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs)
-  the `SetGuardian` action sets a designated address that the curator
-  delegates blocking power to. |
+| **Guardian** | Configurable; in Templar's [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs) the `SetGuardian` action sets a designated address that the curator delegates blocking power to. |
 | **Skim recipient** | Receives skim drains. |
 
 ### 0.2 Operational hygiene

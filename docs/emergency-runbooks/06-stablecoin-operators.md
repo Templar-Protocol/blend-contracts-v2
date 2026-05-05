@@ -1,7 +1,7 @@
 # Runbook: Stablecoin Operators
 
 **Audience.** Issuers and operators of stablecoins (and other
-reserved-backed or authority-controlled tokens) on Stellar whose tokens
+reserve-backed or authority-controlled tokens) on Stellar whose tokens
 are listed as Blend pool reserves or held by curator vaults that supply
 into Blend.
 

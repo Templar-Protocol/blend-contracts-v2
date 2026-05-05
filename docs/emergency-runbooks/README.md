@@ -117,7 +117,7 @@ Chain role can move user funds; it only coordinates the pause / unwind / patch
 
 Every P0/P1 spawns a war room. Use this template:
 
-```
+```text
 Incident: <one-line description>
 Severity: P0 | P1 | P2
 Detected: <ISO-8601 UTC>
