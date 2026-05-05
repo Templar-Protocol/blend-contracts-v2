@@ -47,10 +47,16 @@ When a P0 / P1 alert fires:
 
 1. **Open the war room** using the template in
    [`README.md`](./README.md#war-room-template). The dev on-call is the
-   default *lead* for any incident classified as protocol hack, bad debt,
-   or faulty oracle. For pool / curator / allocator / sentinel compromise,
-   the dev on-call acts as *technical advisor* and the affected role is
-   lead.
+   default *lead* for protocol hacks on Blend pool / backstop / emitter
+   contracts. For bad-debt and faulty-oracle incidents the dev on-call
+   acts as *technical advisor* — the affected pool admin and the
+   oracle provider respectively are the canonical leads per
+   [`03-stellar-foundation.md`](./03-stellar-foundation.md) §8. For
+   pool / curator / allocator / sentinel compromise, the dev on-call
+   acts as *technical advisor* and the affected role is lead. The
+   stand-down quorum for any protocol-hack incident is the affected
+   pool admin OR Foundation, per the canonical table in
+   [`03-stellar-foundation.md`](./03-stellar-foundation.md) §8.
 2. **Classify** the alert family using the table in
    [`README.md`](./README.md#hypernative-alert-taxonomy).
 3. **Snapshot state.** Before any mitigation, record for every affected pool:
@@ -95,9 +101,14 @@ in a way the design did not contemplate.
      them (e.g. simultaneous `set_status` on multiple admins' pools).
 3. **Coordinate with vault curators** (see
    [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md)).
-   When a pool is frozen, vaults supplying into that pool's reserves cannot
-   withdraw on behalf of their depositors. Curators may need to deallocate
-   from sibling reserves first.
+   When a pool is frozen at status 4, withdrawals and liquidations remain
+   available to depositors and to vaults supplying into the pool's
+   reserves — only new supplies, new borrows, and liquidation cancels are
+   blocked (see the pool status table in
+   [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0). Curators
+   should confirm exit processing on the affected reserve, and coordinate
+   deallocations only if specific reserves or sibling pools have separate
+   restrictions or exit liquidity issues.
 4. **Notify Stellar Foundation** via the security contact (see
    [`03-stellar-foundation.md`](./03-stellar-foundation.md)). Foundation is
    responsible for cross-protocol communication with bridges, validators
@@ -210,8 +221,11 @@ age). Faults include:
 1. The dev team **does not directly hold the oracle keys**. The oracle is a
    third-party contract (Pyth / Reflector / Redstone / SEP-40 adapter etc).
 2. The fastest mitigation that the protocol can apply is via the pool
-   admin: `set_status(2)` admin on-ice (blocks new borrows and liquidation
-   cancels) or `set_status(4)` admin frozen (blocks everything).
+   admin: `set_status(2)` admin on-ice (blocks new borrows and
+   liquidation cancels) or `set_status(4)` admin frozen (additionally
+   blocks new supplies; withdrawals, repayments, and liquidations
+   remain allowed — see the pool status table in
+   [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0).
 3. Coordinate with the oracle provider (the Stellar Foundation contact in
    [`03-stellar-foundation.md`](./03-stellar-foundation.md) maintains
    provider relationships).

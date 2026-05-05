@@ -76,7 +76,7 @@ When a P0 / P1 alert reaches the Foundation:
 | Protocol hack on a curator vault | Curator (lead), vault sentinel, vault dev team, Foundation (coordination), affected Blend pool admin(s) (informational) |
 | Bad debt | Blend pool admin (lead), Blend dev team, curator vaults supplying into the affected reserve, Foundation (informational) |
 | Faulty oracle | Oracle provider (lead), Blend dev team (technical), pool admins (containment), curator vaults (deallocate), Foundation (oracle-provider broker) |
-| Pool admin compromise | Pool admin (lead), Blend dev team, Foundation (lead on cross-stack), validators if Stellar-Safe-Chain-level mitigation is needed, exchanges if the captured admin is moving funds, stablecoin issuers if frozen-asset action might be requested |
+| Pool admin compromise | Pool admin (lead), Blend dev team, Foundation (coordination / communications support), validators if Stellar-Safe-Chain-level mitigation is needed, exchanges if the captured admin is moving funds, stablecoin issuers if frozen-asset action might be requested |
 | Curator / allocator / sentinel compromise | Curator's governance (lead), curator's sentinel, vault dev team, Foundation, affected Blend pool admin(s) |
 | Bridge incident | Bridge operator (lead), Foundation (lead on ecosystem comms), Blend pool admins whose pools list bridged assets, curator vaults exposed to bridged assets, stablecoin issuers if a bridged stablecoin is involved |
 | Stablecoin incident | Stablecoin issuer (lead), Foundation, Blend pool admins listing the stablecoin, curator vaults holding the stablecoin |
