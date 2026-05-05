@@ -9,7 +9,7 @@ admin keys (those are held by per-pool admins, see
 [`02-blend-pool-admins.md`](./02-blend-pool-admins.md)), but you own the
 contracts, the build, the audit history, and the upgrade story. You are the
 authoritative source of truth on what each pool / backstop / emitter call
-*actually does* on chain.
+*actually does* on-chain.
 
 Read [`README.md`](./README.md) first for the severity matrix, Hypernative
 classification, war room template, and Safe Chain coordination model.

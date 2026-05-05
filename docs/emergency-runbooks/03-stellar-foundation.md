@@ -87,7 +87,7 @@ When a P0 / P1 alert reaches the Foundation:
 ## 2. Protocol hack
 
 When the alert family is "exploit / invariant break" on Blend or on a
-curator vault, Foundation's job is to coordinate, not to act on chain.
+curator vault, Foundation's job is to coordinate, not to act on-chain.
 
 ### 2.1 First fifteen minutes
 
