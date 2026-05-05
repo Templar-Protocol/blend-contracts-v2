@@ -246,7 +246,7 @@ the single most valuable minute you will spend.
    `propose_admin` is recoverable as long as you control the old admin
    and the proposed address never accepts. If the attacker has already
    completed `accept_admin`, the old key is no longer admin and you
-   cannot reverse it on chain.
+   cannot reverse it on-chain.
 4. If the attacker is now the admin, the pool is **functionally lost**.
    Coordinate with vault curators and Stellar Foundation Safe Chain for
    user-fund-protection options (migration to a new pool with a new

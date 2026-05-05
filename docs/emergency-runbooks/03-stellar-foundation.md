@@ -286,7 +286,8 @@ definition:
 | Protocol hack on a vault | Curator | Foundation OR Blend dev team |
 | Bad debt | Pool admin | Blend dev team |
 | Faulty oracle | Oracle provider (off-Safe-Chain) | Blend dev team AND Foundation |
-| Pool admin compromise | Pool admin (or Foundation if admin captured) | Blend dev team AND Foundation |
+| Pool admin compromise (admin still controlled) | Pool admin | Blend dev team AND Foundation |
+| Pool admin compromise (admin captured) | Foundation | Blend dev team AND an independent second role (e.g. an unaffected pool admin, a major curator, or an external auditor) |
 | Curator / allocator / sentinel compromise | Curator governance | Foundation |
 | Bridge incident | Bridge operator | Foundation AND any affected stablecoin issuer |
 | Stablecoin incident | Stablecoin issuer | Foundation |
