@@ -100,9 +100,15 @@ bridgeable. Your role is the gate.
    is large enough that net new mint or redeem during the war room
    would compound the damage.
 5. **Coordinate with bridge operators**
-   ([`05-bridge-operators.md`](./05-bridge-operators.md)) — a frozen
-   address on Stellar can still be the destination of a bridge
-   transfer; the bridge needs to know to refuse.
+   ([`05-bridge-operators.md`](./05-bridge-operators.md)). On Stellar,
+   revoking `AUTHORIZED_FLAG` on the captured / exploiter trustline
+   prevents that address from making or receiving payments in the
+   asset, so an issuer-side freeze does block direct on-Stellar
+   transfers to that address. Bridge coordination is still required
+   for surfaces the issuer freeze does not reach: bridge-side
+   off-chain queues / pre-confirmation flows, wrapped representations
+   on the destination chain, and any inflight messages that were
+   already attested before the freeze.
 
 ### 2.3 Recovery
 

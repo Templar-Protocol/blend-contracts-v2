@@ -165,15 +165,21 @@ the evidence supports.
 | **A** | Allocator (or AllocatorEmergency) | `AbortAllocating` / `AbortWithdrawing` / `AbortRefreshing` on any in-progress operation | Cancels a stuck operation so that subsequent steps can run. | Yes |
 | **B** | Allocator | `RebalanceWithdraw` from the suspect market(s) into idle / safer markets | Reduces exposure without changing policy. | Yes |
 | **C** | Sentinel | `SetRestrictions` (allowlist mode) to freeze new deposits / withdrawals at the vault edge | Stops new exposure entering the vault while existing depositors can still exit (or vice versa, depending on restriction mode). | Yes — sentinel can lift |
-| **D** | Sentinel | `Pause` (`submit_set_paused(true)` on governance with the sentinel as the caller) | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Yes — `submit_set_paused(false)` once root cause is resolved |
-| **E** | Sentinel | Revoke pending governance proposals that would increase risk | Prevents an in-flight curator proposal (cap increase, fee increase, market addition) from executing during the incident. | Trivially: the proposal can be re-submitted later by the curator. |
+| **D** | Governance Admin / Owner | `submit_set_paused(true)` — in Templar's [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs), all `submit_*` methods go through `require_admin`, so only the Admin / Owner can submit a pause. `SetPaused(true)` is decided as `TimelockDecision::Immediate`, so the pause takes effect immediately upon submission. | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Yes — Admin submits `submit_set_paused(false)` (timelocked) once root cause is resolved. |
+| **E** | Sentinel / Guardian (or Admin) | `revoke(proposal_id)` or `revoke_kind(kind)` to drop pending governance proposals that would increase risk | The `require_revoker` check accepts the Admin, Guardian, or Sentinel, so this is the Sentinel's primary on-chain emergency lever. Prevents an in-flight curator/admin proposal (cap increase, fee increase, market addition, unpause) from maturing during the incident. | Trivially: the proposal can be re-submitted later by the Admin. |
 | **F** | Curator | `submit_set_cap(market_id, 0)` for the affected market | Drives the supply cap to zero, forcing future rebalances away from that market. | Yes — propose a non-zero cap later |
 | **G** | Curator | `submit_remove_market(market_id)` | Forces the market out of the vault entirely. Subject to the configured timelock so depositors have notice. | Slow to reverse — re-adding a market is a fresh `submit_*` action with timelock. |
 | **H** | Curator | `EmergencyReset` (`PolicyAdmin`-class action) | Force-idle a stuck vault. Only when steps A–G are not sufficient. | Possible, but use only with dev-team review of the kernel state. |
 
-In a P0 protocol-hack incident, the sentinel should usually drive at least
-to step D (`Pause`) within the first 10 minutes. Deeper steps require
-curator action and may have timelocks.
+In a P0 protocol-hack incident, the Governance Admin / Owner should
+submit step D (`submit_set_paused(true)`, immediate) within the first
+10 minutes, and the Sentinel / Guardian should sweep step E (revoke any
+pending proposals that would increase risk during the incident, including
+any pending unpause). Deeper steps require curator action and may have
+timelocks. If the Admin is unreachable or compromised, the Sentinel /
+Guardian cannot pause the vault directly, so containment falls back to
+allocator-side actions (steps A–B) plus revocation (step E) until the
+Admin is replaced via `submit_set_governance` (timelocked).
 
 ### 2.3 Coordination during a Blend pool exploit
 
@@ -181,8 +187,14 @@ If the underlying Blend pool is what is exploited (not the vault itself):
 
 1. The pool admin will (per
    [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) section 2)
-   move the pool to status 4 (admin frozen). When that happens, your
-   `RebalanceWithdraw` against the affected reserve will start to fail.
+   move the pool to status 4 (admin frozen). Status 4 still permits
+   withdrawals (the Blend adapter's deallocation path submits
+   `REQUEST_WITHDRAW` = action_type 1, which is not gated by status >
+   3 — see `pool/src/pool/pool.rs:77-80`), so your `RebalanceWithdraw`
+   against the affected reserve should still work in principle. Treat
+   it as blocked only if reserve-level liquidity, oracle staleness /
+   safety, the vault's own pause / restrictions, or adapter-specific
+   errors make the withdrawal unsafe or unprofitable.
 2. If you have **multiple Blend pools** in the vault, deallocate from
    sibling pools first to leave the affected pool's residual share as
    small as possible.

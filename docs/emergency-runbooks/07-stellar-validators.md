@@ -23,8 +23,11 @@ classification, war room template, and Safe Chain coordination model.
 Before any incident, the validator operator must keep the following in a
 known-good state:
 
-- A documented signing posture for validator keys (HSM, multisig where
-  applicable, rotation cadence).
+- A documented `NODE_SEED` custody posture (HSM-backed where
+  available, rotation cadence). Stellar Core validators sign SCP
+  messages with the node's `NODE_SEED` keypair — this is *not* the
+  same thing as Stellar account multisig (which signs transactions for
+  operational accounts and should be governed separately).
 - Independent monitoring of validator health: ledger close time,
   externalize messages, quorum participation, RPC/Horizon latency
   and error rate.
@@ -150,15 +153,21 @@ estimate of stand-down timing.
 ### 7.1 Network upgrade coordination
 
 A network upgrade is contemplated only for consensus- or transport-layer
-issues that cannot be addressed at the application layer. The
-Foundation coordinates the upgrade vote and timing. Validators
-participating in an upgrade must:
+issues that cannot be addressed at the application layer. Stellar
+upgrades are validator-driven: each validator independently configures
+its own upgrade values via stellar-core's `upgrades` endpoint and an
+`upgradetime`, and the upgrade activates once enough nodes in each
+validator's quorum agree on the new value. Foundation's role is to
+coordinate the proposal and timing socially / operationally; it does
+not unilaterally activate upgrades. Validators participating in an
+upgrade must:
 
 1. Verify the upgrade artifact independently (reproducible build,
    matching the published commit).
 2. Stage the upgrade in their non-production validators first.
-3. Coordinate the activation ledger with Foundation and other
-   validators.
+3. Configure their stellar-core `upgrades` values and `upgradetime`
+   themselves, and confirm the agreed values match the Foundation-
+   coordinated proposal before the upgrade time.
 4. Communicate the upgrade window publicly so application protocols
    (Blend pools, curator vaults, bridges, stablecoin operators) can
    adjust their status / pause posture accordingly during the window.

@@ -27,9 +27,16 @@ Before any incident, the dev team must keep the following in a known-good state:
 - A list of every deployed pool (pool factory event log) with: admin address,
   backstop address, oracle address, reserve list, current status.
 - Hypernative (or equivalent) feeds wired to the pool / backstop / emitter
-  events. At minimum: `set_admin`, `accept_admin`, `set_status`,
-  `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`, `bad_debt`,
-  `new_auction`, `del_auction`, `update_pool`, `set_emissions_config`.
+  surface. The pool emits a fixed set of events (see
+  [`pool/src/events.rs`](../../pool/src/events.rs)); `propose_admin`,
+  `accept_admin`, `del_auction`, and `set_emissions_config` do **not**
+  emit dedicated events and must be monitored as function invocations.
+  At minimum: events `set_admin` (emitted by `accept_admin`),
+  `set_status`, `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`,
+  `update_pool`, `bad_debt`, `defaulted_debt`, `new_auction`,
+  `fill_auction`, `delete_auction`, `gulp`, `gulp_emissions`,
+  `reserve_emission_update`; and function invocations of
+  `propose_admin`, `accept_admin`, `del_auction`, `set_emissions_config`.
 - A war room channel that can be joined within 5 minutes by:
   - Dev on-call (rotating).
   - Each pool admin on-call we publicly support.
@@ -128,10 +135,15 @@ migrating state.
    issue and the fix.
 2. Build reproducibly; publish artifact and source.
 3. Coordinate a new pool deployment via `pool-factory`.
-4. Coordinate user migration. Users withdraw from the frozen pool (the admin
-   may need to thaw to status 5 / 3 long enough for orderly withdrawals; do
-   not unfreeze to 0 / 1 without dev sign-off) and re-supply into the new
-   pool.
+4. Coordinate user migration. Status 4 already permits withdrawals,
+   withdraw-collateral, repays, and auction fills (verified against
+   `pool/src/pool/pool.rs:77-80`), so users and curator vaults can exit
+   the frozen pool without thawing. Note that admin `set_status` accepts
+   only 0 / 2 / 3 / 4 — status 5 cannot be admin-set. If responders
+   intentionally need to re-enable supplies / supply-collateral during
+   migration, the admin can step to 2 (admin on-ice; requires
+   `q4w_pct` < 75%) or 3 (permissionless on-ice; same requirement). Do
+   not step to 0 / 1 without dev sign-off.
 5. Sunset the old pool. After all user funds are migrated, leave the old
    pool admin-frozen (status 4) and document the migration in a public
    post-mortem.
@@ -155,7 +167,7 @@ debt — i.e. socializes the loss to suppliers in that reserve.
 
 | Class | Signal |
 |-------|--------|
-| **High (P1)** | Backstop `q4w_pct` ≥ 60% (pool will auto-transition to status 5 frozen on next `update_status`). Bad-debt auctions stalling. |
+| **High (P1)** | Backstop `q4w_pct` is approaching a transition threshold for the *current* pool status (the next `update_status` outcome depends on the current status — see [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0 for the full conditional transition table). Bad-debt auctions stalling. |
 | **Medium (P2)** | Single user with negative health that cannot be liquidated due to oracle staleness or low liquidity. `q4w_pct` ≥ 30%. |
 | **Low (P3)** | Liquidation chain stalls, but health factors recover within minutes. |
 
@@ -253,7 +265,7 @@ pool's `admin` slot is suspected to be controlled by an attacker.
 
 | Class | Signal |
 |-------|--------|
-| **Critical (P0)** | `propose_admin(<unknown_address>)` event from the admin, followed by an `accept_admin` from that address; or `set_status(0)` immediately after a freeze event you did not authorize. |
+| **Critical (P0)** | `propose_admin(<unknown_address>)` invocation from the admin (no event is emitted; this is function-call monitoring), followed by an `accept_admin` invocation from that address that fires the `set_admin` event with the unknown address as `new_admin`; or a `set_status` event setting status 0 immediately after a freeze you did not authorize. |
 | **High (P1)** | `queue_set_reserve` with extreme parameters (e.g. `max_util` near 100%, `c_factor` raised); `set_emissions_config` to drain emissions; `update_pool` with a 0 `min_collateral`. |
 | **Medium (P2)** | Admin signing key rotates without prior comms. |
 

@@ -31,10 +31,17 @@ state:
 - A list of the reserves on your pool, with each one's current
   `c_factor`, `l_factor`, `max_util`, oracle feed, and curator vault
   exposure (which curator vaults are large suppliers).
-- Hypernative or equivalent monitoring on at least: `propose_admin`,
-  `accept_admin`, `set_status`, `queue_set_reserve`, `cancel_set_reserve`,
-  `set_reserve`, `update_pool`, `set_emissions_config`, `bad_debt`,
-  `new_auction`, backstop `q4w_pct` thresholds (30 / 50 / 60 / 75%).
+- Hypernative or equivalent monitoring at the pool / backstop / emitter
+  surface. The pool emits a fixed set of events (see
+  [`pool/src/events.rs`](../../pool/src/events.rs)); `propose_admin`,
+  `accept_admin`, `del_auction`, and `set_emissions_config` do **not**
+  emit dedicated events and must be monitored as function invocations.
+  At minimum: events `set_admin` (emitted by `accept_admin`),
+  `set_status`, `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`,
+  `update_pool`, `bad_debt`, `defaulted_debt`, `new_auction`,
+  `fill_auction`, `delete_auction`; function invocations of
+  `propose_admin`, `accept_admin`, `del_auction`, `set_emissions_config`;
+  and backstop `q4w_pct` thresholds (30 / 50 / 60 / 75%).
 - Direct contact with: the Blend dev on-call (see
   [`01-blend-protocol-dev-team.md`](./01-blend-protocol-dev-team.md)),
   every curator vault that holds a material share of your pool, and the
@@ -61,9 +68,22 @@ Status 4 (admin frozen) is the only state that *only the admin* can move out
 of (`update_status` panics with `StatusNotAllowed` if status is 4 or 6).
 Status 0 / 2 / 4 are admin-set; status 1 / 3 / 5 are backstop-driven.
 
-`update_status` is permissionless and the backstop will move the pool to 5
-(frozen) automatically once `q4w_pct` ≥ 60% (without admin posture) or 75%
-(with admin posture); to 3 at 30% / 50%; to 1 otherwise.
+`update_status` is permissionless. The transition it produces depends on
+the *current* status (see `execute_update_pool_status` in
+[`pool/src/pool/status.rs`](../../pool/src/pool/status.rs)):
+
+| Current status | Behaviour of `update_status` |
+|----------------|------------------------------|
+| 4 (admin frozen) | Panics with `StatusNotAllowed`. Only admin `set_status` can move out. |
+| 6 (setup) | Panics with `StatusNotAllowed`. |
+| 2 (admin on-ice) | Stays at 2 unless `q4w_pct` ≥ 75%, in which case → 5. |
+| 0 (admin active) | Stays at 0 unless `q4w_pct` ≥ 50% or backstop threshold not met, in which case → 3. |
+| 1 / 3 / 5 (backstop-driven) or default | If `q4w_pct` ≥ 60% → 5; else if `q4w_pct` ≥ 30% or threshold not met → 3; else → 1. |
+
+The 30% / 50% / 60% / 75% thresholds therefore matter at different
+*current* statuses: 60% only forces a freeze when the pool is in the
+backstop-driven branch, 75% forces a freeze from admin on-ice, and 50%
+demotes admin active to backstop on-ice.
 
 ---
 
@@ -98,7 +118,7 @@ The pool admin is not the dev team. Your job during a protocol hack is to
 |------|--------|--------|-------------|
 | A | `set_status(2)` admin on-ice | Blocks new borrows and liquidation cancels. Supplies and withdrawals continue. | Yes (admin can `set_status(0)` if backstop is healthy). |
 | B | `set_status(4)` admin frozen | Blocks borrows, supplies, liquidation cancels. Withdrawals and liquidations continue. Permissionless `update_status` is disabled while in 4. | Yes, but only the admin can move out. |
-| C | Extend ledger TTL of the pool contract | Prevents the pool entries from expiring during a long incident. | Yes (TTL is monotonic). |
+| C | Extend ledger TTL on every relevant entry — Soroban TTL is per ledger entry, not per contract. The pool / backstop / oracle code uses instance storage, persistent storage (reserves, user positions, queued reserves, queued admin proposals), and temporary storage (auctions and other short-lived state); each tier has its own TTL extension path. Inventory and bump every entry the incident depends on. | Prevents incident-relevant ledger entries from expiring during a long incident. | Yes (TTL is monotonic). |
 
 Use A if the suspected exploit needs new borrowing to extract value (most
 oracle / parameter abuses). Use B if the exploit can extract value without
@@ -213,9 +233,20 @@ the pool side.
 
 1. Wait for the oracle provider's all-clear.
 2. Step status 4 → 2 → 0, never skipping.
-3. If the issue was a wrong feed wired in (incorrect `price_id` /
-   `decimals` / `max_age`), the only fix is a *new pool*. Recover by
-   migrating users.
+3. **Wiring faults split into two cases**:
+   - **Immutable pool / reserve fields** — the reserve's
+     `decimals`, the `oracle` contract address baked into the pool
+     config, and other fields fixed at `set_reserve` time cannot be
+     edited freely after the reserve is initialised. The fix is a
+     *new pool*; recover by migrating users.
+   - **Mutable proxy-oracle config** — if the wiring fault is in a
+     replaceable layer (e.g. wrong `price_id`, wrong `max_age` /
+     freshness filter, wrong source selection in a Templar
+     [proxy-oracle](https://github.com/Templar-Protocol/contracts/tree/dev/contract/proxy-oracle)
+     aggregator), it can be fixed via the proxy's own governance
+     while the pool is held at status 4. Coordinate with the proxy-
+     oracle operator and verify the corrected feed end-to-end before
+     stepping the pool out of status 4.
 
 ---
 
@@ -229,7 +260,7 @@ the single most valuable minute you will spend.
 
 | Class | Signal |
 |-------|--------|
-| **Critical (P0)** | `propose_admin` event you did not authorize; `set_status` you did not authorize; signing infrastructure (HSM / multisig coordinator) shows tampering. |
+| **Critical (P0)** | `propose_admin` invocation you did not authorize (no event is emitted; this is function-call monitoring); a `set_admin` event firing from an `accept_admin` invocation by an address you did not authorize; `set_status` event you did not authorize; signing infrastructure (HSM / multisig coordinator) shows tampering. |
 | **High (P1)** | A signer is socially-engineered or phished; a multisig threshold has been narrowed; recovery seed is exposed. |
 | **Medium (P2)** | Unusual sign-in attempts on signing infrastructure; one signer is unreachable for an unusual period. |
 

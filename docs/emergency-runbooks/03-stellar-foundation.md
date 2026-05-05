@@ -94,10 +94,17 @@ curator vault, Foundation's job is to coordinate, not to act on-chain.
 1. **Confirm war room** is open and that the lead role for the incident
    class has joined.
 2. **Confirm the smallest containment** has been taken. For Blend pool
-   exploits: has `set_status(4)` been broadcast? For curator vault
-   exploits: has the sentinel called `submit_set_paused(true)` (see
-   [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md))?
-   If not, ask why.
+   exploits: has `set_status(4)` been broadcast by the affected pool
+   admin? For curator vault exploits, two questions, since the
+   Templar governance contract requires the Admin (not the Sentinel)
+   to submit a pause, while the Sentinel / Guardian / Admin can all
+   revoke pending proposals (see
+   [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md)
+   §2.2): (a) has the governance Admin / Owner called
+   `submit_set_paused(true)` (immediate, no timelock)? and (b) has the
+   Sentinel / Guardian / Admin revoked any pending proposals that
+   would increase risk during the incident, including any pending
+   unpause? If either is missing, ask why.
 3. **Identify the blast radius.** Which other curators are exposed to the
    same pool / asset / oracle? Foundation's contact directory is the
    authoritative source of truth here.
