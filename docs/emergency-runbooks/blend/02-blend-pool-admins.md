@@ -9,7 +9,7 @@ pools. Almost every emergency lever in this runbook is gated by your key.
 **Scope.** You administer one specific pool (or a set of pools). Your
 authority is local: you cannot change another admin's pool, and you cannot
 upgrade contract code (Blend pools are immutable; see
-[`pool/src/contract.rs`](../../pool/src/contract.rs)). You can *pause* the
+[`pool/src/contract.rs`](../../../pool/src/contract.rs)). You can *pause* the
 pool and *queue* parameter changes.
 
 Read [`README.md`](./README.md) first for the severity matrix, Hypernative
@@ -33,15 +33,16 @@ state:
   exposure (which curator vaults are large suppliers).
 - Hypernative or equivalent monitoring at the pool / backstop / emitter
   surface. The pool emits a fixed set of events (see
-  [`pool/src/events.rs`](../../pool/src/events.rs)); `propose_admin`,
-  `accept_admin`, `del_auction`, and `set_emissions_config` do **not**
-  emit dedicated events and must be monitored as function invocations.
-  At minimum: events `set_admin` (emitted by `accept_admin`),
+  [`pool/src/events.rs`](../../../pool/src/events.rs)); `propose_admin`
+  and `set_emissions_config` do **not** emit dedicated events and must
+  be monitored as function invocations. `accept_admin` emits the
+  `set_admin` event; `del_auction` (function) emits the `delete_auction`
+  event. At minimum: events `set_admin` (emitted by `accept_admin`),
   `set_status`, `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`,
   `update_pool`, `bad_debt`, `defaulted_debt`, `new_auction`,
   `fill_auction`, `delete_auction`; function invocations of
-  `propose_admin`, `accept_admin`, `del_auction`, `set_emissions_config`;
-  and backstop `q4w_pct` thresholds (30 / 50 / 60 / 75%).
+  `propose_admin` and `set_emissions_config`; and backstop `q4w_pct`
+  thresholds (30 / 50 / 60 / 75%).
 - Direct contact with: the Blend dev on-call (see
   [`01-blend-protocol-dev-team.md`](./01-blend-protocol-dev-team.md)),
   every curator vault that holds a material share of your pool, and the
@@ -52,7 +53,7 @@ state:
 ### Pool status reference
 
 The status code controls every user action on the pool. From
-[`pool/src/pool/status.rs`](../../pool/src/pool/status.rs):
+[`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs):
 
 | Status | Source | Meaning | Borrow | Supply | Withdraw | Liquidate | Cancel liq |
 |--------|--------|---------|--------|--------|----------|-----------|------------|
@@ -66,11 +67,13 @@ The status code controls every user action on the pool. From
 
 Status 4 (admin frozen) is the only state that *only the admin* can move out
 of (`update_status` panics with `StatusNotAllowed` if status is 4 or 6).
-Status 0 / 2 / 4 are admin-set; status 1 / 3 / 5 are backstop-driven.
+Status 0 / 2 / 3 / 4 are admin-settable via `set_status` (`execute_set_pool_status`
+has an explicit arm for status 3 letting the admin set "permissionless
+on-ice"); status 1 and 5 are backstop-only outcomes of `update_status`.
 
 `update_status` is permissionless. The transition it produces depends on
 the *current* status (see `execute_update_pool_status` in
-[`pool/src/pool/status.rs`](../../pool/src/pool/status.rs)):
+[`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs)):
 
 | Current status | Behaviour of `update_status` |
 |----------------|------------------------------|
@@ -176,7 +179,7 @@ prevent the same parameter mistake from continuing.
 
 | Class | Signal |
 |-------|--------|
-| **Critical (P0)** | Backstop `q4w_pct` ≥ 75% — the next `update_status` will move the pool to 5 frozen. |
+| **Critical (P0)** | Backstop `q4w_pct` ≥ 75% AND the pool is in status 2 (admin on-ice) or in the backstop-driven branch (1 / 3 / 5) — the next `update_status` will move the pool to 5 frozen. From status 0 (admin-active), `update_status` never moves to 5; the transition is only to 3 at `q4w_pct` ≥ 50%. From status 4 (admin frozen), `update_status` panics. See the conditional table in §0. |
 | **High (P1)** | `q4w_pct` between 60 and 75%; multiple bad-debt auctions stalled (`del_auction` only callable after 500 blocks of staleness). |
 | **Medium (P2)** | Single user with negative health that liquidators cannot clear; backstop has < 5% of threshold. |
 

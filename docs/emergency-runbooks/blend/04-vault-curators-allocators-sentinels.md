@@ -50,9 +50,12 @@ The vault governance contract additionally has:
 
 | Governance role | Actions |
 |-----------------|---------|
-| **Admin / Owner** of governance contract | Acts as the canonical proposer / canonical timelock controller. Holds emergency abdication. |
-| **Guardian** | Configurable; in Templar's [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs) the `SetGuardian` action sets a designated address that the curator delegates blocking power to. |
+| **Admin / Owner** of governance contract | Acts as the canonical proposer / canonical timelock controller. Every `submit_*` on Templar's [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs) goes through `require_admin`. Admin can `revoke` any pending proposal. Holds emergency abdication. |
 | **Skim recipient** | Receives skim drains. |
+
+Only the Admin and the Sentinel appear in the governance contract's
+`RevokerRole` enum — there is no separate Guardian role in the
+current Templar Soroban governance implementation.
 
 ### 0.2 Operational hygiene
 
@@ -75,19 +78,36 @@ Before any incident:
 - **A cold-start drill** — at least once per quarter, run through the
   containment ladder in section 2.2 on a testnet vault end-to-end and
   measure time-to-pause. Target: under 10 minutes for the Sentinel to
-  call `submit_set_paused(true)` and observe the timelock decision.
+  call `set_paused(sentinel_address, true)` (direct pause, executes
+  immediately) and observe the vault reject a subsequent public
+  action.
 - **Pre-shared incident contacts** with: Blend protocol dev team
   ([`01-blend-protocol-dev-team.md`](./01-blend-protocol-dev-team.md)),
   every Blend pool admin you supply into
   ([`02-blend-pool-admins.md`](./02-blend-pool-admins.md)), Stellar
   Foundation ([`03-stellar-foundation.md`](./03-stellar-foundation.md)).
 
+### 0.2b Vault-side vs ecosystem-level stand-down
+
+Every §X.3 recovery section in this runbook lists a **vault-side**
+stand-down quorum — the sign-off the *curator* requires before lifting
+the vault's own pause / restrictions / caps. This is separate from the
+**ecosystem-level** stand-down quorum defined in the canonical Safe
+Chain quorum table
+([`03-stellar-foundation.md`](./03-stellar-foundation.md) §8) which
+governs the incident as a whole. Vault-side stand-down may legitimately
+be stricter than the ecosystem quorum for that incident class — for
+example, the curator may require Sentinel + Foundation before lifting
+a pause the Sentinel set, even if the ecosystem stand-down only
+requires the incident lead + Foundation.
+
 ### 0.3 Timelock posture
 
 The vault governance contract uses configurable per-action timelocks (see
-`submit_set_paused`, `submit_set_curator`, `submit_set_governance`,
-`submit_set_supply_queue`, `submit_set_fees`, `submit_set_restrictions`,
-`submit_set_guardian`, `submit_set_sentinel`, `submit_set_cap`,
+`submit_set_paused` (unpause only — `SetPaused(true)` is rejected here;
+see the direct `set_paused` path below), `submit_set_curator`,
+`submit_set_governance`, `submit_set_supply_queue`, `submit_set_fees`,
+`submit_set_restrictions`, `submit_set_sentinel`, `submit_set_cap`,
 `submit_remove_market`, `submit_set_group_cap`, `submit_set_group_rel_cap`,
 `submit_set_group_member`, `submit_set_skim_recipient`, `submit_skim`,
 `submit_set_timelock`).
@@ -95,16 +115,28 @@ The vault governance contract uses configurable per-action timelocks (see
 Following Morpho's
 [security considerations](https://docs.morpho.org/curate/concepts/security-considerations/):
 
-- **Risk-reducing actions should be immediate or near-immediate.** Cap
-  decreases and `set_paused(true)` are the canonical examples.
+- **Risk-reducing actions should be immediate or near-immediate.** In
+  the Templar governance contract the canonical example is
+  `set_paused(sentinel, true)` — a direct entrypoint gated by
+  `require_sentinel` that executes immediately (there is no timelock
+  path for pausing; `submit_set_paused(true)` is rejected with
+  `InvalidInput`). Cap decreases follow a similar immediate pattern.
 - **Risk-increasing actions must have non-trivial timelocks** (Morpho
   recommends up to 3 weeks; choose per your governance posture). Cap
   increases, fee increases, adding markets, raising max growth rate,
-  changing the curator.
-- **The Sentinel can revoke a pending governance proposal.** That is
-  the design intent of the role and is the single most important
-  operational lever between proposing and executing a sensitive
-  change.
+  changing the curator, and *un*pause (`submit_set_paused(false)` is
+  the only pause-related action that goes through the timelock).
+- **The Sentinel can revoke a specific set of pending governance
+  proposals.** Per `can_revoke_kind` in
+  [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs),
+  the Sentinel may revoke: `Pause` (i.e. a pending unpause),
+  `Sentinel`, `SupplyQueue`, `Allocators`, `AllowedAdapters`, `Fees`,
+  `WithdrawalCooldown`, `IdleResyncCooldown`, `Restrictions`,
+  `TimelockConfig`, `Cap`, `MarketRemoval`, and `CapGroup`. Everything
+  else (Admin transfer, Curator change, Governance change, Skim,
+  Upgrade, Migrate, Other approvals) is Admin-only to revoke. This is
+  the single most important operational lever between proposing and
+  executing a sensitive economic / operational change.
 
 ---
 
@@ -165,21 +197,22 @@ the evidence supports.
 | **A** | Allocator (or AllocatorEmergency) | `AbortAllocating` / `AbortWithdrawing` / `AbortRefreshing` on any in-progress operation | Cancels a stuck operation so that subsequent steps can run. | Yes |
 | **B** | Allocator | `RebalanceWithdraw` from the suspect market(s) into idle / safer markets | Reduces exposure without changing policy. | Yes |
 | **C** | Sentinel | `SetRestrictions` (allowlist mode) to freeze new deposits / withdrawals at the vault edge | Stops new exposure entering the vault while existing depositors can still exit (or vice versa, depending on restriction mode). | Yes — sentinel can lift |
-| **D** | Governance Admin / Owner | `submit_set_paused(true)` — in Templar's [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs), all `submit_*` methods go through `require_admin`, so only the Admin / Owner can submit a pause. `SetPaused(true)` is decided as `TimelockDecision::Immediate`, so the pause takes effect immediately upon submission. | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Yes — Admin submits `submit_set_paused(false)` (timelocked) once root cause is resolved. |
-| **E** | Sentinel / Guardian (or Admin) | `revoke(proposal_id)` or `revoke_kind(kind)` to drop pending governance proposals that would increase risk | The `require_revoker` check accepts the Admin, Guardian, or Sentinel, so this is the Sentinel's primary on-chain emergency lever. Prevents an in-flight curator/admin proposal (cap increase, fee increase, market addition, unpause) from maturing during the incident. | Trivially: the proposal can be re-submitted later by the Admin. |
+| **D** | Sentinel | `set_paused(sentinel_address, true)` — direct entrypoint on Templar's [governance](https://github.com/Templar-Protocol/contracts/blob/dev/contract/vault/soroban/governance/src/lib.rs) gated by `require_sentinel`. Executes immediately (no timelock; the `submit_set_paused(true)` timelock path is rejected with `InvalidInput`). Rejects `paused == false` — the Sentinel cannot use this entrypoint to unpause. | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Reversible only by Admin: `submit_set_paused(false)` (timelocked) then `accept(proposal_id)` after the pause timelock matures. |
+| **E** | Sentinel (or Admin) | `revoke(proposal_id)` or `revoke_kind(kind)` on any pending governance proposal in the Sentinel's revokable set (Pause / pending unpause, Sentinel, SupplyQueue, Allocators, AllowedAdapters, Fees, WithdrawalCooldown, IdleResyncCooldown, Restrictions, TimelockConfig, Cap, MarketRemoval, CapGroup — see `can_revoke_kind`). Admin-only kinds (Admin transfer, Curator, Governance, Skim, Upgrade, Migrate, Other) must be revoked by the Admin. | Prevents an in-flight proposal from maturing during the incident. | Trivially: the proposal can be re-submitted later by the appropriate role. |
 | **F** | Curator | `submit_set_cap(market_id, 0)` for the affected market | Drives the supply cap to zero, forcing future rebalances away from that market. | Yes — propose a non-zero cap later |
 | **G** | Curator | `submit_remove_market(market_id)` | Forces the market out of the vault entirely. Subject to the configured timelock so depositors have notice. | Slow to reverse — re-adding a market is a fresh `submit_*` action with timelock. |
 | **H** | Curator | `EmergencyReset` (`PolicyAdmin`-class action) | Force-idle a stuck vault. Only when steps A–G are not sufficient. | Possible, but use only with dev-team review of the kernel state. |
 
-In a P0 protocol-hack incident, the Governance Admin / Owner should
-submit step D (`submit_set_paused(true)`, immediate) within the first
-10 minutes, and the Sentinel / Guardian should sweep step E (revoke any
-pending proposals that would increase risk during the incident, including
-any pending unpause). Deeper steps require curator action and may have
-timelocks. If the Admin is unreachable or compromised, the Sentinel /
-Guardian cannot pause the vault directly, so containment falls back to
-allocator-side actions (steps A–B) plus revocation (step E) until the
-Admin is replaced via `submit_set_governance` (timelocked).
+In a P0 protocol-hack incident, the Sentinel should call step D
+(`set_paused(sentinel, true)`, immediate) within the first 10 minutes,
+and the Sentinel (or Admin) should sweep step E for any pending
+proposals in the Sentinel's revokable set that would increase risk
+during the incident (including any pending unpause). Deeper steps
+require curator action and may have timelocks. If the Sentinel is
+unreachable or compromised, the vault cannot be paused on the
+immediate path, so containment falls back to allocator-side actions
+(steps A–B) plus Admin-side revocation of Admin-only kinds (step E)
+until the Sentinel is replaced via `submit_set_sentinel` (timelocked).
 
 ### 2.3 Coordination during a Blend pool exploit
 
@@ -233,7 +266,7 @@ to the bad-debt-producing market.
 
 | Class | Signal |
 |-------|--------|
-| **High (P1)** | Backstop on the affected pool has `q4w_pct` ≥ 60% (the next `update_status` will move the pool to frozen). Bad-debt auctions are stalling. The vault has material allocation to the affected reserve. |
+| **High (P1)** | Backstop on the affected pool has `q4w_pct` approaching a transition threshold for the pool's current status (see the conditional table in [`../blend/02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0 — 60% only forces a freeze from the backstop-driven branch; a pool in admin-active (0) or admin-on-ice (2) has different thresholds). Bad-debt auctions are stalling. The vault has material allocation to the affected reserve. |
 | **Medium (P2)** | A user the vault has visibility into has negative health that is not being liquidated. `q4w_pct` between 30% and 60%. |
 
 ### 3.2 Containment
@@ -267,8 +300,10 @@ to the bad-debt-producing market.
    re-evaluate later.
 2. Update the curator's published policy / strategy document with the
    parameter change.
-3. Stand-down requires Curator + Blend pool admin sign-off (Safe Chain
-   rule).
+3. Vault-side stand-down requires Curator sign-off (the vault took the
+   action). Ecosystem-level stand-down for the bad-debt incident
+   follows [`03-stellar-foundation.md`](./03-stellar-foundation.md)
+   §8: Pool admin lead + Blend dev team.
 
 ---
 
@@ -288,7 +323,7 @@ let arbitrageurs extract value through deposit / atomic-withdraw cycles.
 
 ### 4.2 Containment
 
-1. **Sentinel: `Pause`** immediately if the oracle is *manipulated* (not
+1. **Sentinel: `set_paused(sentinel, true)` (direct, immediate)** immediately if the oracle is *manipulated* (not
    just stale). A stale oracle will simply make Blend operations panic;
    a manipulated oracle will let depositors exit at the wrong share
    price. Pausing the vault edge is the right move.
@@ -330,15 +365,23 @@ defence.
 
 ### 5.2 Containment
 
-1. **Sentinel: revoke every pending proposal from the curator.** This is
-   the single most important action and is *exactly* the design intent
-   of the Sentinel role. Each pending proposal can be revoked by the
-   sentinel via the governance contract before its timelock matures.
-2. **Sentinel: `submit_set_paused(true)`** to halt vault activity while
+1. **Sentinel (or Admin): revoke every pending proposal in scope from
+   the compromised path.** The Sentinel can revoke the kinds listed in
+   `can_revoke_kind` (Pause, Sentinel, SupplyQueue, Allocators,
+   AllowedAdapters, Fees, WithdrawalCooldown, IdleResyncCooldown,
+   Restrictions, TimelockConfig, Cap, MarketRemoval, CapGroup). If the
+   compromised proposal is a Curator, Governance, Admin transfer,
+   Skim, Upgrade, Migrate, or Other approval, only the Admin can
+   revoke; escalate immediately to the Admin (and to NEAR / Stellar
+   Foundation Safe Chain if the Admin is not reachable).
+2. **Sentinel: `set_paused(sentinel_address, true)`** — direct
+   entrypoint, executes immediately — to halt vault activity while
    the curator is being recovered.
 3. **Governance Admin: `submit_set_curator(<known clean address>)`**.
    Subject to the curator-change timelock. During this window, the
-   sentinel must continue to revoke any further malicious proposals.
+   Sentinel (or Admin) must continue to revoke any further malicious
+   proposals in scope; Curator-kind proposals themselves are
+   Admin-only to revoke.
 4. If the captured key is also the Governance Admin (it should *not* be
    — see standing posture), the situation is much worse. The
    Governance Admin can change the timelock configuration via
@@ -385,7 +428,7 @@ Allocator can:
 1. **AllocatorEmergency: `AbortAllocating` / `AbortWithdrawing` /
    `AbortRefreshing`** on any in-progress operation initiated by the
    captured Allocator.
-2. **Sentinel: `Pause`** to stop the captured Allocator from initiating
+2. **Sentinel: `set_paused(sentinel, true)` (direct, immediate)** to stop the captured Allocator from initiating
    new operations. While paused, only `Pause`, `SetRestrictions`,
    `Abort*`, `ManualReconcile`, `EmergencyReset` are callable — none of
    which is in the Allocator policy class.
@@ -438,11 +481,15 @@ operational rhythm and undermine the Curator's ability to ship policy.
    the Admin holds the timelock-config keys via `submit_set_timelock`,
    but cannot bypass the sentinel-change timelock without abdication
    /reconfiguration.
-3. **Allocator** continues to operate within Curator policy. The captured
-   Sentinel's pauses can be unpaused only by the Sentinel itself — so
-   if the captured sentinel pauses the vault, the vault stays paused
-   until the sentinel is replaced or the curator timelock matures and
-   replaces them.
+3. **Allocator** continues to operate within Curator policy. A pause
+   set by a captured Sentinel is *not* something the Sentinel itself
+   can undo — the direct `set_paused` entrypoint rejects
+   `paused == false`. Unpause is only via `submit_set_paused(false)`
+   (Admin, timelocked) followed by `accept(proposal_id)`. If the
+   captured Sentinel has paused the vault, the vault stays paused
+   until the Admin schedules and executes the unpause proposal, or
+   until the Sentinel is replaced via `submit_set_sentinel` and the
+   new Sentinel remains inactive.
 
 ### 7.3 Recovery
 
@@ -460,7 +507,7 @@ emissions, or hand the admin role to another address.
 
 ### 8.1 Containment
 
-1. **Sentinel: `Pause`** on every vault that supplies into the affected
+1. **Sentinel: `set_paused(sentinel, true)` (direct, immediate)** on every vault that supplies into the affected
    pool, immediately.
 2. **Sentinel: `SetRestrictions`** to freeze the vault edge so new
    deposits cannot enter and inherit the exposure.
