@@ -1,7 +1,7 @@
 # Runbook: Blend Protocol Dev Team
 
 **Audience.** Engineers and on-call responders who maintain
-[`blend-contracts-v2`](../../) (pool, pool-factory, backstop, emitter) and the
+[`blend-contracts-v2`](../../../) (pool, pool-factory, backstop, emitter) and the
 deployment / monitoring tooling around it.
 
 **Scope.** You are the *protocol* responder. You do not generally hold pool
@@ -28,7 +28,7 @@ Before any incident, the dev team must keep the following in a known-good state:
   backstop address, oracle address, reserve list, current status.
 - Hypernative (or equivalent) feeds wired to the pool / backstop / emitter
   surface. The pool emits a fixed set of events (see
-  [`pool/src/events.rs`](../../pool/src/events.rs)); `propose_admin`,
+  [`pool/src/events.rs`](../../../pool/src/events.rs)); `propose_admin`,
   `accept_admin`, `del_auction`, and `set_emissions_config` do **not**
   emit dedicated events and must be monitored as function invocations.
   At minimum: events `set_admin` (emitted by `accept_admin`),
@@ -157,10 +157,10 @@ pool admin (Safe Chain rule).
 
 Bad debt arises when a borrower is liquidated to zero collateral while still
 owing liabilities. The `bad_debt` entrypoint
-([`pool/src/contract.rs`](../../pool/src/contract.rs)) transfers the residual
+([`pool/src/contract.rs`](../../../pool/src/contract.rs)) transfers the residual
 liabilities to the backstop. If the backstop has less than ~5% of its
 threshold, `check_and_handle_backstop_bad_debt`
-([`pool/src/pool/bad_debt.rs`](../../pool/src/pool/bad_debt.rs)) defaults the
+([`pool/src/pool/bad_debt.rs`](../../../pool/src/pool/bad_debt.rs)) defaults the
 debt — i.e. socializes the loss to suppliers in that reserve.
 
 ### 3.1 Detection
@@ -182,7 +182,7 @@ to verify that the backstop / pool math is correct after each event.
    user (it panics with `BadRequest` if there is no bad debt to handle)?
 2. **Confirm backstop solvency.** Compute the current backstop product
    constant (see `calc_pool_backstop_threshold` in
-   [`pool/src/pool/status.rs`](../../pool/src/pool/status.rs)). If it is
+   [`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs)). If it is
    below ~5% of threshold, the next `bad_debt` call will *default* (socialize)
    the loss instead of transferring it to the backstop.
 3. **Coordinate with the pool admin** before defaulting socializes more than

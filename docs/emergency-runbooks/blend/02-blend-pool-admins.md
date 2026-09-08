@@ -9,7 +9,7 @@ pools. Almost every emergency lever in this runbook is gated by your key.
 **Scope.** You administer one specific pool (or a set of pools). Your
 authority is local: you cannot change another admin's pool, and you cannot
 upgrade contract code (Blend pools are immutable; see
-[`pool/src/contract.rs`](../../pool/src/contract.rs)). You can *pause* the
+[`pool/src/contract.rs`](../../../pool/src/contract.rs)). You can *pause* the
 pool and *queue* parameter changes.
 
 Read [`README.md`](./README.md) first for the severity matrix, Hypernative
@@ -33,7 +33,7 @@ state:
   exposure (which curator vaults are large suppliers).
 - Hypernative or equivalent monitoring at the pool / backstop / emitter
   surface. The pool emits a fixed set of events (see
-  [`pool/src/events.rs`](../../pool/src/events.rs)); `propose_admin`,
+  [`pool/src/events.rs`](../../../pool/src/events.rs)); `propose_admin`,
   `accept_admin`, `del_auction`, and `set_emissions_config` do **not**
   emit dedicated events and must be monitored as function invocations.
   At minimum: events `set_admin` (emitted by `accept_admin`),
@@ -52,7 +52,7 @@ state:
 ### Pool status reference
 
 The status code controls every user action on the pool. From
-[`pool/src/pool/status.rs`](../../pool/src/pool/status.rs):
+[`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs):
 
 | Status | Source | Meaning | Borrow | Supply | Withdraw | Liquidate | Cancel liq |
 |--------|--------|---------|--------|--------|----------|-----------|------------|
@@ -70,7 +70,7 @@ Status 0 / 2 / 4 are admin-set; status 1 / 3 / 5 are backstop-driven.
 
 `update_status` is permissionless. The transition it produces depends on
 the *current* status (see `execute_update_pool_status` in
-[`pool/src/pool/status.rs`](../../pool/src/pool/status.rs)):
+[`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs)):
 
 | Current status | Behaviour of `update_status` |
 |----------------|------------------------------|
