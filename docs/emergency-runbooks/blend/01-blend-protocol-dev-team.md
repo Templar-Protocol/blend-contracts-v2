@@ -28,15 +28,18 @@ Before any incident, the dev team must keep the following in a known-good state:
   backstop address, oracle address, reserve list, current status.
 - Hypernative (or equivalent) feeds wired to the pool / backstop / emitter
   surface. The pool emits a fixed set of events (see
-  [`pool/src/events.rs`](../../../pool/src/events.rs)); `propose_admin`,
-  `accept_admin`, `del_auction`, and `set_emissions_config` do **not**
-  emit dedicated events and must be monitored as function invocations.
+  [`pool/src/events.rs`](../../../pool/src/events.rs)); `propose_admin`
+  and `set_emissions_config` do **not** emit dedicated events and must
+  be monitored as function invocations. `accept_admin` emits the
+  `set_admin` event (topics `["set_admin", cur_admin]`, data `new_admin`).
+  `del_auction` (function name) emits the `delete_auction` event
+  (topics `["delete_auction", auction_type, user]`).
   At minimum: events `set_admin` (emitted by `accept_admin`),
   `set_status`, `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`,
   `update_pool`, `bad_debt`, `defaulted_debt`, `new_auction`,
   `fill_auction`, `delete_auction`, `gulp`, `gulp_emissions`,
-  `reserve_emission_update`; and function invocations of
-  `propose_admin`, `accept_admin`, `del_auction`, `set_emissions_config`.
+  `reserve_emission_update`; and function invocations of `propose_admin`
+  and `set_emissions_config`.
 - A war room channel that can be joined within 5 minutes by:
   - Dev on-call (rotating).
   - Each pool admin on-call we publicly support.
@@ -182,9 +185,13 @@ to verify that the backstop / pool math is correct after each event.
    user (it panics with `BadRequest` if there is no bad debt to handle)?
 2. **Confirm backstop solvency.** Compute the current backstop product
    constant (see `calc_pool_backstop_threshold` in
-   [`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs)). If it is
-   below ~5% of threshold, the next `bad_debt` call will *default* (socialize)
-   the loss instead of transferring it to the backstop.
+   [`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs)). If it
+   is below ~5% of threshold, the next `bad_debt(backstop)` call will
+   *default* (socialize) the residual on the backstop's positions
+   instead of leaving them on the backstop. Note: `bad_debt(user)` for
+   a non-backstop user still transfers the residual liabilities to the
+   backstop regardless of backstop health — defaulting only fires on
+   the backstop's own positions when threshold < 5%.
 3. **Coordinate with the pool admin** before defaulting socializes more than
    the admin expects. The admin may want to call `set_status(2)` (on-ice) to
    stop new borrowing while the bad debt is being worked through.

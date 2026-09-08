@@ -139,11 +139,14 @@ mostly **off-chain and user-migration-driven**:
    individual-market hack.
 3. **Coordinate with vault curators** (see
    [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md)).
-   Vaults supplying into an affected market can pause deposits /
-   withdrawals at the vault edge via the Sentinel (revoke queued
-   proposals) and Governance Admin (`submit_set_paused(true)`, which
-   is `TimelockDecision::Immediate`) even though the market itself
-   cannot be paused.
+   Vaults supplying into an affected market can pause activity at
+   the vault edge via the Sentinel — Templar governance exposes a
+   direct `set_paused(sentinel, true)` entrypoint that executes
+   immediately (gated by `require_sentinel`; the timelocked
+   `submit_set_paused(true)` path is rejected with `InvalidInput`).
+   The Sentinel can also revoke a bounded set of pending proposals
+   per `can_revoke_kind`. Even though the market itself cannot be
+   paused, vault-edge pause protects vault depositors.
 4. **Coordinate with NEAR Foundation** via the security contact (see
    [`03-near-foundation.md`](./03-near-foundation.md)). Foundation
    is responsible for cross-protocol communication with bridges,
@@ -218,9 +221,9 @@ communication especially important.
    on-chain so suppliers can decide whether to exit before the
    share-price impact is finalized.
 3. **Coordinate with vault curators** so they can Sentinel-pause
-   the vault edge (via governance Admin submitting
-   `submit_set_paused(true)`, immediate) and `RebalanceWithdraw`
-   from the affected market per
+   the vault edge (via the Sentinel's direct
+   `set_paused(sentinel, true)` entrypoint, executes immediately)
+   and `RebalanceWithdraw` from the affected market per
    [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md).
 
 ### 3.3 Recovery

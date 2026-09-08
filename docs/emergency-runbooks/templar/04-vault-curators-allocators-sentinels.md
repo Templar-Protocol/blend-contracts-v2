@@ -41,7 +41,7 @@ its own key and its own threat model. From
 | **Curator** | `Curator` | `ManualReconcile`, `EmergencyReset`, `PolicyAdmin` (also the proposer for almost all governance actions when acting as governance Admin). | Slowest, most powerful. Proposes timelocked policy changes (caps, fees, supply queue, market addition / removal, role changes). |
 | **Allocator** | `Allocator` | `ExecuteWithdraw`, `BeginAllocating` / `FinishAllocating`, `SyncExternalAssets`, `RebalanceWithdraw`, `BeginRefreshing` / `FinishRefreshing`, `SettlePayout`, `RefreshFees`. | Day-to-day rebalancing within bounds set by curator. Hot key. |
 | **AllocatorEmergency** | `AllocatorEmergency` | `AbortAllocating`, `AbortWithdrawing`, `AbortRefreshing`. | Cancel a stuck or in-progress operation. Often the same key as Allocator, but conceptually separable. |
-| **Sentinel** | `Sentinel` | `Pause`, `SetRestrictions` (executed by the governance Admin's submission of these actions; the Sentinel's on-chain lever is revocation). | Reactive risk reduction. Should be a hotter key than the curator and *separate* from the allocator. |
+| **Sentinel** | `Sentinel` | `Pause`, `SetRestrictions`. On Templar governance the Sentinel has two direct on-chain levers: `set_paused(sentinel, true)` (immediate) and `set_restrictions(sentinel, mode, accounts)` (immediate); plus `revoke` / `revoke_kind` for a bounded set of pending proposals (see §0.3). | Reactive risk reduction. Should be a hotter key than the curator and *separate* from the allocator. |
 | **Public** (depositors) | `Public` | `Deposit`, `RequestWithdraw`, `AtomicWithdraw`, `AtomicRedeem`. | n/a |
 
 The Sentinel exists specifically so that risk reduction does not
@@ -53,10 +53,14 @@ The vault governance contract additionally has:
 
 | Governance role | Actions |
 |-----------------|---------|
-| **Admin / Owner** of governance contract | Acts as the canonical proposer / canonical timelock controller. Holds emergency abdication. All `submit_*` methods on Templar governance (both NEAR and Soroban runtimes share the primitives) go through `require_admin`. |
-| **Guardian** | Configurable; delegated blocking power. Satisfies `require_revoker` for revocation. |
-| **Sentinel** | See above. Satisfies `require_revoker` for revocation. |
+| **Admin / Owner** of governance contract | Acts as the canonical proposer / canonical timelock controller. Every `submit_*` method on the Templar governance contract goes through `require_admin`. Admin can `revoke` any pending proposal. Holds emergency abdication. |
+| **Sentinel** | Also appears as a governance-side role, satisfying the Sentinel arm of `RevokerRole` for a bounded set of proposal kinds via `can_revoke_kind`. See §0.3 and §2.2 step E. |
 | **Skim recipient** | Receives skim drains. |
+
+Only the Admin and the Sentinel appear in the governance contract's
+`RevokerRole` enum — there is no separate Guardian role in the current
+Templar Soroban governance implementation. If the NEAR runtime adds a
+Guardian later, this table should be updated to match.
 
 ### 0.2 Operational hygiene
 
@@ -81,8 +85,9 @@ Before any incident:
 - **A cold-start drill** — at least once per quarter, run through
   the containment ladder in section 2.2 on testnet end-to-end and
   measure time-to-pause. Target: under 10 minutes from Sentinel
-  detection to Admin submitting `submit_set_paused(true)` and
-  observing the immediate pause.
+  detection to Sentinel calling `set_paused(sentinel, true)` (direct
+  entrypoint, executes immediately) and observing the vault reject a
+  subsequent public action.
 - **Pre-shared incident contacts** with: Templar dev team
   ([`01-templar-protocol-dev-team.md`](./01-templar-protocol-dev-team.md)),
   the registry admin
@@ -96,31 +101,39 @@ Before any incident:
 ### 0.3 Timelock posture
 
 The vault governance contract uses configurable per-action timelocks
-(`submit_set_paused`, `submit_set_curator`, `submit_set_governance`,
-`submit_set_supply_queue`, `submit_set_fees`, `submit_set_restrictions`,
-`submit_set_guardian`, `submit_set_sentinel`, `submit_set_cap`,
-`submit_remove_market`, `submit_set_group_cap`,
+(`submit_set_paused` (unpause only — `SetPaused(true)` is rejected on
+this path; the Sentinel uses the direct `set_paused` entrypoint below),
+`submit_set_curator`, `submit_set_governance`, `submit_set_supply_queue`,
+`submit_set_fees`, `submit_set_restrictions`, `submit_set_sentinel`,
+`submit_set_cap`, `submit_remove_market`, `submit_set_group_cap`,
 `submit_set_group_rel_cap`, `submit_set_group_member`,
 `submit_set_skim_recipient`, `submit_skim`, `submit_set_timelock`).
 
 Following Morpho's [security
 considerations](https://docs.morpho.org/curate/concepts/security-considerations/):
 
-- **Risk-reducing actions should be immediate or near-immediate.**
-  `SetPaused(true)` is decided as `TimelockDecision::Immediate` in
-  the governance contract, so a pause submitted by the Admin takes
-  effect immediately (no queue). Cap decreases are similarly
-  immediate.
+- **Risk-reducing actions should be immediate or near-immediate.** In
+  the Templar governance contract the canonical example is
+  `set_paused(sentinel, true)` — a direct entrypoint gated by
+  `require_sentinel` that executes immediately (there is no timelock
+  path for pausing; `submit_set_paused(true)` is rejected with
+  `InvalidInput`). Cap decreases follow a similar immediate pattern.
 - **Risk-increasing actions must have non-trivial timelocks** (Morpho
-  recommends up to 3 weeks; choose per your governance posture).
-  Cap increases, fee increases, adding markets, raising max growth
-  rate, changing the curator, `SetPaused(false)` (unpause).
-- **The Sentinel / Guardian can revoke a pending governance
-  proposal.** That is the design intent of the role and is the
-  single most important operational lever between proposing and
-  executing a sensitive change. This is the Sentinel's *only*
-  direct on-chain lever — the Sentinel cannot submit `Pause`
-  itself; that requires the Admin.
+  recommends up to 3 weeks; choose per your governance posture). Cap
+  increases, fee increases, adding markets, raising max growth rate,
+  changing the curator, and *un*pause (`submit_set_paused(false)` is
+  the only pause-related action that goes through the timelock).
+- **The Sentinel can revoke a specific set of pending governance
+  proposals.** Per `can_revoke_kind`, the Sentinel may revoke:
+  `Pause` (i.e. a pending unpause), `Sentinel`, `SupplyQueue`,
+  `Allocators`, `AllowedAdapters`, `Fees`, `WithdrawalCooldown`,
+  `IdleResyncCooldown`, `Restrictions`, `TimelockConfig`, `Cap`,
+  `MarketRemoval`, and `CapGroup`. Everything else (Admin transfer,
+  Curator change, Governance change, Skim, Upgrade, Migrate, Other
+  approvals) is Admin-only to revoke. The Sentinel *also* has the
+  direct `set_paused(sentinel, true)` entrypoint — the two levers
+  together (immediate pause + bounded revocation) are the Sentinel's
+  operational role.
 
 ---
 
@@ -182,22 +195,23 @@ far as the evidence supports.
 | **A** | Allocator (or AllocatorEmergency) | `AbortAllocating` / `AbortWithdrawing` / `AbortRefreshing` on any in-progress operation | Cancels a stuck operation so that subsequent steps can run. | Yes |
 | **B** | Allocator | `RebalanceWithdraw` from the suspect market(s) into idle / safer markets | Reduces exposure without changing policy. | Yes |
 | **C** | Governance Admin | `submit_set_restrictions` (allowlist / denylist mode) to freeze new deposits / withdrawals at the vault edge | Stops new exposure entering the vault while existing depositors can still exit (or vice versa, depending on restriction mode). | Yes — Admin can propose a return to `RestrictionMode::None`; usually timelocked. |
-| **D** | Governance Admin / Owner | `submit_set_paused(true)` — all `submit_*` methods on Templar governance go through `require_admin`, so only the Admin / Owner can submit a pause. `SetPaused(true)` is decided as `TimelockDecision::Immediate`, so the pause takes effect immediately upon submission. | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Yes — Admin submits `submit_set_paused(false)` (timelocked) once root cause is resolved. |
-| **E** | Sentinel / Guardian (or Admin) | `revoke(proposal_id)` or `revoke_kind(kind)` to drop pending governance proposals that would increase risk | The `require_revoker` check accepts the Admin, Guardian, or Sentinel, so this is the Sentinel's primary on-chain emergency lever. Prevents an in-flight curator / admin proposal (cap increase, fee increase, market addition, unpause) from maturing during the incident. | Trivially: the proposal can be re-submitted later by the Admin. |
+| **D** | Sentinel | `set_paused(sentinel_address, true)` — direct entrypoint on Templar governance gated by `require_sentinel`. Executes immediately (no timelock; the `submit_set_paused(true)` timelock path is rejected with `InvalidInput`). Rejects `paused == false` — the Sentinel cannot use this entrypoint to unpause. | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Reversible only by Admin: `submit_set_paused(false)` (timelocked) then `accept(proposal_id)` after the pause timelock matures. |
+| **E** | Sentinel (or Admin) | `revoke(proposal_id)` or `revoke_kind(kind)` on any pending governance proposal in the Sentinel's revokable set (Pause / pending unpause, Sentinel, SupplyQueue, Allocators, AllowedAdapters, Fees, WithdrawalCooldown, IdleResyncCooldown, Restrictions, TimelockConfig, Cap, MarketRemoval, CapGroup — see `can_revoke_kind`). Admin-only kinds (Admin transfer, Curator, Governance, Skim, Upgrade, Migrate, Other) must be revoked by the Admin. | Prevents an in-flight proposal from maturing during the incident. | Trivially: the proposal can be re-submitted later by the appropriate role. |
 | **F** | Curator (as Governance Admin) | `submit_set_cap(market_id, 0)` for the affected market | Drives the supply cap to zero, forcing future rebalances away from that market. | Yes — propose a non-zero cap later |
 | **G** | Curator (as Governance Admin) | `submit_remove_market(market_id)` | Forces the market out of the vault entirely. Subject to the configured timelock so depositors have notice. | Slow to reverse — re-adding a market is a fresh `submit_*` action with timelock. |
 | **H** | Curator | `EmergencyReset` (`PolicyAdmin`-class action) | Force-idle a stuck vault. Only when steps A–G are not sufficient. | Possible, but use only with dev-team review of the kernel state. |
 
-In a P0 protocol-hack incident, the Governance Admin should submit
-step D (`submit_set_paused(true)`, immediate) within the first 10
-minutes, and the Sentinel / Guardian should sweep step E (revoke any
-pending proposals that would increase risk during the incident,
-including any pending unpause). Deeper steps require curator action
-and may have timelocks. If the Admin is unreachable or compromised,
-the Sentinel / Guardian cannot pause the vault directly, so
-containment falls back to allocator-side actions (steps A–B) plus
-revocation (step E) until the Admin is replaced via
-`submit_set_governance` (timelocked).
+In a P0 protocol-hack incident, the Sentinel should call step D
+(`set_paused(sentinel, true)`, immediate) within the first 10
+minutes, and the Sentinel (or Admin) should sweep step E for any
+pending proposals in the Sentinel's revokable set that would
+increase risk during the incident (including any pending unpause).
+Deeper steps require curator action and may have timelocks. If the
+Sentinel is unreachable or compromised, the vault cannot be paused
+on the immediate path, so containment falls back to allocator-side
+actions (steps A–B) plus Admin-side revocation of Admin-only kinds
+(step E) until the Sentinel is replaced via `submit_set_sentinel`
+(timelocked).
 
 ### 2.3 Coordination during a Templar market exploit
 
@@ -303,7 +317,7 @@ behavior and can push share price the wrong way.
 
 ### 4.2 Containment
 
-1. **Governance Admin: `submit_set_paused(true)`** immediately if
+1. **Sentinel: `set_paused(sentinel, true)`** (direct, immediate) immediately if
    the oracle is *manipulated* (not just stale). A stale Pyth
    price will simply make market operations panic; a manipulated
    price will let depositors exit at the wrong share price.
@@ -331,7 +345,7 @@ Curator + Templar dev team sign-off (NEAR Safe Chain rule).
 ## 5. Curator compromise
 
 Your Curator key is the most powerful key in the vault, but its
-actions are timelocked and subject to Sentinel / Guardian revocation.
+actions are timelocked and subject to Sentinel (or Admin) revocation.
 That asymmetry is the defence.
 
 ### 5.1 Detection
@@ -344,14 +358,22 @@ That asymmetry is the defence.
 
 ### 5.2 Containment
 
-1. **Sentinel / Guardian: revoke every pending proposal from the
-   curator.** This is the single most important action.
-2. **Governance Admin (if not the same as compromised curator):
-   `submit_set_paused(true)`** to halt vault activity while the
-   curator is being recovered.
+1. **Sentinel (or Admin): revoke every pending proposal in scope
+   from the compromised path.** The Sentinel can revoke the kinds
+   listed in `can_revoke_kind` (Pause, Sentinel, SupplyQueue,
+   Allocators, AllowedAdapters, Fees, WithdrawalCooldown,
+   IdleResyncCooldown, Restrictions, TimelockConfig, Cap,
+   MarketRemoval, CapGroup). Curator-change, Governance-change,
+   Admin-transfer, Skim, Upgrade, Migrate, and Other approvals are
+   Admin-only to revoke — escalate immediately to the Admin if the
+   compromised proposal is one of those.
+2. **Sentinel: `set_paused(sentinel, true)`** (direct, immediate)
+   to halt vault activity while the curator is being recovered.
 3. **Governance Admin: `submit_set_curator(<known clean address>)`**.
    Subject to the curator-change timelock. During this window, the
-   sentinel must continue to revoke any further malicious proposals.
+   Sentinel (or Admin) must continue to revoke any further malicious
+   proposals in scope; Curator-kind proposals themselves are
+   Admin-only to revoke.
 4. If the captured key is also the Governance Admin (it should
    *not* be — see standing posture), coordinate with NEAR
    Foundation Safe Chain
@@ -386,7 +408,7 @@ markets, mass-withdraw during stress, or spam operations to disrupt.
 1. **AllocatorEmergency: `AbortAllocating` / `AbortWithdrawing` /
    `AbortRefreshing`** on any in-progress operation initiated by
    the captured Allocator.
-2. **Governance Admin: `submit_set_paused(true)` (immediate)** to
+2. **Sentinel: `set_paused(sentinel, true)` (direct, immediate)** to
    stop the captured Allocator from initiating new operations.
    While paused, only `Pause`, `SetRestrictions`, `Abort*`,
    `ManualReconcile`, `EmergencyReset` are callable — none of
@@ -453,7 +475,7 @@ containment.
 
 ### 8.1 Containment
 
-1. **Governance Admin: `submit_set_paused(true)` (immediate)** on
+1. **Sentinel: `set_paused(sentinel, true)` (direct, immediate)** on
    every vault that supplies into any market whose provenance is
    in question, or into any specific market announced as exploited.
 2. **Governance Admin: `submit_set_restrictions`** to freeze the

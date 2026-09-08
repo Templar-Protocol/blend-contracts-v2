@@ -160,8 +160,8 @@ operator(s) involved are *lead* and NEAR Foundation coordinates.
 
 In a validator-internal P0, application protocols *will* react:
 Templar dev team may halt bots, vault Sentinels may pause vaults
-(via Admin `submit_set_paused(true)`), bridges may halt, NEAR
-Intents team may pause routes. That is expected and correct, and
+(via the direct `set_paused(sentinel, true)` entrypoint), bridges
+may halt, NEAR Intents team may pause routes. That is expected and correct, and
 validators should help by giving those teams a clear estimate of
 stand-down timing.
 
