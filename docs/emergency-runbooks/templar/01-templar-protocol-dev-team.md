@@ -83,13 +83,18 @@ When a P0 / P1 alert fires:
    registry-admin / curator / allocator / sentinel / NEAR Intents
    compromise, the dev on-call acts as *technical advisor* and the
    affected role is lead. The stand-down quorum for any
-   protocol-hack incident on Templar contracts is the registry admin
-   (only while registry-admin control remains intact) OR NEAR
-   Foundation. If the registry-admin key has been captured, the
-   quorum falls back to NEAR Foundation + an independent second role
-   (see [`03-near-foundation.md`](./03-near-foundation.md) §9,
-   "Registry admin compromise — admin captured"); do not accept
-   sign-off from a potentially compromised credential.
+   protocol-hack incident on Templar contracts follows the
+   canonical NEAR Safe Chain rule in
+   [`README.md`](./README.md#near-safe-chain-coordination-model) —
+   sign-off from at least two NEAR Safe Chain roles. Concretely:
+   the dev-team lead (this runbook) *plus* one of {registry admin
+   (only while registry-admin control remains intact), NEAR
+   Foundation}. If the registry-admin key has been captured, the
+   second signer must be NEAR Foundation, and Foundation additionally
+   pulls in an independent third role per
+   [`03-near-foundation.md`](./03-near-foundation.md) §9 ("Registry
+   admin compromise — admin captured"). Never accept sign-off from a
+   potentially compromised credential.
 2. **Classify** the alert family using the table in
    [`README.md`](./README.md#hypernative-alert-taxonomy).
 3. **Snapshot state.** Before any mitigation, record for every
@@ -182,8 +187,14 @@ market-level exploit means:
    and vault supply queues, and document the migration in a public
    post-mortem.
 
-Stand-down requires sign-off from the dev on-call lead **and** the
-registry admin OR NEAR Foundation (NEAR Safe Chain rule).
+Stand-down requires sign-off from the dev on-call lead **and** one
+of {registry admin (only while control remains intact), NEAR
+Foundation} — the two-signer NEAR Safe Chain rule from
+[`README.md`](./README.md#near-safe-chain-coordination-model). If
+the registry admin key was captured during the incident, the
+second signer must be NEAR Foundation (plus the independent
+third-role addendum in
+[`03-near-foundation.md`](./03-near-foundation.md) §9).
 
 For registry-level exploits, `contract/registry` itself is deployable
 under a patched version *only* if the current registry owner is not
@@ -427,6 +438,11 @@ confirm:
 
 A sign-off from a second NEAR Safe Chain role is required before
 user-visible action is reversed (bots restarted, migration deadline
-lifted). For Templar protocol-hack stand-down the canonical quorum
-in [`03-near-foundation.md`](./03-near-foundation.md) §9 is
-registry admin OR NEAR Foundation.
+lifted) — this is the two-signer canonical rule from
+[`README.md`](./README.md#near-safe-chain-coordination-model). For
+Templar protocol-hack stand-down the second signer is either the
+registry admin (only while control remains intact) or NEAR
+Foundation per the quorum table in
+[`03-near-foundation.md`](./03-near-foundation.md) §9. If the
+registry admin key was captured, use Foundation + an independent
+third role from that table's captured-admin row.
