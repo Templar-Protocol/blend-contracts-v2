@@ -428,8 +428,16 @@ confirm:
       user-facing exposure is deprecated in tooling.
 - [ ] All affected vault curators have stepped down to normal
       posture.
-- [ ] Registry admin sign-off (Safe Chain rule) that any new
-      versions and deployments are legitimate and audited.
+- [ ] If registry-admin control remains intact: registry-admin
+      sign-off confirms that any new versions and deployments are
+      legitimate and audited (Safe Chain rule).
+- [ ] If the registry-admin key was captured during the incident:
+      captured-admin quorum recorded per
+      [`03-near-foundation.md`](./03-near-foundation.md) §9 — NEAR
+      Foundation lead + Templar dev team + an independent second
+      role (unaffected vault curator, major integrator, or external
+      auditor). Do not accept sign-off from the compromised
+      registry-admin credential.
 - [ ] NEAR Foundation contact has been told the incident is closed.
 - [ ] Public post-mortem drafted and queued.
 - [ ] War room archived (append-only log preserved).
