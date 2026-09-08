@@ -84,8 +84,12 @@ When a P0 / P1 alert fires:
    compromise, the dev on-call acts as *technical advisor* and the
    affected role is lead. The stand-down quorum for any
    protocol-hack incident on Templar contracts is the registry admin
-   OR NEAR Foundation, per the canonical Safe Chain quorum table in
-   [`03-near-foundation.md`](./03-near-foundation.md) §9.
+   (only while registry-admin control remains intact) OR NEAR
+   Foundation. If the registry-admin key has been captured, the
+   quorum falls back to NEAR Foundation + an independent second role
+   (see [`03-near-foundation.md`](./03-near-foundation.md) §9,
+   "Registry admin compromise — admin captured"); do not accept
+   sign-off from a potentially compromised credential.
 2. **Classify** the alert family using the table in
    [`README.md`](./README.md#hypernative-alert-taxonomy).
 3. **Snapshot state.** Before any mitigation, record for every
@@ -215,13 +219,17 @@ communication especially important.
 1. **Verify the chain of events.** Was a borrower liquidated? Did
    the liquidator bot fail? Is the failure oracle-driven, liquidity-
    driven, or bot-driven?
-2. **Coordinate with vault curators first** so they can Sentinel-pause
-   the vault edge (via the Sentinel's direct
-   `set_paused(sentinel, true)` entrypoint, executes immediately),
-   `set_restrictions(sentinel, ...)` to restrict deposits /
-   withdrawals as appropriate, and drive `SyncExternalAssets` to
-   propagate loss recognition into the vault's share price per
-   [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md).
+2. **Coordinate with vault curators first**, in this order:
+   (a) Sentinel `set_restrictions(sentinel, ...)` to block deposits
+   / withdrawals at the vault edge (immediate; `SyncExternalAssets`
+   is an Allocator action and is *not* in `allowed_while_paused`, so
+   a pause first would leave the vault stuck with the stale share
+   price until unpause);
+   (b) Allocator `SyncExternalAssets` to propagate loss recognition
+   into the vault's `total_assets` and share price;
+   (c) *then* Sentinel `set_paused(sentinel, true)` (immediate) to
+   halt allocator activity for the remainder of the incident.
+   Per [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md).
    *Loss must be recognised in share price before public exit
    guidance* — otherwise early withdrawers redeem at the stale
    overstated share price and concentrate the loss on remaining

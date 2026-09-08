@@ -155,10 +155,16 @@ vault Allocator that is captured *can* move vault assets via
 `RebalanceWithdraw` and related allocator actions — the vault-side
 runbook ([`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md))
 describes the containment ladder for exactly that case. Templar
-markets themselves have no admin pause, and `RequestWithdraw`-class
-user actions on markets are always permitted, so no Safe Chain role
-can block a solvent user from withdrawing their principal from a
-market.
+markets themselves have no admin pause; `RequestWithdraw` (creating
+a withdrawal request) is always accepted at the market boundary, so
+no Safe Chain role can *block a valid user withdrawal request from
+being submitted*. Settlement of that request is separate: the market
+validates the amount against `supply_withdrawal_range`, queues the
+request, and only fills it when the reserve has liquidity —
+`WithdrawalAttempt::NoLiquidity` and related conditions can delay
+settlement even for a valid request. Safe Chain roles cannot disable
+the request entry path, but they cannot manufacture liquidity for
+settlement either; that depends on market state.
 
 The NEAR Safe Chain does not ask validators to censor transactions.
 Validators do influence transaction inclusion and ordering; treat

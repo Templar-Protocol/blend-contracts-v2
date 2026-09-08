@@ -150,9 +150,17 @@ When an alert fires that implicates your vault:
    pauses immediately via the direct `set_paused(sentinel, true)`
    entrypoint (governance's `submit_set_paused(true)` timelock path
    is rejected with `InvalidInput`; the Admin only controls the
-   timelocked unpause `submit_set_paused(false)`). The Sentinel is
-   also *lead* for revoking any pending malicious proposals in the
-   Sentinel's revokable set.
+   timelocked unpause `submit_set_paused(false)`). A *confirmed-clean*
+   Sentinel is also *lead* for revoking any pending malicious
+   proposals in the Sentinel's revokable set — but if the Sentinel
+   itself is compromised or unreachable, the Governance Admin leads
+   revocation instead (via `revoke` / `revoke_kind`, which the Admin
+   can call for any kind), submits `submit_set_sentinel(<known clean
+   address>)` to rotate, and relies on allocator-side containment
+   (steps A–B in the ladder) while the sentinel-change timelock
+   matures. A captured Sentinel that revokes its own replacement
+   proposal is a real risk — do not entrust revocation leadership to
+   a role whose integrity is in question.
 3. **Snapshot state** for every affected vault:
    - Current `paused` state, restrictions, share price, idle
      assets, allocated principal per market.
