@@ -192,8 +192,8 @@ stakeholders.
 
 | Class | Signal | Containment |
 |-------|--------|-------------|
-| **Critical (P0)** | Confirmed reserve discrepancy; peg deviation > N% for > N minutes; authority key capture. | Pause issuance and redemption. Notify NEAR Foundation immediately; Foundation pages every Templar dev-team contact, vault curator holding your stablecoin, bridge operator moving it, and the NEAR Intents team. Expect vault curators to Sentinel-pause vaults holding the stablecoin. Templar dev team will halt bots defensively. |
-| **High (P1)** | Single-source reserve report missing; large unexplained mint / redeem flow; peg deviation < N% but trending. | Investigate; brief NEAR Foundation; pre-warn curators and dev team to be ready to act. |
+| **Critical (P0)** | Confirmed reserve discrepancy; peg deviation exceeding your issuer's published P0 threshold, measured against your published reference price over your published evaluation window (default recommendation if unpublished: > 100 bps for > 15 minutes against the reference price defined in your peg-monitoring policy); authority key capture. | Pause issuance and redemption. Notify NEAR Foundation immediately; Foundation pages every Templar dev-team contact, vault curator holding your stablecoin, bridge operator moving it, and the NEAR Intents team. Expect vault curators to Sentinel-pause vaults holding the stablecoin. Templar dev team will halt bots defensively. |
+| **High (P1)** | Single-source reserve report missing; large unexplained mint / redeem flow; peg deviation approaching but under the P0 threshold and trending (default recommendation if unpublished: 25–100 bps sustained over the evaluation window). | Investigate; brief NEAR Foundation; pre-warn curators and dev team to be ready to act. |
 | **Medium (P2)** | Single-monitor failure; reserve report late; routine signer hardware refresh. | Document; no external comms unless escalation required. |
 
 In a stablecoin-internal P0, expect a long stand-down: vault

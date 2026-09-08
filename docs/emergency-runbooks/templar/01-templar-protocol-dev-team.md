@@ -78,14 +78,14 @@ When a P0 / P1 alert fires:
    bad-debt and faulty-oracle incidents, the dev on-call acts as
    *technical advisor* — the affected vault curator (for bad debt on
    their supplied reserves) or the oracle provider (for oracle
-   faults) is the canonical lead per
-   [`03-near-foundation.md`](./03-near-foundation.md) §8. For
+   faults) is the canonical lead per the dependency map in
+   [`03-near-foundation.md`](./03-near-foundation.md) §1. For
    registry-admin / curator / allocator / sentinel / NEAR Intents
    compromise, the dev on-call acts as *technical advisor* and the
    affected role is lead. The stand-down quorum for any
-   protocol-hack incident on Templar contracts is the affected
-   registry admin OR NEAR Foundation, per the canonical table in
-   [`03-near-foundation.md`](./03-near-foundation.md) §8.
+   protocol-hack incident on Templar contracts is the registry admin
+   OR NEAR Foundation, per the canonical Safe Chain quorum table in
+   [`03-near-foundation.md`](./03-near-foundation.md) §9.
 2. **Classify** the alert family using the table in
    [`README.md`](./README.md#hypernative-alert-taxonomy).
 3. **Snapshot state.** Before any mitigation, record for every
@@ -215,16 +215,22 @@ communication especially important.
 1. **Verify the chain of events.** Was a borrower liquidated? Did
    the liquidator bot fail? Is the failure oracle-driven, liquidity-
    driven, or bot-driven?
-2. **Trace loss recognition.** Compute the current expected
-   share-price impact on suppliers using the market snapshot.
-   Publish the expected impact publicly before the loss is realized
-   on-chain so suppliers can decide whether to exit before the
-   share-price impact is finalized.
-3. **Coordinate with vault curators** so they can Sentinel-pause
+2. **Coordinate with vault curators first** so they can Sentinel-pause
    the vault edge (via the Sentinel's direct
-   `set_paused(sentinel, true)` entrypoint, executes immediately)
-   and `RebalanceWithdraw` from the affected market per
+   `set_paused(sentinel, true)` entrypoint, executes immediately),
+   `set_restrictions(sentinel, ...)` to restrict deposits /
+   withdrawals as appropriate, and drive `SyncExternalAssets` to
+   propagate loss recognition into the vault's share price per
    [`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md).
+   *Loss must be recognised in share price before public exit
+   guidance* — otherwise early withdrawers redeem at the stale
+   overstated share price and concentrate the loss on remaining
+   suppliers.
+3. **Trace and communicate loss recognition.** Once loss is on-chain
+   and reflected in share price (`SyncExternalAssets` complete),
+   compute the actual share-price impact using the market snapshot
+   and publish it. This is a post-recognition public disclosure,
+   not a pre-recognition advance-warning to a subset of holders.
 
 ### 3.3 Recovery
 
@@ -411,6 +417,8 @@ confirm:
 - [ ] Hypernative / monitoring rules updated to detect the same
       class of event earlier next time.
 
-A sign-off from a second NEAR Safe Chain role (Foundation, registry
-admin, or a major vault curator) is required before user-visible
-action is reversed (bots restarted, migration deadline lifted).
+A sign-off from a second NEAR Safe Chain role is required before
+user-visible action is reversed (bots restarted, migration deadline
+lifted). For Templar protocol-hack stand-down the canonical quorum
+in [`03-near-foundation.md`](./03-near-foundation.md) §9 is
+registry admin OR NEAR Foundation.

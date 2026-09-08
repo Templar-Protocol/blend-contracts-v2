@@ -15,10 +15,14 @@ response runbooks:
   (NEAR Foundation, NEAR Intents team, bridges, stablecoins,
   validators).
 
-Both collections share the same severity matrix and Hypernative alert
-taxonomy, both use a "Safe Chain" cross-role coordination model, and
-both address the same category set: protocol hacks, bad debt, faulty
-oracles, privileged-role compromise, and counterparty-layer compromise.
+Both collections share the same severity scale, response targets, and
+Hypernative alert families. Each collection adds ecosystem-specific
+signals and incident guidance — for example, the Templar collection's
+Hypernative taxonomy and severity rows explicitly reference the NEAR
+Intents team's signals, while the Blend collection does not. Both use
+a "Safe Chain" cross-role coordination model, and both address the
+same category set: protocol hacks, bad debt, faulty oracles,
+privileged-role compromise, and counterparty-layer compromise.
 
 Incidents that cross both ecosystems — for example, a bridged-asset
 issue that touches both a NEAR Templar market and a Soroban Templar

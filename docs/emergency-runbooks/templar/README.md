@@ -148,11 +148,24 @@ Safe Chain" model is the convention these runbooks follow:
    roles.** Every runbook documents which other role is required for
    stand-down of each incident class.
 
-The NEAR Safe Chain is a *coordination* layer, not a custody layer.
-No single Safe Chain role can move user funds; it only coordinates the
-communicate / patch / migrate / unwind workflow. Note that NEAR
-validators do *not* provide a transaction-censorship surface — the
-NEAR Safe Chain intentionally does not ask validators to censor.
+The NEAR Safe Chain is primarily a *coordination* layer, not a
+custody layer. Registry admin and Templar market entrypoints do not
+give any Safe Chain role direct custody of user funds. However, a
+vault Allocator that is captured *can* move vault assets via
+`RebalanceWithdraw` and related allocator actions — the vault-side
+runbook ([`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md))
+describes the containment ladder for exactly that case. Templar
+markets themselves have no admin pause, and `RequestWithdraw`-class
+user actions on markets are always permitted, so no Safe Chain role
+can block a solvent user from withdrawing their principal from a
+market.
+
+The NEAR Safe Chain does not ask validators to censor transactions.
+Validators do influence transaction inclusion and ordering; treat
+any network-level transaction-inclusion or censorship concern as a
+separate NEAR-network incident escalated through NEAR Foundation
+([`03-near-foundation.md`](./03-near-foundation.md)) rather than as
+an application-level pause control.
 
 ## War room template
 

@@ -46,7 +46,7 @@ following in a known-good state:
   status [https://status.near.org/](https://status.near.org/)) at
   least at the High severity level.
 - A pre-defined NEAR Safe Chain quorum: which roles count toward
-  stand-down sign-off for which incident classes (see section 8).
+  stand-down sign-off for which incident classes (see section 9).
 
 ---
 

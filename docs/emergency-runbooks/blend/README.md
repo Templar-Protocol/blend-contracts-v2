@@ -115,8 +115,15 @@ Chain" model is the convention these runbooks follow:
    resolved (e.g. dev team confirms patched contract, or curator confirms
    vault deallocation completed).
 
-The Safe Chain is a *coordination* layer, not a custody layer. No single Safe
-Chain role can move user funds; it only coordinates the pause / unwind / patch
+The Safe Chain is primarily a *coordination* layer, not a custody layer. Blend
+pool admin and dev-team roles do not give any Safe Chain role direct custody of
+user funds — even a Blend pool at admin-frozen status 4 continues to allow user
+withdrawals, repays, and auction fills. However, a curator-vault Allocator that
+is captured *can* move vault assets via `RebalanceWithdraw` and related
+allocator actions; the vault-side runbook
+([`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md))
+describes the containment ladder for that case. Beyond those vault-role
+custody paths, the Safe Chain's role is to coordinate the pause / unwind / patch
 / communicate workflow.
 
 ## War room template

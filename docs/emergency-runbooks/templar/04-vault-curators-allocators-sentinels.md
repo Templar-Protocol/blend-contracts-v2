@@ -146,9 +146,13 @@ When an alert fires that implicates your vault:
 2. **Open the war room** ([`README.md`](./README.md#war-room-template)).
    The Curator (or Governance Admin) is *lead* for any incident
    classified as curator / allocator / sentinel compromise. For
-   "we need to pause now" mechanics, the Governance Admin is the
-   only role that can submit a pause; the Sentinel is *lead* for
-   revoking any pending malicious proposals.
+   "we need to pause now" mechanics, the Sentinel is the role that
+   pauses immediately via the direct `set_paused(sentinel, true)`
+   entrypoint (governance's `submit_set_paused(true)` timelock path
+   is rejected with `InvalidInput`; the Admin only controls the
+   timelocked unpause `submit_set_paused(false)`). The Sentinel is
+   also *lead* for revoking any pending malicious proposals in the
+   Sentinel's revokable set.
 3. **Snapshot state** for every affected vault:
    - Current `paused` state, restrictions, share price, idle
      assets, allocated principal per market.
@@ -194,7 +198,7 @@ far as the evidence supports.
 |------|------|--------|--------|-------------|
 | **A** | Allocator (or AllocatorEmergency) | `AbortAllocating` / `AbortWithdrawing` / `AbortRefreshing` on any in-progress operation | Cancels a stuck operation so that subsequent steps can run. | Yes |
 | **B** | Allocator | `RebalanceWithdraw` from the suspect market(s) into idle / safer markets | Reduces exposure without changing policy. | Yes |
-| **C** | Governance Admin | `submit_set_restrictions` (allowlist / denylist mode) to freeze new deposits / withdrawals at the vault edge | Stops new exposure entering the vault while existing depositors can still exit (or vice versa, depending on restriction mode). | Yes — Admin can propose a return to `RestrictionMode::None`; usually timelocked. |
+| **C** | Sentinel | `set_restrictions(sentinel, mode, accounts)` — direct entrypoint on Templar governance gated by `require_sentinel`; executes immediately. Reserve `submit_set_restrictions` (Admin, timelocked) for the return to `RestrictionMode::None` after stand-down. | Stops new exposure entering the vault while existing depositors can still exit (or vice versa, depending on restriction mode). | Admin: `submit_set_restrictions(mode=None, ...)` (timelocked) then `accept(proposal_id)` after stand-down. |
 | **D** | Sentinel | `set_paused(sentinel_address, true)` — direct entrypoint on Templar governance gated by `require_sentinel`. Executes immediately (no timelock; the `submit_set_paused(true)` timelock path is rejected with `InvalidInput`). Rejects `paused == false` — the Sentinel cannot use this entrypoint to unpause. | Pauses kernel actions allowed by `allowed_while_paused`; only `Pause`, `SetRestrictions`, the three `Abort*`s, `ManualReconcile`, and `EmergencyReset` continue to work. | Reversible only by Admin: `submit_set_paused(false)` (timelocked) then `accept(proposal_id)` after the pause timelock matures. |
 | **E** | Sentinel (or Admin) | `revoke(proposal_id)` or `revoke_kind(kind)` on any pending governance proposal in the Sentinel's revokable set (Pause / pending unpause, Sentinel, SupplyQueue, Allocators, AllowedAdapters, Fees, WithdrawalCooldown, IdleResyncCooldown, Restrictions, TimelockConfig, Cap, MarketRemoval, CapGroup — see `can_revoke_kind`). Admin-only kinds (Admin transfer, Curator, Governance, Skim, Upgrade, Migrate, Other) must be revoked by the Admin. | Prevents an in-flight proposal from maturing during the incident. | Trivially: the proposal can be re-submitted later by the appropriate role. |
 | **F** | Curator (as Governance Admin) | `submit_set_cap(market_id, 0)` for the affected market | Drives the supply cap to zero, forcing future rebalances away from that market. | Yes — propose a non-zero cap later |
@@ -413,9 +417,14 @@ markets, mass-withdraw during stress, or spam operations to disrupt.
    While paused, only `Pause`, `SetRestrictions`, `Abort*`,
    `ManualReconcile`, `EmergencyReset` are callable — none of
    which is in the Allocator policy class.
-3. **Curator: rotate the Allocator** via the standard governance
-   proposal path. Subject to timelock; sentinel must keep the vault
-   paused during the timelock.
+3. **Governance Admin (which may or may not be the Curator — every
+   `submit_*` method requires the Admin per `require_admin`):
+   `submit_set_allocators(<new set>)`** or the equivalent
+   allocator-rotation submission. Subject to timelock; Sentinel must
+   keep the vault paused during the timelock via
+   `set_paused(sentinel, true)`. If the Curator is not also the
+   Governance Admin, the Curator must coordinate with the Admin to
+   execute this step.
 4. If the captured Allocator was also the AllocatorEmergency (often
    the same key), the abort path is itself unsafe. Pause the vault
    and wait for the Allocator rotation to complete.
@@ -423,8 +432,12 @@ markets, mass-withdraw during stress, or spam operations to disrupt.
 ### 6.3 Recovery
 
 1. Replace signing infrastructure for the Allocator key.
-2. Stand-down requires Curator + Sentinel sign-off (NEAR Safe Chain
-   rule).
+2. Vault-side stand-down requires Curator + Sentinel sign-off (a
+   local rule stricter than the ecosystem quorum). Ecosystem-level
+   stand-down follows the canonical Safe Chain quorum in
+   [`03-near-foundation.md`](./03-near-foundation.md) §9 for
+   "curator / allocator / sentinel compromise": Curator governance
+   lead + Foundation.
 3. Lift `Pause` only after the new Allocator has demonstrated a
    clean refresh cycle on the vault.
 
@@ -432,15 +445,21 @@ markets, mass-withdraw during stress, or spam operations to disrupt.
 
 ## 7. Sentinel compromise
 
-A captured Sentinel can disrupt operational rhythm and revoke
-legitimate Curator proposals. Cannot extract value directly but
-can undermine the Curator's ability to ship policy.
+A captured Sentinel has two direct on-chain levers — `set_paused`
+and `set_restrictions`, both immediate — plus revocation of any
+proposal in `can_revoke_kind`. It cannot extract value directly,
+but it can pause the vault indefinitely (only Admin can unpause,
+and that path is timelocked), apply harmful restrictions
+(allowlist / denylist mode that starves legitimate flow), and
+revoke legitimate governance proposals. Depositor exits at fair
+share price may be prevented for the duration of the timelocked
+unpause.
 
 ### 7.1 Detection
 
 | Class | Signal |
 |-------|--------|
-| **Critical (P0)** | Sentinel revokes a proposal that the curator publicly supports; sentinel spam-revokes. |
+| **Critical (P0)** | Sentinel-driven `set_paused(true)` or `set_restrictions` you did not authorise; Sentinel revokes a proposal that the curator publicly supports; sentinel spam-revokes. |
 | **High (P1)** | Sentinel-key signing infrastructure shows degraded health. |
 | **Medium (P2)** | Sentinel key rotation request in an unusual channel. |
 
@@ -454,6 +473,19 @@ can undermine the Curator's ability to ship policy.
    publicly mark the sentinel as captured and prepare for a
    possible migration to a fresh vault if the captured sentinel
    cannot be removed in reasonable time.
+2. **Governance Admin: schedule an unpause via
+   `submit_set_paused(false)`** if the captured sentinel called
+   `set_paused(sentinel, true)` and the pause is inappropriate.
+   The proposal is timelocked; `accept(proposal_id)` executes
+   after the timelock. Sentinel replacement (step 1) can also revoke
+   the pending unpause per `can_revoke_kind`, so sequencing matters:
+   have a clean Sentinel in place first if the timelock allows it,
+   or accept that the captured Sentinel may extend the outage until
+   replaced.
+3. **Governance Admin: reset restrictions via
+   `submit_set_restrictions(mode=<pre-incident>, accounts=<pre-incident>)`**
+   if the captured Sentinel installed a harmful restriction. Same
+   timelock and revoke-race caveats as step 2.
 
 ### 7.3 Recovery
 

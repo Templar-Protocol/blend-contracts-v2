@@ -88,9 +88,16 @@ bridges.
    bridge denylist or throttle them to zero. This is preferable to
    a full pause because legitimate users can continue to exit.
 3. **If addresses are not yet identified** but the outflow pattern
-   is clearly anomalous, pause the affected asset's outbound side
-   first, inbound second. (Inbound pauses can strand legitimate
-   liquidity on the source chain.)
+   is clearly anomalous, pause the affected asset's exit direction
+   from NEAR first (transfers *from NEAR* to any destination chain),
+   entry direction second (transfers *to NEAR* from other chains).
+   Terminology: "outbound" here means NEAR-as-source, and "inbound"
+   means NEAR-as-destination — confirm this convention matches your
+   bridge's own control-plane naming before invoking pauses, since
+   some bridge stacks label directions relative to the destination
+   chain instead. Pausing NEAR-as-destination inflow can strand
+   legitimate liquidity that was already committed on the source
+   chain, so it is the more disruptive action.
 4. **If the bridge cannot perform per-asset or per-address
    mitigation**, pause the bridge. Pre-warn NEAR Foundation so the
    cross-stack communication is consistent.
@@ -128,8 +135,12 @@ spike.
    ([`04-vault-curators-allocators-sentinels.md`](./04-vault-curators-allocators-sentinels.md) §3 /
    [`01-templar-protocol-dev-team.md`](./01-templar-protocol-dev-team.md) §3)
    that loss recognition is in flight.
-2. Adjust per-asset throttle or fee parameters on the bridge if
-   you anticipate a brief spike.
+2. Adjust per-asset throttle on the bridge if you anticipate a
+   brief spike. If your bridge supports emergency fee adjustments
+   under pre-authorized bounds (e.g. a rate-limit-preserving surge
+   fee configured by the operator's standing policy), consider
+   using them; otherwise leave fee parameters unchanged during the
+   incident.
 3. Communicate to your users so they understand any short-term
    latency.
 
@@ -158,14 +169,22 @@ A captured Templar registry admin can `deploy` fake markets and
 routing tables or as a bridge integration target, refuse to bridge
 into it until the compromise is contained.
 
-1. **Add the captured admin's address(es) to the bridge denylist**
-   if NEAR Foundation Safe Chain confirms the capture and provides
-   addresses.
-2. **Refuse to integrate with any newly deployed market** whose
-   version code hash is not on the Templar-published manifest,
-   pending Safe Chain sign-off.
-3. **Throttle large outflows** of assets that are listed on any
+1. **Primary control: gate on the Templar market manifest.** Refuse
+   to integrate with (bridge into, list in routing tables, expose
+   in the front end) any newly deployed market whose `version_key`
+   / code hash is not on the Templar-published manifest, pending
+   Safe Chain sign-off. A captured registry admin can deploy fake
+   markets under attacker-controlled contract accounts; the bridge's
+   own allowlist of trusted market integrations, not any address
+   denylist, is what prevents flow into those.
+2. **Throttle large outflows** of assets that are listed on any
    suspect market for the duration of the war room.
+3. **Address denylist** is a secondary tool and only applies where
+   the captured admin's own account address is a bridge sender or
+   recipient and your bridge supports per-address filtering.
+   Denylisting the registry admin's account does not block a fake
+   market deployed under a *different* attacker-controlled account,
+   which is why the manifest allowlist is primary.
 4. Coordinate with stablecoin issuers if the captured admin
    deploys markets that could be used to convert stablecoins into
    exit assets.

@@ -64,10 +64,15 @@ known-good state:
 When an alert fires that implicates the registry:
 
 1. **Open the war room** ([`README.md`](./README.md#war-room-template)).
-   Registry admin is *lead* for any incident classified as registry
-   admin compromise; *technical advisor* for protocol hacks (where
-   the dev team leads) and for curator / allocator / sentinel
-   compromises that require deploying a fresh vault via registry.
+   Registry admin is *lead* for registry-admin-compromise incidents
+   **while control of the admin key remains intact**; if the admin
+   key has been captured, NEAR Foundation is *lead* per the
+   canonical Safe Chain quorum in
+   [`03-near-foundation.md`](./03-near-foundation.md) §9 (Registry
+   admin compromise — admin captured). Registry admin is *technical
+   advisor* for protocol hacks (where the dev team leads) and for
+   curator / allocator / sentinel compromises that require deploying
+   a fresh vault via registry.
 2. **Snapshot state**: `list_versions`, `list_deployments`, and the
    `get_version_code_hash` for every version currently exposed via
    the registry.
@@ -184,9 +189,13 @@ convening the war room. The registry has no pause, but you can:
    immediately, with whatever signing capacity you still have that
    is *known* clean. If you cannot rotate access keys, every step
    below becomes much harder.
-2. **Convene the war room.** Registry admin is *lead* for this
-   incident class. The Templar dev team is technical advisor. NEAR
-   Foundation is comms coordinator and Safe Chain owner.
+2. **Convene the war room.** Registry admin is *lead* **only while
+   admin control remains intact** (e.g. after successful access-key
+   rotation in step 1 that neutralised the attacker). If the
+   attacker still holds admin, NEAR Foundation is *lead* per
+   [`03-near-foundation.md`](./03-near-foundation.md) §9 (Registry
+   admin compromise — admin captured). The Templar dev team is
+   technical advisor in either case.
 3. **Publicly mark suspect versions and deployments.** Anything
    `add_version`'d or `deploy`'d after the earliest possible
    capture time is now untrusted until Safe Chain sign-off. Publish
@@ -237,8 +246,8 @@ same publish / deploy discipline as in §2.1.
   reference to the routine publish notice; coordinate timing with
   the war-room comms lead.
 - **Compromise notice**: coordinate with NEAR Foundation
-  ([`03-near-foundation.md`](./03-near-foundation.md) §7). Do not
-  publish attribution.
+  ([`03-near-foundation.md`](./03-near-foundation.md) §8 —
+  Communication protocol). Do not publish attribution.
 
 ---
 
@@ -247,8 +256,12 @@ same publish / deploy discipline as in §2.1.
 - [ ] Access-key posture on the registry owner account restored to
       standing posture, verified out-of-band.
 - [ ] `list_versions` and `list_deployments` reviewed against the
-      public manifest; no adversarial versions or deployments
-      remain exposed.
+      public manifest. `deploy` is irreversible in kind (see §1),
+      so the achievable condition is: every suspect version and
+      deployment is publicly marked unsafe, excluded from Templar
+      tooling and downstream integrations (front ends, vault supply
+      queues, indexer displays), and covered by a migration and
+      user-notification plan.
 - [ ] Templar dev team informed of stand-down.
 - [ ] NEAR Foundation informed of stand-down.
 - [ ] Public post-mortem drafted (for compromise incidents).
