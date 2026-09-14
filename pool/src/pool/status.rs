@@ -10,6 +10,9 @@ use soroban_sdk::{panic_with_error, Env};
 #[allow(clippy::inconsistent_digit_grouping)]
 pub fn execute_update_pool_status(e: &Env) -> u32 {
     let mut pool_config = storage::get_pool_config(e);
+    if pool_config.status == 4 {
+        panic_with_error!(e, PoolError::StatusNotAllowed);
+    }
 
     // check the pool has met minimum backstop deposits
     let backstop_id = storage::get_backstop(e);
@@ -26,11 +29,6 @@ pub fn execute_update_pool_status(e: &Env) -> u32 {
         // Setup
         6 => {
             // Setup supersedes all other statuses
-            panic_with_error!(e, PoolError::StatusNotAllowed);
-        }
-        // Admin frozen
-        4 => {
-            // Admin frozen supersedes all other statuses
             panic_with_error!(e, PoolError::StatusNotAllowed);
         }
         // Admin on-ice
@@ -70,6 +68,14 @@ pub fn execute_update_pool_status(e: &Env) -> u32 {
 #[allow(clippy::inconsistent_digit_grouping)]
 pub fn execute_set_pool_status(e: &Env, pool_status: u32) {
     let mut pool_config = storage::get_pool_config(e);
+    if pool_status == 4 {
+        pool_config.status = 4;
+        storage::set_pool_config(e, &pool_config);
+        return;
+    }
+    if pool_config.status == 4 {
+        panic_with_error!(e, PoolError::StatusNotAllowed);
+    }
 
     // check the pool has met minimum backstop deposits
     let backstop_id = storage::get_backstop(e);
@@ -103,11 +109,6 @@ pub fn execute_set_pool_status(e: &Env, pool_status: u32) {
             }
             // On-Ice
             pool_config.status = 3;
-        }
-        4 => {
-            // Admin can always freeze the pool
-            // Admin Frozen
-            pool_config.status = 4;
         }
         _ => {
             panic_with_error!(e, PoolError::BadRequest);

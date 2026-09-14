@@ -1,8 +1,8 @@
-use soroban_sdk::{panic_with_error, Address, Env};
+use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
 use crate::{dependencies::BackstopClient, events::PoolEvents, storage, AuctionType, PoolError};
 
-use super::{calc_pool_backstop_threshold, Pool, User};
+use super::{calc_pool_backstop_threshold, Pool, PositionData, User};
 
 /// Handles any bad debt that exists for "user"
 pub fn bad_debt(e: &Env, user: &Address) {
@@ -11,17 +11,13 @@ pub fn bad_debt(e: &Env, user: &Address) {
 
     let backstop = storage::get_backstop(e);
 
-    let had_bad_debt = if user == &backstop {
-        if storage::has_auction(e, &(AuctionType::BadDebtAuction as u32), &backstop) {
-            panic_with_error!(e, PoolError::AuctionInProgress);
-        }
-        check_and_handle_backstop_bad_debt(e, &mut pool, user, &mut user_state)
-    } else {
-        if storage::has_auction(e, &(AuctionType::UserLiquidation as u32), &user) {
-            panic_with_error!(e, PoolError::AuctionInProgress);
-        }
-        check_and_handle_user_bad_debt(e, &mut pool, user, &mut user_state)
-    };
+    if user == &backstop {
+        panic_with_error!(e, PoolError::BadRequest);
+    }
+    if storage::has_auction(e, &(AuctionType::UserLiquidation as u32), user) {
+        panic_with_error!(e, PoolError::AuctionInProgress);
+    }
+    let had_bad_debt = check_and_handle_user_bad_debt(e, &mut pool, user, &mut user_state);
 
     if had_bad_debt {
         user_state.store(e);
@@ -33,7 +29,8 @@ pub fn bad_debt(e: &Env, user: &Address) {
 
 /// Check if a user has bad debt.
 ///
-/// If they do, pass the bad debt off to the backstop.
+/// If aggregate raw collateral is zero, set off ordinary supply before defaulting residual debt.
+/// Take custody of residual collateral only if debt was actually defaulted; full setoff retains it.
 ///
 /// If not, this function does nothing.
 ///
@@ -56,25 +53,74 @@ pub fn check_and_handle_user_bad_debt(
     user: &Address,
     user_state: &mut User,
 ) -> bool {
-    if user_state.has_liabilities() && !user_state.has_collateral() {
-        // no more collateral left to liquidate for this user
-        // pass the rest of the debt to the backstop as bad debt
-        let reserve_list = storage::get_res_list(e);
-        let backstop_address = storage::get_backstop(e);
-        let mut backstop_state = User::load(e, &backstop_address);
-        for (reserve_index, liability_balance) in user_state.positions.liabilities.iter() {
-            let asset = reserve_list.get_unchecked(reserve_index);
-            let mut reserve = pool.load_reserve(e, &asset, true);
-            backstop_state.add_liabilities(e, &mut reserve, liability_balance);
-            user_state.remove_liabilities(e, &mut reserve, liability_balance);
-            pool.cache_reserve(reserve);
-
-            PoolEvents::bad_debt(e, user.clone(), asset, liability_balance);
-        }
-        backstop_state.store(e);
-        return true;
+    if !user_state.has_liabilities()
+        || PositionData::calculate_from_positions(e, pool, &user_state.positions).collateral_raw
+            != 0
+    {
+        return false;
     }
-    return false;
+
+    let reserve_list = storage::get_res_list(e);
+    let liabilities = user_state.positions.liabilities.clone();
+    let mut collateral: Vec<(Address, u32, i128)> = Vec::new(e);
+    for (index, amount) in user_state.positions.collateral.iter() {
+        if amount > 0 {
+            collateral.push_back((reserve_list.get_unchecked(index), index, amount));
+        }
+    }
+    let mut had_default = false;
+
+    for (index, amount) in liabilities.iter() {
+        let asset = reserve_list.get_unchecked(index);
+        let mut reserve = pool.load_reserve(e, &asset, true);
+        let mut defaulted = amount;
+        let claim = user_state.get_supply(index);
+        if claim > 0 && reserve.data.b_rate > 0 {
+            let debt_assets = reserve.to_asset_from_d_token(e, amount);
+            let b_tokens = claim.min(reserve.to_b_token_up(e, debt_assets));
+            let covered_assets = reserve.to_asset_from_b_token(e, b_tokens);
+            let repaid = amount.min(reserve.to_d_token_down(e, covered_assets));
+            if repaid > 0 {
+                user_state.remove_supply(e, &mut reserve, b_tokens);
+                user_state.remove_liabilities(e, &mut reserve, repaid);
+                defaulted -= repaid;
+                PoolEvents::debt_setoff(e, asset.clone(), b_tokens, repaid);
+            }
+        }
+        if defaulted > 0 {
+            user_state.default_liabilities(e, &mut reserve, defaulted);
+            had_default = true;
+            PoolEvents::defaulted_debt(e, asset, defaulted);
+        }
+        pool.cache_reserve(reserve);
+    }
+
+    if had_default && !collateral.is_empty() {
+        let mut pool_user = User::load(e, &e.current_contract_address());
+        for (asset, index, amount) in collateral.iter() {
+            require_no_b_token_emissions(e, index);
+            // Reload through the cache: this reserve may already have absorbed a default above.
+            let mut reserve = pool.load_reserve(e, &asset, true);
+            user_state.remove_collateral(e, &mut reserve, amount);
+            pool_user.add_supply(e, &mut reserve, amount);
+            pool.cache_reserve(reserve);
+            PoolEvents::collateral_orphaned(e, user.clone(), asset, amount);
+        }
+        pool_user.store(e);
+    }
+    true
+}
+
+/// Orphan-custody b-token emissions prohibition; checked when orphan collateral is processed,
+/// which follows an actual default. Unblocked debt-free supply setoff never reaches it.
+pub(super) fn require_no_b_token_emissions(e: &Env, reserve_index: u32) {
+    let id = reserve_index * 2 + 1;
+    if storage::get_pool_emissions(e).contains_key(id)
+        || storage::get_res_emis_data(e, &id).is_some()
+        || storage::get_user_emissions(e, &e.current_contract_address(), &id).is_some()
+    {
+        panic_with_error!(e, PoolError::BadRequest);
+    }
 }
 
 /// Check if the backstop's bad debt needs to be defaulted. This occurs when the backstop has less than

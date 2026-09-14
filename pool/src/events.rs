@@ -172,6 +172,28 @@ impl PoolEvents {
         e.events().publish(topics, d_tokens_burnt);
     }
 
+    /// Topics: `["debt_setoff", asset]`; data: `(b_tokens_burned, d_tokens_repaid)`.
+    ///
+    /// Emitted when a defaulting user's own noncollateral supply in the debt reserve is
+    /// burned to repay that reserve's liability before any residual is defaulted.
+    pub fn debt_setoff(e: &Env, asset: Address, b_tokens_burned: i128, d_tokens_repaid: i128) {
+        let topics = (Symbol::new(e, "debt_setoff"), asset);
+        e.events()
+            .publish(topics, (b_tokens_burned, d_tokens_repaid));
+    }
+
+    /// Topics: `["collateral_orphaned", user, asset]`; data: orphaned b-token amount.
+    pub fn collateral_orphaned(e: &Env, user: Address, asset: Address, b_tokens: i128) {
+        let topics = (Symbol::new(e, "collateral_orphaned"), user, asset);
+        e.events().publish(topics, b_tokens);
+    }
+
+    /// Topics: `["orphan_settled", asset]`; data: burned pool-owned b-token amount.
+    pub fn orphan_settled(e: &Env, asset: Address, b_tokens: i128) {
+        let topics = (Symbol::new(e, "orphan_settled"), asset);
+        e.events().publish(topics, b_tokens);
+    }
+
     /// Emitted when tokens are supplied
     ///
     /// - topics - `["supply", asset: Address, from: Address]`

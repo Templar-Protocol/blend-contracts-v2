@@ -24,6 +24,9 @@ pub fn execute_initialize(
     backstop_address: &Address,
     blnd_id: &Address,
 ) {
+    if *bstop_rate != 0 {
+        panic_with_error!(e, PoolError::InvalidPoolConfigArgs);
+    }
     let pool_config = PoolConfig {
         oracle: oracle.clone(),
         min_collateral: *min_collateral,
@@ -69,15 +72,28 @@ pub fn execute_queue_set_reserve(e: &Env, asset: &Address, metadata: &ReserveCon
         panic_with_error!(&e, PoolError::BadRequest)
     }
     require_valid_reserve_metadata(e, metadata);
+    let pool_config = storage::get_pool_config(e);
+    let current = if storage::has_res(e, asset) {
+        Some(storage::get_res_config(e, asset))
+    } else {
+        None
+    };
+    let disable_only = current
+        .as_ref()
+        .is_some_and(|config| is_disable_only(config, metadata));
 
-    // if the reserve config exists, ensure there are no invalid changes
-    if storage::has_res(e, asset) {
-        require_valid_reserve_metadata_changes(e, &storage::get_res_config(e, asset), metadata);
+    // Retirement is a live-pool transition and must always pay the full timelock.
+    if (pool_config.status == 6 && disable_only) || (pool_config.status != 6 && !disable_only) {
+        panic_with_error!(e, PoolError::InvalidReserveMetadata);
+    }
+
+    if let Some(config) = current {
+        require_valid_reserve_metadata_changes(e, &config, metadata);
     }
 
     let mut unlock_time = e.ledger().timestamp();
     // require a timelock if pool status is not setup
-    if storage::get_pool_config(e).status != 6 {
+    if pool_config.status != 6 {
         unlock_time += SECONDS_PER_WEEK;
     }
     storage::set_queued_reserve_set(
@@ -102,7 +118,14 @@ pub fn execute_set_reserve(e: &Env, asset: &Address) -> u32 {
     if queued_init.unlock_time > e.ledger().timestamp() {
         panic_with_error!(e, PoolError::InitNotUnlocked);
     }
-
+    require_valid_reserve_metadata(e, &queued_init.new_config);
+    // non-setup statuses accept only the exact enabled -> disabled transition of an existing reserve
+    if storage::get_pool_config(e).status != 6
+        && (!storage::has_res(e, asset)
+            || !is_disable_only(&storage::get_res_config(e, asset), &queued_init.new_config))
+    {
+        panic_with_error!(e, PoolError::InvalidReserveMetadata);
+    }
     // remove queued reserve
     storage::del_queued_reserve_set(e, asset);
 
@@ -173,7 +196,7 @@ fn require_valid_reserve_metadata(e: &Env, metadata: &ReserveConfig) {
         || metadata.c_factor > SCALAR_7_U32
         || metadata.l_factor > SCALAR_7_U32
         || metadata.util > 0_9000000
-        || (metadata.max_util > SCALAR_7_U32 || metadata.max_util <= metadata.util)
+        || (metadata.max_util >= SCALAR_7_U32 || metadata.max_util <= metadata.util)
         || metadata.r_base >= 1_0000000
         || metadata.r_base < 0_0001000
         || (metadata.r_one > metadata.r_two || metadata.r_two > metadata.r_three)
@@ -181,6 +204,23 @@ fn require_valid_reserve_metadata(e: &Env, metadata: &ReserveConfig) {
     {
         panic_with_error!(e, PoolError::InvalidReserveMetadata);
     }
+}
+
+fn is_disable_only(current: &ReserveConfig, candidate: &ReserveConfig) -> bool {
+    current.enabled
+        && !candidate.enabled
+        && current.index == candidate.index
+        && current.decimals == candidate.decimals
+        && current.c_factor == candidate.c_factor
+        && current.l_factor == candidate.l_factor
+        && current.util == candidate.util
+        && current.max_util == candidate.max_util
+        && current.r_base == candidate.r_base
+        && current.r_one == candidate.r_one
+        && current.r_two == candidate.r_two
+        && current.r_three == candidate.r_three
+        && current.reactivity == candidate.reactivity
+        && current.supply_cap == candidate.supply_cap
 }
 
 fn require_valid_reserve_metadata_changes(
