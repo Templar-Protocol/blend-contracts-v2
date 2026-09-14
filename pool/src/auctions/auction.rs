@@ -80,10 +80,13 @@ pub fn create_auction(
     lot: &Vec<Address>,
     percent: u32,
 ) -> AuctionData {
-    require_unique_addresses(e, bid);
-    require_unique_addresses(e, lot);
     // panics if auction_type parameter is not valid
     let auction_type_enum = AuctionType::from_u32(e, auction_type);
+    if auction_type_enum != AuctionType::UserLiquidation {
+        panic_with_error!(e, PoolError::BadRequest);
+    }
+    require_unique_addresses(e, bid);
+    require_unique_addresses(e, lot);
     let auction_data = match auction_type_enum {
         AuctionType::UserLiquidation => create_user_liq_auction_data(e, user, bid, lot, percent),
         AuctionType::BadDebtAuction => create_bad_debt_auction_data(e, user, bid, lot, percent),
@@ -145,13 +148,17 @@ pub fn fill(
     filler_state: &mut User,
     percent_filled: u64,
 ) -> AuctionData {
+    let auction_type_enum = AuctionType::from_u32(e, auction_type);
+    if auction_type_enum != AuctionType::UserLiquidation {
+        panic_with_error!(e, PoolError::BadRequest);
+    }
     if user.clone() == filler_state.address {
         panic_with_error!(e, PoolError::InvalidLiquidation);
     }
     let auction_data = storage::get_auction(e, &auction_type, user);
     let (to_fill_auction, remaining_auction) = scale_auction(e, &auction_data, percent_filled);
     let is_full_fill = remaining_auction.is_none();
-    match AuctionType::from_u32(e, auction_type) {
+    match auction_type_enum {
         AuctionType::UserLiquidation => {
             fill_user_liq_auction(e, pool, &to_fill_auction, user, filler_state, is_full_fill)
         }

@@ -172,6 +172,18 @@ impl PoolEvents {
         e.events().publish(topics, d_tokens_burnt);
     }
 
+    /// Topics: `["collateral_orphaned", user, asset]`; data: orphaned b-token amount.
+    pub fn collateral_orphaned(e: &Env, user: Address, asset: Address, b_tokens: i128) {
+        let topics = (Symbol::new(e, "collateral_orphaned"), user, asset);
+        e.events().publish(topics, b_tokens);
+    }
+
+    /// Topics: `["orphan_settled", asset]`; data: burned pool-owned b-token amount.
+    pub fn orphan_settled(e: &Env, asset: Address, b_tokens: i128) {
+        let topics = (Symbol::new(e, "orphan_settled"), asset);
+        e.events().publish(topics, b_tokens);
+    }
+
     /// Emitted when tokens are supplied
     ///
     /// - topics - `["supply", asset: Address, from: Address]`

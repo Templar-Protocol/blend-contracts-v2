@@ -318,6 +318,9 @@ fn apply_withdraw(
 ) -> (i128, i128) {
     let mut reserve = pool.load_reserve(e, &request.address, true);
     let cur_b_tokens = user.get_supply(reserve.config.index);
+    if user.get_liabilities(reserve.config.index) > 0 {
+        actions.do_check_health();
+    }
     let mut to_burn = reserve.to_b_token_up(e, request.amount);
     let mut tokens_out = request.amount;
     if to_burn > cur_b_tokens {

@@ -105,6 +105,9 @@ impl Pool {
         }
         let oracle_client = PriceFeedClient::new(e, &self.config.oracle);
         let decimals = oracle_client.decimals();
+        if decimals != 7 {
+            panic_with_error!(e, PoolError::InvalidPrice);
+        }
         self.price_decimals = Some(decimals);
         decimals
     }
@@ -115,7 +118,7 @@ impl Pool {
     /// * asset - The address of the underlying asset
     ///
     /// ### Panics
-    /// If the price is invalid due to being over a day old or being less than or equal to 0
+    /// If the price is future-dated, over a day old, or less than or equal to 0
     pub fn load_price(&mut self, e: &Env, asset: &Address) -> i128 {
         if let Some(price) = self.prices.get(asset.clone()) {
             return price;
@@ -123,7 +126,11 @@ impl Pool {
         let oracle_client = PriceFeedClient::new(e, &self.config.oracle);
         let oracle_asset = Asset::Stellar(asset.clone());
         let price_data = oracle_client.lastprice(&oracle_asset).unwrap_optimized();
-        if price_data.timestamp + 24 * 60 * 60 < e.ledger().timestamp() || price_data.price <= 0 {
+        let now = e.ledger().timestamp();
+        if price_data.timestamp > now
+            || now - price_data.timestamp > 86_400
+            || price_data.price <= 0
+        {
             panic_with_error!(e, PoolError::InvalidPrice);
         }
         self.prices.set(asset.clone(), price_data.price);
