@@ -23,7 +23,7 @@ fn test_pool_factory() {
 
     let oracle = Address::generate(&e);
     let backstop_id = Address::generate(&e);
-    let backstop_rate: u32 = 0_1000000;
+    let backstop_rate: u32 = 0;
     let max_positions: u32 = 6;
     let min_collateral: i128 = 1_0000000;
     let blnd_id = Address::generate(&e);
@@ -176,7 +176,7 @@ fn test_pool_factory_invalid_pool_init_args_max_positions() {
 
     let bombadil = Address::generate(&e);
     let oracle = Address::generate(&e);
-    let backstop_rate: u32 = 0_1000000;
+    let backstop_rate: u32 = 0;
     let max_positions: u32 = 1;
     let min_collateral: i128 = 1_0000000;
 
@@ -285,7 +285,7 @@ fn test_pool_factory_frontrun_protection() {
 
     let oracle = Address::generate(&e);
     let backstop_id = Address::generate(&e);
-    let backstop_rate: u32 = 0_1000000;
+    let backstop_rate: u32 = 0;
     let max_positions: u32 = 6;
     let min_collateral: i128 = 0;
     let blnd_id = Address::generate(&e);

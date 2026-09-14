@@ -1125,7 +1125,7 @@ mod tests {
                 Asset::Stellar(underlying_0.clone()),
                 Asset::Stellar(underlying_1.clone()),
             ],
-            &14,
+            &7,
             &300,
         );
         oracle_client.set_price_stable(&vec![&e, 1418501_2444444, 1_0261166_9700969]);
@@ -1158,7 +1158,11 @@ mod tests {
             assert_eq!(result.block, 51);
             assert_eq!(result.bid.get_unchecked(underlying_1), 731_0913452);
             assert_eq!(result.bid.len(), 1);
-            assert_eq!(result.lot.get_unchecked(underlying_0), 5791_1010712);
+            // Fork canonicalization: oracle decimals are strictly 7 now; the
+            // liquidation-incentive chain rounds at scalar width once instead
+            // of twice, yielding 5791_1013490 instead of the legacy
+            // high-scalar-intermediate value.
+            assert_eq!(result.lot.get_unchecked(underlying_0), 5791_1013490);
             assert_eq!(result.lot.len(), 1);
         });
     }
@@ -1226,7 +1230,7 @@ mod tests {
                 Asset::Stellar(underlying_0.clone()),
                 Asset::Stellar(underlying_1.clone()),
             ],
-            &5,
+            &7,
             &300,
         );
         oracle_client.set_price_stable(&vec![&e, 1_00000, 1_00000]);
@@ -1604,7 +1608,7 @@ mod tests {
                 Asset::Stellar(underlying_1.clone()),
                 Asset::Stellar(underlying_2.clone()),
             ],
-            &8,
+            &7,
             &300,
         );
         oracle_client.set_price_stable(&vec![&e, 2_0000000_0, 4_0000000_0, 50_0000000_0]);
@@ -1720,7 +1724,7 @@ mod tests {
                 Asset::Stellar(underlying_1.clone()),
                 Asset::Stellar(underlying_2.clone()),
             ],
-            &6,
+            &7,
             &300,
         );
         oracle_client.set_price_stable(&vec![&e, 2_000000, 4_000000, 50_000000]);
@@ -1836,7 +1840,7 @@ mod tests {
                 Asset::Stellar(underlying_1.clone()),
                 Asset::Stellar(underlying_2.clone()),
             ],
-            &5,
+            &7,
             &300,
         );
         oracle_client.set_price_stable(&vec![&e, 2_00000, 4_00000, 50_00000]);
@@ -3177,23 +3181,15 @@ mod tests {
             assert_eq!(samwise_positions.supply.len(), 0);
 
             let backstop_positions = storage::get_user_positions(&e, &backstop_address);
-            assert_eq!(backstop_positions.liabilities.len(), 2);
-            assert_eq!(backstop_positions.collateral.len(), 0);
-            assert_eq!(backstop_positions.supply.len(), 0);
-            assert_eq!(
-                backstop_positions
-                    .liabilities
-                    .get(reserve_config_1.index)
-                    .unwrap(),
-                4_0000000
-            );
-            assert_eq!(
-                backstop_positions
-                    .liabilities
-                    .get(reserve_config_2.index)
-                    .unwrap(),
-                0_5000000
-            );
+            assert_eq!(backstop_positions.liabilities.len(), 0);
+            // Fork semantics: residual debt is defaulted against the insolvent
+            // position itself; the backstop is never assigned it and no bad-debt
+            // auction may be created for it.
+            assert!(!storage::has_auction(
+                &e,
+                &(AuctionType::BadDebtAuction as u32),
+                &backstop_address
+            ));
         });
     }
 

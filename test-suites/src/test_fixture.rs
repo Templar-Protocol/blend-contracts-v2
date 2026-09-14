@@ -15,10 +15,15 @@ use pool_factory::{PoolFactoryClient, PoolInitMeta};
 use sep_40_oracle::testutils::{Asset, MockPriceOracleClient};
 use sep_41_token::testutils::MockTokenClient;
 use soroban_sdk::testutils::{Address as _, BytesN as _, EnvTestConfig, Ledger, LedgerInfo};
-use soroban_sdk::{vec as svec, Address, BytesN, Env, Map, String, Symbol};
+use soroban_sdk::{vec as svec, Address, BytesN, Env, Map, String, Symbol, TryFromVal};
 
 pub const SCALAR_7: i128 = 1_000_0000;
 pub const SCALAR_12: i128 = 1_000_000_000_000;
+
+// Runtime comparisons declare these identities before any constructor runs.
+pub const RUNTIME_BACKSTOP_ID: [u8; 32] = [0xb8; 32];
+pub const RUNTIME_FACTORY_ID: [u8; 32] = [0xf8; 32];
+pub const RUNTIME_POOL_SALT: [u8; 32] = [0xd8; 32];
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TokenIndex {
@@ -61,6 +66,15 @@ impl TestFixture<'_> {
     /// Deploys BLND (0), USDC (1), wETH (2), XLM (3), and STABLE (4) test tokens, alongside all required
     /// Blend Protocol contracts, including a BLND-USDC LP.
     pub fn create<'a>(wasm: bool) -> TestFixture<'a> {
+        Self::create_with_artifacts(wasm, POOL_WASM, None)
+    }
+
+    /// Identical funding and registration order for runtime artifact comparisons.
+    pub fn create_with_artifacts<'a>(
+        wasm: bool,
+        pool_wasm: &[u8],
+        backstop_wasm: Option<&[u8]>,
+    ) -> TestFixture<'a> {
         let e = Env::new_with_config(EnvTestConfig {
             capture_snapshot_at_drop: false,
         });
@@ -92,29 +106,64 @@ impl TestFixture<'_> {
         let (lp, lp_client) = create_lp_pool(&e, &bombadil, &blnd_id, &usdc_id);
 
         // generate Blend Protocol contract IDs
-        let backstop_id = Address::generate(&e);
-        let pool_factory_id = Address::generate(&e);
+        let (backstop_id, pool_factory_id) = if backstop_wasm.is_some() {
+            (
+                Address::try_from_val(
+                    &e,
+                    &soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::Hash(
+                        RUNTIME_BACKSTOP_ID,
+                    )),
+                )
+                .unwrap(),
+                Address::try_from_val(
+                    &e,
+                    &soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::Hash(
+                        RUNTIME_FACTORY_ID,
+                    )),
+                )
+                .unwrap(),
+            )
+        } else {
+            (Address::generate(&e), Address::generate(&e))
+        };
 
         let (emitter_id, emitter_client) = create_emitter(&e);
         blnd_client.set_admin(&emitter_id);
         emitter_client.initialize(&blnd_id, &backstop_id, &lp);
 
-        let backstop_client = create_backstop(
+        let drop_list = svec![
             &e,
-            &backstop_id,
-            wasm,
-            &lp,
-            &emitter_id,
-            &blnd_id,
-            &usdc_id,
-            &pool_factory_id,
-            &svec![
+            (bombadil.clone(), 10_000_000 * SCALAR_7),
+            (frodo.clone(), 30_000_000 * SCALAR_7)
+        ];
+        let backstop_client = if let Some(bytes) = backstop_wasm {
+            e.register_at(
+                &backstop_id,
+                bytes,
+                (
+                    &lp,
+                    &emitter_id,
+                    &blnd_id,
+                    &usdc_id,
+                    &pool_factory_id,
+                    drop_list.clone(),
+                ),
+            );
+            BackstopClient::new(&e, &backstop_id)
+        } else {
+            create_backstop(
                 &e,
-                (bombadil.clone(), 10_000_000 * SCALAR_7),
-                (frodo.clone(), 30_000_000 * SCALAR_7)
-            ],
-        );
-        let pool_hash = e.deployer().upload_contract_wasm(POOL_WASM);
+                &backstop_id,
+                wasm,
+                &lp,
+                &emitter_id,
+                &blnd_id,
+                &usdc_id,
+                &pool_factory_id,
+                &drop_list,
+            )
+        };
+        let pool_hash = e.deployer().upload_contract_wasm(pool_wasm);
         let pool_init_meta = PoolInitMeta {
             backstop: backstop_id.clone(),
             pool_hash: pool_hash.clone(),
@@ -122,11 +171,16 @@ impl TestFixture<'_> {
         };
         let pool_factory_client = create_pool_factory(&e, &pool_factory_id, wasm, pool_init_meta);
 
-        // drop tokens to bombadil
-        backstop_client.drop();
-
-        // start distribution period
-        backstop_client.distribute();
+        // Match the stock drop recipients without invoking the disabled
+        // emissions ABI; assert emitter still holds the SAC admin authority.
+        blnd_client.mint(&bombadil, &(10_000_000 * SCALAR_7));
+        blnd_client.mint(&frodo, &(30_000_000 * SCALAR_7));
+        assert_eq!(
+            soroban_sdk::token::StellarAssetClient::new(&e, &blnd_id).admin(),
+            emitter_id
+        );
+        assert_eq!(blnd_client.balance(&bombadil), 10_000_000 * SCALAR_7);
+        assert_eq!(blnd_client.balance(&frodo), 30_000_000 * SCALAR_7);
 
         // initialize oracle
         let (_, mock_oracle_client) = create_mock_oracle(&e);
@@ -180,10 +234,27 @@ impl TestFixture<'_> {
         max_positions: u32,
         min_collateral: i128,
     ) {
+        self.create_pool_with_salt(
+            name,
+            backstop_take_rate,
+            max_positions,
+            min_collateral,
+            BytesN::<32>::random(&self.env),
+        );
+    }
+
+    pub(crate) fn create_pool_with_salt(
+        &mut self,
+        name: String,
+        backstop_take_rate: u32,
+        max_positions: u32,
+        min_collateral: i128,
+        salt: BytesN<32>,
+    ) {
         let pool_id = self.pool_factory.deploy(
             &self.bombadil,
             &name,
-            &BytesN::<32>::random(&self.env),
+            &salt,
             &self.oracle.address,
             &backstop_take_rate,
             &max_positions,

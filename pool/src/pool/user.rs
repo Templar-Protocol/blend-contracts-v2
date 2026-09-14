@@ -605,6 +605,31 @@ mod tests {
     }
 
     #[test]
+    fn test_default_liabilities_without_suppliers_preserves_b_rate() {
+        let e = Env::default();
+        e.mock_all_auths();
+        let pool = testutils::create_pool(&e);
+        let mut reserve = testutils::default_reserve(&e);
+        reserve.data.d_supply = 0;
+        reserve.data.b_supply = 0;
+        reserve.data.b_rate = 1_250_000_000_000;
+        let mut user = User {
+            address: Address::generate(&e),
+            positions: Positions::env_default(&e),
+        };
+
+        e.as_contract(&pool, || {
+            user.add_liabilities(&e, &mut reserve, 20_0000000);
+            user.default_liabilities(&e, &mut reserve, 20_0000000);
+
+            assert!(!user.has_liabilities());
+            assert_eq!(reserve.data.d_supply, 0);
+            assert_eq!(reserve.data.b_supply, 0);
+            assert_eq!(reserve.data.b_rate, 1_250_000_000_000);
+        });
+    }
+
+    #[test]
     fn test_default_liabilities_reduces_b_rate_to_zero() {
         let e = Env::default();
         e.mock_all_auths();

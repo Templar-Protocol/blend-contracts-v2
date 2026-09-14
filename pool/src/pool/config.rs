@@ -269,7 +269,7 @@ mod tests {
         let admin = Address::generate(&e);
         let name = String::from_str(&e, "pool_name");
         let oracle = Address::generate(&e);
-        let bstop_rate: u32 = 0_1000000;
+        let bstop_rate: u32 = 0;
         let max_positions = 2;
         let min_collateral = 1_0000000;
         let backstop_address = Address::generate(&e);
@@ -555,7 +555,7 @@ mod tests {
         let pool_config = PoolConfig {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
+            bstop_rate: 0,
             status: 6,
             max_positions: 2,
         };
@@ -576,59 +576,6 @@ mod tests {
             assert_eq!(res_config_0.reactivity, metadata.reactivity);
             assert_eq!(res_config_0.index, 0);
             assert_eq!(queued_res.unlock_time, e.ledger().timestamp());
-        });
-    }
-
-    #[test]
-    fn test_queue_set_reserve() {
-        let e = Env::default();
-        e.mock_all_auths();
-        let pool = testutils::create_pool(&e);
-        let bombadil = Address::generate(&e);
-
-        let (asset_id_0, _) = testutils::create_token_contract(&e, &bombadil);
-
-        let metadata = ReserveConfig {
-            index: 0,
-            decimals: 7,
-            c_factor: 0_7500000,
-            l_factor: 0_7500000,
-            util: 0_5000000,
-            max_util: 0_9500000,
-            r_base: 0_0100000,
-            r_one: 0_0500000,
-            r_two: 0_5000000,
-            r_three: 1_5000000,
-            reactivity: 100,
-            supply_cap: 1000000000000000000,
-            enabled: true,
-        };
-        let pool_config = PoolConfig {
-            oracle: Address::generate(&e),
-            min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
-            status: 0,
-            max_positions: 2,
-        };
-        e.as_contract(&pool, || {
-            storage::set_pool_config(&e, &pool_config);
-            execute_queue_set_reserve(&e, &asset_id_0, &metadata);
-            let queued_init = storage::get_queued_reserve_set(&e, &asset_id_0);
-            assert_eq!(queued_init.new_config.decimals, metadata.decimals);
-            assert_eq!(queued_init.new_config.c_factor, metadata.c_factor);
-            assert_eq!(queued_init.new_config.l_factor, metadata.l_factor);
-            assert_eq!(queued_init.new_config.util, metadata.util);
-            assert_eq!(queued_init.new_config.max_util, metadata.max_util);
-            assert_eq!(queued_init.new_config.r_base, metadata.r_base);
-            assert_eq!(queued_init.new_config.r_one, metadata.r_one);
-            assert_eq!(queued_init.new_config.r_two, metadata.r_two);
-            assert_eq!(queued_init.new_config.r_three, metadata.r_three);
-            assert_eq!(queued_init.new_config.reactivity, metadata.reactivity);
-            assert_eq!(queued_init.new_config.index, 0);
-            assert_eq!(
-                queued_init.unlock_time,
-                e.ledger().timestamp() + SECONDS_PER_WEEK
-            );
         });
     }
 
@@ -660,7 +607,7 @@ mod tests {
         let pool_config = PoolConfig {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
+            bstop_rate: 0,
             status: 6,
             max_positions: 2,
         };
@@ -678,7 +625,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #1202)")]
-    fn test_queue_set_reserve_validates_metadata() {
+    fn test_queue_set_reserve_rejects_new_reserve_off_setup() {
         let e = Env::default();
         e.mock_all_auths();
         let pool = testutils::create_pool(&e);
@@ -689,8 +636,8 @@ mod tests {
             index: 0,
             decimals: 7,
             c_factor: 0_7500000,
-            l_factor: 1_7500000,
-            util: 1_0000000,
+            l_factor: 0_7500000,
+            util: 0_5000000,
             max_util: 0_9500000,
             r_base: 0_0100000,
             r_one: 0_0500000,
@@ -703,10 +650,11 @@ mod tests {
         let pool_config = PoolConfig {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
+            bstop_rate: 0,
             status: 0,
             max_positions: 2,
         };
+        // metadata beyond the disable-only seam never queues outside setup
         e.as_contract(&pool, || {
             storage::set_pool_config(&e, &pool_config);
             execute_queue_set_reserve(&e, &asset_id, &metadata);
@@ -714,7 +662,95 @@ mod tests {
     }
 
     #[test]
-    fn test_queue_set_reserve_with_existing_res() {
+    fn test_queue_set_reserve_seeds_disabled_transition_from_existing() {
+        let e = Env::default();
+        e.mock_all_auths();
+        let pool = testutils::create_pool(&e);
+        let bombadil = Address::generate(&e);
+        let (asset_id, _) = testutils::create_token_contract(&e, &bombadil);
+
+        let current = ReserveConfig {
+            index: 1,
+            decimals: 7,
+            c_factor: 0_7500000,
+            l_factor: 0_7500000,
+            util: 0_5000000,
+            max_util: 0_9500000,
+            r_base: 0_0100000,
+            r_one: 0_0500000,
+            r_two: 0_5000000,
+            r_three: 1_5000000,
+            reactivity: 100,
+            supply_cap: 1000000000000000000,
+            enabled: true,
+        };
+        let mut disabled = current.clone();
+        disabled.enabled = false;
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0,
+            status: 5,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            storage::set_res_config(&e, &asset_id, &current);
+            execute_queue_set_reserve(&e, &asset_id, &disabled);
+
+            let queued_init = storage::get_queued_reserve_set(&e, &asset_id);
+            assert_eq!(queued_init.new_config.enabled, false);
+            assert_eq!(queued_init.new_config.c_factor, current.c_factor);
+            assert_eq!(
+                queued_init.unlock_time,
+                e.ledger().timestamp() + SECONDS_PER_WEEK
+            );
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1202)")]
+    fn test_queue_set_reserve_rejects_other_field_drift_on_existing() {
+        let e = Env::default();
+        e.mock_all_auths();
+        let pool = testutils::create_pool(&e);
+        let bombadil = Address::generate(&e);
+        let (asset_id, _) = testutils::create_token_contract(&e, &bombadil);
+
+        let current = ReserveConfig {
+            index: 1,
+            decimals: 7,
+            c_factor: 0_7500000,
+            l_factor: 0_7500000,
+            util: 0_5000000,
+            max_util: 0_9500000,
+            r_base: 0_0100000,
+            r_one: 0_0500000,
+            r_two: 0_5000000,
+            r_three: 1_5000000,
+            reactivity: 100,
+            supply_cap: 1000000000000000000,
+            enabled: true,
+        };
+        let mut drifted = current.clone();
+        drifted.enabled = false;
+        drifted.supply_cap += 1;
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0,
+            status: 5,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            storage::set_res_config(&e, &asset_id, &current);
+            execute_queue_set_reserve(&e, &asset_id, &drifted);
+        });
+    }
+
+    #[test]
+    fn test_queue_set_reserve_with_existing_res_during_setup() {
         let e = Env::default();
         e.mock_all_auths();
         let pool = testutils::create_pool(&e);
@@ -756,7 +792,7 @@ mod tests {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
             bstop_rate: 0_1000000,
-            status: 5,
+            status: 6,
             max_positions: 2,
         };
         e.as_contract(&pool, || {
@@ -775,10 +811,7 @@ mod tests {
             assert_eq!(queued_init.new_config.r_three, metadata.r_three);
             assert_eq!(queued_init.new_config.reactivity, metadata.reactivity);
             assert_eq!(queued_init.new_config.index, 1);
-            assert_eq!(
-                queued_init.unlock_time,
-                e.ledger().timestamp() + SECONDS_PER_WEEK
-            );
+            assert_eq!(queued_init.unlock_time, e.ledger().timestamp());
         });
     }
 
@@ -1017,7 +1050,7 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_set_reserve_update() {
+    fn test_execute_set_reserve_update_during_setup() {
         let e = Env::default();
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
@@ -1060,8 +1093,8 @@ mod tests {
         let pool_config = PoolConfig {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
-            status: 0,
+            bstop_rate: 0,
+            status: 6,
             max_positions: 2,
         };
         e.as_contract(&pool, || {
@@ -1092,14 +1125,87 @@ mod tests {
             // validate interest was accrued
             let res_data = storage::get_res_data(&e, &underlying);
             assert!(res_data.d_rate > 1_000_000_000_000);
-            assert!(res_data.backstop_credit > 0);
+            // Fork semantics: no backstop credit is taken during accrual.
+            assert_eq!(res_data.backstop_credit, 0);
             assert_eq!(res_data.last_time, 10000);
             assert!(res_data.ir_mod != 1_0000000);
         });
     }
 
     #[test]
-    fn test_execute_set_reserve_update_resets_ir_mod() {
+    fn test_execute_set_reserve_applies_queued_disable_only_transition() {
+        let e = Env::default();
+        e.mock_all_auths();
+        e.ledger().set(LedgerInfo {
+            timestamp: 500,
+            protocol_version: 22,
+            sequence_number: 100,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let pool = testutils::create_pool(&e);
+        let bombadil = Address::generate(&e);
+
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, mut reserve_data) = testutils::default_reserve_meta();
+        reserve_data.b_supply = 1000_0000000;
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        // the disable-only transition was queued during setup and executed after activation
+        reserve_config.enabled = false;
+
+        e.ledger().set(LedgerInfo {
+            timestamp: 10000,
+            protocol_version: 22,
+            sequence_number: 100,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+
+            storage::set_queued_reserve_set(
+                &e,
+                &QueuedReserveInit {
+                    new_config: reserve_config.clone(),
+                    unlock_time: e.ledger().timestamp(),
+                },
+                &underlying,
+            );
+            execute_set_reserve(&e, &underlying);
+
+            let res_config_updated = storage::get_res_config(&e, &underlying);
+            assert_eq!(res_config_updated.enabled, false);
+            assert_eq!(res_config_updated.c_factor, reserve_config.c_factor);
+            assert_eq!(res_config_updated.max_util, reserve_config.max_util);
+
+            // validate interest was accrued
+            let res_data = storage::get_res_data(&e, &underlying);
+            assert!(res_data.d_rate > 1_000_000_000_000);
+            // Fork semantics: no backstop credit is taken during accrual.
+            assert_eq!(res_data.backstop_credit, 0);
+            assert_eq!(res_data.last_time, 10000);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1202)")]
+    fn test_execute_set_reserve_rejects_drift_on_existing_reserve() {
         let e = Env::default();
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
@@ -1118,11 +1224,12 @@ mod tests {
 
         let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
         let (reserve_config, mut reserve_data) = testutils::default_reserve_meta();
-        reserve_data.ir_mod = 1_100_000_000;
+        reserve_data.b_supply = 1000_0000000;
         testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
 
         let mut new_metadata = reserve_config.clone();
-        new_metadata.r_base += 1;
+        new_metadata.enabled = false;
+        new_metadata.supply_cap += 1;
 
         e.ledger().set(LedgerInfo {
             timestamp: 10000,
@@ -1138,7 +1245,7 @@ mod tests {
         let pool_config = PoolConfig {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
+            bstop_rate: 0,
             status: 0,
             max_positions: 2,
         };
@@ -1154,24 +1261,6 @@ mod tests {
                 &underlying,
             );
             execute_set_reserve(&e, &underlying);
-            let res_config_updated = storage::get_res_config(&e, &underlying);
-            assert_eq!(res_config_updated.decimals, new_metadata.decimals);
-            assert_eq!(res_config_updated.c_factor, new_metadata.c_factor);
-            assert_eq!(res_config_updated.l_factor, new_metadata.l_factor);
-            assert_eq!(res_config_updated.util, new_metadata.util);
-            assert_eq!(res_config_updated.max_util, new_metadata.max_util);
-            assert_eq!(res_config_updated.r_base, new_metadata.r_base);
-            assert_eq!(res_config_updated.r_one, new_metadata.r_one);
-            assert_eq!(res_config_updated.r_two, new_metadata.r_two);
-            assert_eq!(res_config_updated.r_three, new_metadata.r_three);
-            assert_eq!(res_config_updated.reactivity, new_metadata.reactivity);
-            assert_eq!(res_config_updated.index, reserve_config.index);
-
-            let res_data = storage::get_res_data(&e, &underlying);
-            assert!(res_data.d_rate > 1_000_000_000_000);
-            assert!(res_data.backstop_credit > 0);
-            assert_eq!(res_data.last_time, 10000);
-            assert_eq!(res_data.ir_mod, 1_0000000);
         });
     }
 
@@ -1217,7 +1306,7 @@ mod tests {
         let pool_config = PoolConfig {
             oracle: Address::generate(&e),
             min_collateral: 1_0000000,
-            bstop_rate: 0_1000000,
+            bstop_rate: 0,
             status: 0,
             max_positions: 2,
         };
@@ -1409,7 +1498,7 @@ mod tests {
             c_factor: 0_7500000,
             l_factor: 0_7500000,
             util: 0_5000000,
-            max_util: 1_0000001,
+            max_util: 1_0000000,
             r_base: 0_0001000,
             r_one: 0_0500000,
             r_two: 0_5000000,
@@ -1511,5 +1600,53 @@ mod tests {
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
+    }
+}
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    #[kani::proof]
+    fn prove_disable_only_transition() {
+        let current = ReserveConfig {
+            index: kani::any(),
+            decimals: kani::any(),
+            c_factor: kani::any(),
+            l_factor: kani::any(),
+            util: kani::any(),
+            max_util: kani::any(),
+            r_base: kani::any(),
+            r_one: kani::any(),
+            r_two: kani::any(),
+            r_three: kani::any(),
+            reactivity: kani::any(),
+            supply_cap: kani::any(),
+            enabled: kani::any(),
+        };
+        let mut candidate = current.clone();
+        assert!(!is_disable_only(&current, &candidate));
+        candidate.enabled = true;
+        assert!(!is_disable_only(&current, &candidate));
+        candidate.enabled = false;
+        assert_eq!(is_disable_only(&current, &candidate), current.enabled);
+
+        let field: u8 = kani::any();
+        kani::assume(field < 12);
+        match field {
+            0 => candidate.index ^= 1,
+            1 => candidate.decimals ^= 1,
+            2 => candidate.c_factor ^= 1,
+            3 => candidate.l_factor ^= 1,
+            4 => candidate.util ^= 1,
+            5 => candidate.max_util ^= 1,
+            6 => candidate.r_base ^= 1,
+            7 => candidate.r_one ^= 1,
+            8 => candidate.r_two ^= 1,
+            9 => candidate.r_three ^= 1,
+            10 => candidate.reactivity ^= 1,
+            _ => candidate.supply_cap ^= 1,
+        }
+        assert!(!is_disable_only(&current, &candidate));
     }
 }

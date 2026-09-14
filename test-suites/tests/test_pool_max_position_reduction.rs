@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use pool::{Request, RequestType};
-use soroban_sdk::{testutils::Address as _, vec, Address, Error};
+use soroban_sdk::{testutils::Address as _, vec, Address, Error, Symbol};
 use test_suites::{
     create_fixture_with_data,
     test_fixture::{TokenIndex, SCALAR_7},
@@ -71,8 +71,21 @@ fn test_pool_max_positions_reduction() {
 
     fixture.jump_with_sequence(100);
 
-    // admin lowers max positions to 4
-    pool_fixture.pool.update_pool(&0_1000000, &4, &1_0000000);
+    // A reduced-limit prestate is synthetic: the fork seals public updates.
+    // Preserve the regression for removing existing positions above the cap.
+    assert_eq!(
+        pool_fixture.pool.try_update_pool(&0, &4, &1_0000000).err(),
+        Some(Ok(Error::from_contract_error(1200)))
+    );
+    let mut config = fixture.read_pool_config(0);
+    config.max_positions = 4;
+    fixture.env.as_contract(&pool_fixture.pool.address, || {
+        fixture
+            .env
+            .storage()
+            .instance()
+            .set(&Symbol::new(&fixture.env, "Config"), &config);
+    });
 
     fixture.jump_with_sequence(100);
 
