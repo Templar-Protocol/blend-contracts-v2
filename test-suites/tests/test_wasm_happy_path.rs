@@ -9,10 +9,10 @@ use test_suites::{
     test_fixture::{TokenIndex, SCALAR_12, SCALAR_7},
 };
 
-/// Smoke test for managing positions, tracking emissions, and accruing interest
+/// Optimized-Wasm smoke test for positions, accrued interest, and backstop withdrawal.
 #[test]
 fn test_wasm_happy_path() {
-    let fixture = create_fixture_with_data(false);
+    let fixture = create_fixture_with_data(true);
     let frodo = fixture.users.get(0).unwrap();
     let pool_fixture = &fixture.pools[0];
     let stable_pool_index = pool_fixture.reserves[&TokenIndex::STABLE];
@@ -175,69 +175,8 @@ fn test_wasm_happy_path() {
     //  * 2.6% for STABLE lending
     //  * rate will be dragged down due to rate modifier
 
-    // claim frodo's setup emissions (1h1m passes during setup)
-    // - Frodo should receive 60 * 61 * .3 = 1098 BLND from the pool claim
-    // - Frodo should receive 60 * 61 * .7 = 2562 BLND from the backstop claim
-    let mut backstop_blnd_balance =
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address);
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&frodo, &vec![&fixture.env, 0, 3], &frodo);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 1098_0000000);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-    let lp_amount = fixture.backstop.claim(
-        &frodo,
-        &vec![&fixture.env, pool_fixture.pool.address.clone()],
-        &0,
-    );
-    assert_eq!(lp_amount, 204_8364995);
-    backstop_blnd_balance -= 2562_0000000;
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-
     // Let three days pass
-    pool_fixture.pool.gulp(&stable.address);
     fixture.jump(60 * 60 * 24 * 3);
-
-    // Claim 3 day emissions
-
-    // Claim frodo's three day pool emissions
-    let frodo_balance = fixture.tokens[TokenIndex::BLND].balance(&frodo);
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&frodo, &vec![&fixture.env, 0, 3], &frodo);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 4665_6412730);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&frodo),
-        frodo_balance + claim_amount
-    );
-
-    // Claim sam's three day pool emissions
-    let sam_balance = fixture.tokens[TokenIndex::BLND].balance(&sam);
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&sam, &vec![&fixture.env, 0, 3], &sam);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 730943587268);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&sam),
-        sam_balance + claim_amount
-    );
 
     // Sam repays some of his STABLE loan
     let amount = 55_000 * 10i128.pow(6);
@@ -361,112 +300,11 @@ fn test_wasm_happy_path() {
         10,
     );
 
-    // Let rest of emission period pass
+    // Retain the elapsed week and year before closing the positions.
     fixture.jump(341940);
 
-    // Distribute emissions
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    pool_fixture.pool.gulp_emissions();
-
-    // Frodo claim emissions
-    let mut backstop_blnd_balance =
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address);
-    let frodo_balance = fixture.tokens[TokenIndex::BLND].balance(&frodo);
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&frodo, &vec![&fixture.env, 0, 3], &frodo);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 11673_1666149);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&frodo),
-        frodo_balance + claim_amount
-    );
-
-    let lp_amount = fixture.backstop.claim(
-        &frodo,
-        &vec![&fixture.env, pool_fixture.pool.address.clone()],
-        &0,
-    );
-    assert_eq!(lp_amount, 33_629_3445342);
-    backstop_blnd_balance -= 4207979999999;
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-
-    // Sam claim emissions
-    let sam_balance = fixture.tokens[TokenIndex::BLND].balance(&sam);
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&sam, &vec![&fixture.env, 0, 3], &sam);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 90908_8333849);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&sam),
-        sam_balance + claim_amount
-    );
-
-    // Let 51 weeks go by and call update to validate emissions won't get missed
-    pool_fixture.pool.gulp(&stable.address);
-
     fixture.jump(60 * 60 * 24 * 7 * 51);
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    pool_fixture.pool.gulp_emissions();
-    // Allow another week go by to distribute missed emissions
-    pool_fixture.pool.gulp(&stable.address);
-
     fixture.jump(60 * 60 * 24 * 7);
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    pool_fixture.pool.gulp_emissions();
-
-    // Frodo claims a year worth of backstop emissions
-    let mut backstop_blnd_balance =
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address);
-    let lp_amount = fixture.backstop.claim(
-        &frodo,
-        &vec![&fixture.env, pool_fixture.pool.address.clone()],
-        &0,
-    );
-    assert_eq!(lp_amount, 1_723_120_8830717);
-    backstop_blnd_balance -= 22_014_719_9999999;
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-
-    // Frodo claims a year worth of pool emissions
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&frodo, &vec![&fixture.env, 0, 3], &frodo);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 1073628_1826492);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-
-    // Sam claims a year worth of pool emissions
-    let claim_amount = pool_fixture
-        .pool
-        .claim(&sam, &vec![&fixture.env, 0, 3], &sam);
-    backstop_blnd_balance -= claim_amount;
-    assert_eq!(claim_amount, 8361251_8173506);
-    assert_eq!(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        backstop_blnd_balance
-    );
-
     // Sam repays his STABLE loan
     let amount = sam_stable_dtoken_balance
         .fixed_mul_ceil(1_100_000_000_000, SCALAR_12)
@@ -560,12 +398,6 @@ fn test_wasm_happy_path() {
 
     assert_eq!(result.collateral.get(xlm_pool_index), None);
 
-    let expected_gulp_amount = 100 * SCALAR_7;
-    stable.mint(&pool_fixture.pool.address, &expected_gulp_amount);
-    let gulp_amount = pool_fixture.pool.gulp(&stable.address);
-    assert_eq!(gulp_amount, expected_gulp_amount + 2); // 2 stroops from rounding loss
-    pool_stable_balance += expected_gulp_amount; // rounding loss does not effect the b_rate
-
     // Merry withdraws all of his STABLE
     let reserve_data = fixture.read_reserve_data(0, TokenIndex::STABLE);
     let amount = merry_stable_btoken_balance
@@ -616,7 +448,6 @@ fn test_wasm_happy_path() {
     );
 
     // Time passes and Frodo withdraws his queued for withdrawal backstop deposit
-    pool_fixture.pool.gulp(&stable.address);
 
     fixture.jump(60 * 60 * 24 * 17 + 1);
     let result = fixture

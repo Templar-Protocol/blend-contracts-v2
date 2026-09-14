@@ -43,10 +43,9 @@ fn test_backstop_and_pool_failure() {
      *
      * - Crash the price of XLM and WETH
      *
-     * - Liquidate Sam, have enough STABLE bad debt to wipe out the backstop
-     * but no default
-     *
-     * - Liquidate Pippin, verify the STABLE bad debt is defaulted
+     * - Liquidate Sam and Pippin: each unpaid remainder defaults to
+     * suppliers immediately, without assigning debt to the backstop.
+     * - Verify both supplier losses and proportional final withdrawals.
      */
 
     // ***** Setup Gandalf with 300,000 STABLE supply *****
@@ -119,8 +118,8 @@ fn test_backstop_and_pool_failure() {
     fixture.jump_with_sequence(100);
 
     // ***** Crash the price of XLM and WETH *****
-    // XLM - want 50k supply value for sam to force ~60k of bad debt to
-    //       be covered by backstop, w/ 10k profit for liquidator
+    // XLM - want 50k supply value for sam to force ~60k supplier default,
+    //       with 10k profit for the liquidator
     //     = 50k / 1.5m = 0.033
     // WETH - we want 50k supply value for pippin to force 60k of bad debt to
     //        defaulted, w/ 10k profit for liquidator
@@ -133,7 +132,7 @@ fn test_backstop_and_pool_failure() {
         1_0000000,   // stable
     ]);
 
-    // ***** Liquidate Sam and auction off the bad debt *****
+    // ***** Liquidate Sam and default the unpaid remainder *****
 
     // Setup Elrond to be the liquidator throughout this process
     let elrond_stable_balance = 500_000 * stable_scalar;
@@ -164,6 +163,8 @@ fn test_backstop_and_pool_failure() {
     // -> lot * 1 = 1.5m XLM
     fixture.jump_with_sequence(320 * 5 + 5);
 
+    let stable_res_pre_sam_default = pool_fixture.pool.get_reserve(&stable.address);
+    let stable_cash_pre_sam = stable.balance(&pool_fixture.pool.address);
     // Fill the auction, repay debt and withdraw lot
     pool_fixture.pool.submit(
         &elrond,
@@ -194,66 +195,28 @@ fn test_backstop_and_pool_failure() {
     assert_eq!(sam_position_post.liabilities.len(), 0);
     let backstop_post_liq_1 = pool_fixture.pool.get_positions(&fixture.backstop.address);
     assert_eq!(backstop_post_liq_1.collateral.len(), 0);
-    assert_eq!(backstop_post_liq_1.liabilities.len(), 1);
-    let bad_debt_1 = backstop_post_liq_1
-        .liabilities
-        .get_unchecked(stable_pool_index);
-    // d_rate is barely above 1
-    assert_approx_eq_rel(bad_debt_1, 60_000 * stable_scalar, 0_001000);
-
-    // create bad debt auction to empty the backstop
-    let pool_backstop_data = fixture.backstop.pool_data(&pool_fixture.pool.address);
-    assert!(pool_backstop_data.tokens > 0);
-    assert!(pool_backstop_data.shares > 0);
-
-    let bad_debt_auction = pool_fixture.pool.new_auction(
-        &1,
-        &fixture.backstop.address,
-        &vec![&fixture.env, stable.address.clone()],
-        &vec![&fixture.env, fixture.lp.address.clone()],
-        &100,
-    );
-    assert_eq!(bad_debt_auction.bid.len(), 1);
+    // No custody hand-off: the full-percent fill itself defaulted every
+    // unpaid dollar of Sam's book straight to suppliers.
+    assert_eq!(backstop_post_liq_1.liabilities.len(), 0);
+    let post_sam_default = pool_fixture.pool.get_reserve(&stable.address);
+    let sam_debt_reduction = stable_res_pre_sam_default.total_liabilities(&fixture.env)
+        - post_sam_default.total_liabilities(&fixture.env);
+    let sam_repayment = stable.balance(&pool_fixture.pool.address) - stable_cash_pre_sam;
+    let defaulted_sam = sam_debt_reduction - sam_repayment;
+    assert!(defaulted_sam > 0);
     assert_eq!(
-        bad_debt_auction.bid.get_unchecked(stable.address.clone()),
-        bad_debt_1
+        post_sam_default.data.b_supply,
+        stable_res_pre_sam_default.data.b_supply
     );
-    assert_eq!(bad_debt_auction.lot.len(), 1);
-    assert_eq!(
-        bad_debt_auction
-            .lot
-            .get_unchecked(fixture.lp.address.clone()),
-        pool_backstop_data.tokens
-    );
-
-    // wait 200 blocks (plus 1 block for auction to start)
-    // to fill the full auction (take all backstop tokens)
-    fixture.jump_with_sequence(200 * 5 + 5);
-
-    pool_fixture.pool.submit(
-        &elrond,
-        &elrond,
-        &elrond,
-        &vec![
-            &fixture.env,
-            Request {
-                request_type: RequestType::FillBadDebtAuction as u32,
-                address: fixture.backstop.address.clone(),
-                amount: 100,
-            },
-            Request {
-                request_type: RequestType::Repay as u32,
-                address: stable.address.clone(),
-                amount: elrond_stable_balance / 2,
-            },
-        ],
+    assert!(post_sam_default.data.b_rate < stable_res_pre_sam_default.data.b_rate);
+    assert_approx_eq_abs(
+        stable_res_pre_sam_default.total_supply(&fixture.env)
+            - post_sam_default.total_supply(&fixture.env),
+        defaulted_sam,
+        0_0000100,
     );
 
-    let pool_backstop_data = fixture.backstop.pool_data(&pool_fixture.pool.address);
-    assert_eq!(pool_backstop_data.tokens, 0);
-    assert!(pool_backstop_data.shares > 0);
-
-    // ***** Liquidate Pippin and auction off the bad debt *****
+    // ***** Liquidate Pippin and default the unpaid remainder *****
 
     // Create Pippin's liquidation
     let pippin_position_pre = pool_fixture.pool.get_positions(&pippin);
@@ -283,6 +246,7 @@ fn test_backstop_and_pool_failure() {
     fixture.jump_with_sequence(320 * 5 + 5);
 
     let pre_stable_reserve = pool_fixture.pool.get_reserve(&stable.address);
+    let stable_cash_pre_pippin = stable.balance(&pool_fixture.pool.address);
 
     // Fill the auction, repay debt and withdraw lot
     pool_fixture.pool.submit(
@@ -308,36 +272,37 @@ fn test_backstop_and_pool_failure() {
             },
         ],
     );
-
     let pippin_position_post = pool_fixture.pool.get_positions(&pippin);
     assert_eq!(pippin_position_post.collateral.len(), 0);
     assert_eq!(pippin_position_post.liabilities.len(), 0);
     let backstop_post_liq_2 = pool_fixture.pool.get_positions(&fixture.backstop.address);
     assert_eq!(backstop_post_liq_2.collateral.len(), 0);
-    assert_eq!(backstop_post_liq_2.liabilities.len(), 1);
-    let bad_debt_2 = backstop_post_liq_2
-        .liabilities
-        .get_unchecked(stable_pool_index);
-    // d_rate is barely above 1
-    assert_approx_eq_rel(bad_debt_2, 60_000 * stable_scalar, 0_001000);
+    assert_eq!(backstop_post_liq_2.liabilities.len(), 0);
 
-    // default the bad debt
-    pool_fixture.pool.bad_debt(&fixture.backstop.address);
-
-    // check b_rate loss (7 decimals)
+    // Both debt burn and cash repayment reduce total liabilities; only the
+    // unpaid remainder reduces supplier claims.
     let post_stable_reserve = pool_fixture.pool.get_reserve(&stable.address);
+    let pippin_debt_reduction = pre_stable_reserve.total_liabilities(&fixture.env)
+        - post_stable_reserve.total_liabilities(&fixture.env);
+    let pippin_repayment = stable.balance(&pool_fixture.pool.address) - stable_cash_pre_pippin;
+    let defaulted_pippin = pippin_debt_reduction - pippin_repayment;
+    assert!(defaulted_pippin > 0);
+    assert_eq!(
+        post_stable_reserve.data.b_supply,
+        pre_stable_reserve.data.b_supply
+    );
+    assert_approx_eq_abs(
+        pre_stable_reserve.total_supply(&fixture.env)
+            - post_stable_reserve.total_supply(&fixture.env),
+        defaulted_pippin,
+        0_0000100,
+    );
+    // Final redemption reflects both defaults, not just Pippin's loss.
     let supply_value = post_stable_reserve
         .data
         .b_rate
-        .fixed_div_floor(pre_stable_reserve.data.b_rate, SCALAR_7)
+        .fixed_div_floor(stable_res_pre_sam_default.data.b_rate, SCALAR_7)
         .unwrap();
-    let supply_loss = SCALAR_7 - supply_value;
-    // 310k STABLE supplied, 60k defaulted
-    let est_loss = (60_000 * stable_scalar)
-        .fixed_div_floor(310_000 * stable_scalar, SCALAR_7)
-        .unwrap();
-
-    assert_approx_eq_abs(est_loss, supply_loss, 0_0001000);
 
     fixture.jump_with_sequence(100);
 

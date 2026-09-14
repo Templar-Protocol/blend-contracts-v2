@@ -880,4 +880,123 @@ mod tests {
             pool.require_under_max(&e, &user.positions, prev_positions);
         });
     }
+    #[test]
+    fn test_load_price_accepts_exact_24_hours() {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+
+        e.ledger().set(LedgerInfo {
+            timestamp: 1000 + 24 * 60 * 60,
+            protocol_version: 22,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let bombadil = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+        let asset = Address::generate(&e);
+        let (oracle, oracle_client) = testutils::create_mock_oracle(&e);
+        oracle_client.set_data(
+            &bombadil,
+            &Asset::Other(Symbol::new(&e, "USD")),
+            &vec![&e, Asset::Stellar(asset.clone())],
+            &7,
+            &300,
+        );
+        oracle_client.set_price(&vec![&e, 123], &1000);
+        let pool_config = PoolConfig {
+            oracle,
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+
+            let price = pool.load_price(&e, &asset);
+            assert_eq!(price, 123);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1210)")]
+    fn test_load_price_panics_if_future_dated() {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+
+        e.ledger().set(LedgerInfo {
+            timestamp: 1000,
+            protocol_version: 22,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let bombadil = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+        let asset = Address::generate(&e);
+        let (oracle, oracle_client) = testutils::create_mock_oracle(&e);
+        oracle_client.set_data(
+            &bombadil,
+            &Asset::Other(Symbol::new(&e, "USD")),
+            &vec![&e, Asset::Stellar(asset.clone())],
+            &7,
+            &300,
+        );
+        oracle_client.set_price(&vec![&e, 123], &(1000 + 1));
+        let pool_config = PoolConfig {
+            oracle,
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+
+            pool.load_price(&e, &asset);
+            assert!(false);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1210)")]
+    fn test_load_price_decimals_panics_if_wrong_decimals() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let pool = testutils::create_pool(&e);
+        let (oracle, oracle_client) = testutils::create_mock_oracle(&e);
+        oracle_client.set_data(
+            &Address::generate(&e),
+            &Asset::Stellar(Address::generate(&e)),
+            &vec![&e, Asset::Stellar(Address::generate(&e))],
+            &6,
+            &300,
+        );
+        let pool_config = PoolConfig {
+            oracle,
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+
+            pool.load_price_decimals(&e);
+            assert!(false);
+        });
+    }
 }

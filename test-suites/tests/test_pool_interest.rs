@@ -4,11 +4,10 @@ use std::i64;
 
 use pool::{PoolClient, Request, RequestType, ReserveConfig};
 use sep_41_token::testutils::MockTokenClient;
-use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{testutils::Address as _, vec, Address, String};
 use test_suites::{
     assertions::assert_approx_eq_abs,
-    test_fixture::{TestFixture, TokenIndex, SCALAR_7},
+    test_fixture::{TestFixture, TokenIndex, SCALAR_12, SCALAR_7},
 };
 
 /// Test interest is accrued correctly over time
@@ -19,8 +18,8 @@ fn test_pool_interest() {
     let whale = Address::generate(&fixture.env);
     let samwise = Address::generate(&fixture.env);
 
-    // create pool with 2 reserves reserve, 10% backstop take rate
-    fixture.create_pool(String::from_str(&fixture.env, "Teapot"), 1000000, 6, 0);
+    // Create two fixed-rate reserves with zero backstop take.
+    fixture.create_pool(String::from_str(&fixture.env, "Teapot"), 0, 6, 0);
     let pool_client = PoolClient::new(&fixture.env, &fixture.pools[0].pool.address);
 
     // XLM - 10% fixed rate
@@ -30,7 +29,7 @@ fn test_pool_interest() {
         decimals: 7,
         index: 0,
         l_factor: 900_0000,
-        max_util: 1_000_0000,
+        max_util: 0_950_0000,
         reactivity: 0,
         r_base: 100_0000,
         r_one: 0,
@@ -50,7 +49,7 @@ fn test_pool_interest() {
         decimals: 7,
         index: 1,
         l_factor: 900_0000,
-        max_util: 1_000_0000,
+        max_util: 0_950_0000,
         reactivity: 0,
         r_base: 100_0000,
         r_one: 0,
@@ -146,12 +145,15 @@ fn test_pool_interest() {
     /*
      * Cause a bunch of accruals to verify interest rates
      */
+    let mut xlm_added = 0;
+    let mut stable_added = 0;
     for day in 0..365 {
         fixture.jump_with_sequence(24 * 60 * 60);
 
         // supply from pool to cause b_rate update and maintain ~50% util rate
         // 100m tokens borrowed for each reserve @ a 10% borrow rate
         let approx_daily_interest = 160_0000000;
+        xlm_added += approx_daily_interest;
 
         let mut reqeusts = vec![
             &fixture.env,
@@ -163,6 +165,7 @@ fn test_pool_interest() {
         ];
 
         if day % 30 == 0 {
+            stable_added += approx_daily_interest * 30;
             reqeusts.push_back(Request {
                 request_type: RequestType::SupplyCollateral as u32,
                 address: stable_client.address.clone(),
@@ -170,55 +173,56 @@ fn test_pool_interest() {
             });
         }
 
-        // run gulp for XLM daily
-        pool_client.gulp(&xlm_client.address);
         pool_client.submit(&whale, &whale, &whale, &reqeusts);
     }
 
-    pool_client.gulp(&xlm_client.address);
-    // run gulp once for stable
-    pool_client.gulp(&stable_client.address);
+    // Read-only reserve loading includes accrual through the final ledger.
     let xlm_reserve_data_1 = pool_client.get_reserve(&xlm_client.address);
     let stable_reserve_data_1 = pool_client.get_reserve(&stable_client.address);
 
-    // util is not exactly 50%, but within 49-50%
-    // expected values w/ 4.5% supply real IR and 10% borrow IR based on compound rate
-    let b_rate_gain_daily = 1.046;
-    let b_rate_gain_monthly = 1.0459;
     let d_rate_gain_daily = 1.10516;
     let d_rate_gain_monthly = 1.10471;
 
-    let expected_backstop_credit_xlm = (xlm_reserve_data_1.total_liabilities(&fixture.env)
-        - xlm_reserve_data_0.total_liabilities(&fixture.env))
-    .fixed_mul_floor(&fixture.env, &(SCALAR_7 / 10), &SCALAR_7);
-    let expected_backstop_credit_stable = (stable_reserve_data_1.total_liabilities(&fixture.env)
-        - stable_reserve_data_0.total_liabilities(&fixture.env))
-    .fixed_mul_floor(&fixture.env, &(SCALAR_7 / 10), &SCALAR_7);
-
-    let actual_b_rate_gain_xlm =
-        xlm_reserve_data_1.data.b_rate as f64 / xlm_reserve_data_0.data.b_rate as f64;
-    let actual_b_rate_gain_stable =
-        stable_reserve_data_1.data.b_rate as f64 / stable_reserve_data_0.data.b_rate as f64;
     let actual_d_rate_gain_xlm =
         xlm_reserve_data_1.data.d_rate as f64 / xlm_reserve_data_0.data.d_rate as f64;
     let actual_d_rate_gain_stable =
         stable_reserve_data_1.data.d_rate as f64 / stable_reserve_data_0.data.d_rate as f64;
 
     // assert expected IR wihtin 0.05%
-    assert_approx_eq_abs(actual_b_rate_gain_xlm, b_rate_gain_daily, 0.0005);
-    assert_approx_eq_abs(actual_b_rate_gain_stable, b_rate_gain_monthly, 0.0005);
     assert_approx_eq_abs(actual_d_rate_gain_xlm, d_rate_gain_daily, 0.0005);
     assert_approx_eq_abs(actual_d_rate_gain_stable, d_rate_gain_monthly, 0.0005);
 
-    // assert backstop credit within 0.01 units
-    assert_approx_eq_abs(
-        xlm_reserve_data_1.data.backstop_credit,
-        expected_backstop_credit_xlm,
-        0_010_0000,
-    );
-    assert_approx_eq_abs(
-        stable_reserve_data_1.data.backstop_credit,
-        expected_backstop_credit_stable,
-        0_010_000,
-    );
+    // Zero take: borrower interest becomes supplier claims, less stock rounding.
+    // Each b_rate floor loses < b_supply/SCALAR_12 + 1 asset units;
+    // each deposit's b-token floor loses < b_rate/SCALAR_12 + 1.
+    // Final supply/rate bound this deposit-only, positive-interest book.
+    for (before, after, deposited, accruals, deposits) in [
+        (
+            &xlm_reserve_data_0,
+            &xlm_reserve_data_1,
+            xlm_added,
+            365,
+            365,
+        ),
+        (
+            &stable_reserve_data_0,
+            &stable_reserve_data_1,
+            stable_added,
+            14,
+            13,
+        ),
+    ] {
+        let supplier_interest =
+            after.total_supply(&fixture.env) - before.total_supply(&fixture.env) - deposited;
+        let borrower_interest =
+            after.total_liabilities(&fixture.env) - before.total_liabilities(&fixture.env);
+        let dust = borrower_interest - supplier_interest;
+        let rounding_bound = accruals * (after.data.b_supply / SCALAR_12 + 1)
+            + deposits * (after.data.b_rate / SCALAR_12 + 1);
+        assert!(
+            dust >= 0 && dust <= rounding_bound,
+            "unaccounted interest {dust} exceeds rounding bound {rounding_bound}"
+        );
+        assert_eq!(after.data.backstop_credit, 0);
+    }
 }

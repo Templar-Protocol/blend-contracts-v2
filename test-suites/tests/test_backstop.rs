@@ -1,13 +1,11 @@
 #![cfg(test)]
 
 use backstop::{BackstopClient, BackstopContract};
-use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Events},
     vec, Address, Env, IntoVal, Symbol, Val, Vec,
 };
 use test_suites::{
-    assertions::assert_approx_eq_abs,
     create_fixture_with_data,
     test_fixture::{TokenIndex, SCALAR_7},
 };
@@ -127,24 +125,8 @@ fn test_backstop() {
         bstop_bstop_token_balance
     );
 
-    // Simulate the pool backstop making money and progress 6d23h (+6d23hr 20% emissions for sam)
+    // Progress time before the authenticated LP donation.
     fixture.jump(60 * 60 * 24 * 7 - 60 * 60);
-    // Start the next emission cycle
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
-    assert_eq!(
-        event,
-        vec![
-            &fixture.env,
-            (
-                fixture.backstop.address.clone(),
-                (Symbol::new(&fixture.env, "distribute"),).into_val(&fixture.env),
-                ((60 * 60 * 24 * 7 + 60) * SCALAR_7).into_val(&fixture.env),
-            )
-        ]
-    );
-    pool.gulp_emissions();
     let amount = 2_000 * SCALAR_7;
     fixture.lp.approve(
         &frodo,
@@ -275,11 +257,8 @@ fn test_backstop() {
         bstop_bstop_token_balance
     );
 
-    // Start the next emission cycle and jump 7 days (No emissions earned for sam)
+    // Advance seven days while Sam's shares are queued.
     fixture.jump(60 * 60 * 24 * 7);
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    pool.gulp_emissions();
 
     // Sam dequeues half of the withdrawal
     // -> sam now makes up 11% of the unqueued shares in the backstop
@@ -329,11 +308,8 @@ fn test_backstop() {
         bstop_bstop_token_balance
     );
 
-    // Start the next emission cycle and jump 7 days (+7d 11% emissions for sam)
+    // Advance another seven days before the authenticated draw.
     fixture.jump(60 * 60 * 24 * 7);
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    pool.gulp_emissions();
 
     // Backstop loses money
     let amount = 1_000 * SCALAR_7;
@@ -378,7 +354,7 @@ fn test_backstop() {
         bstop_bstop_token_balance
     );
 
-    // Jump to the end of the withdrawal period (+7d 11% emissions for sam, emissions expire)
+    // Jump beyond the withdrawal period.
     fixture.jump(60 * 60 * 24 * 16 + 1);
     // Sam withdraws the queue position
     let amount = 6_250 * SCALAR_7; // shares
@@ -431,67 +407,6 @@ fn test_backstop() {
     assert_eq!(
         bstop_token.balance(&fixture.backstop.address),
         bstop_bstop_token_balance
-    );
-
-    // Sam claims emissions earned on the backstop deposit
-    let bstop_blend_balance = &fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address);
-    let comet_blend_balance = &fixture.tokens[TokenIndex::BLND].balance(&fixture.lp.address);
-    let lp_tokens_minted =
-        fixture
-            .backstop
-            .claim(&sam, &vec![&fixture.env, pool.address.clone()], &0);
-    assert_eq!(
-        fixture.env.auths()[0],
-        (
-            sam.clone(),
-            AuthorizedInvocation {
-                function: AuthorizedFunction::Contract((
-                    fixture.backstop.address.clone(),
-                    Symbol::new(&fixture.env, "claim"),
-                    vec![
-                        &fixture.env,
-                        sam.to_val(),
-                        vec![&fixture.env, pool.address.clone()].to_val(),
-                        0i128.into_val(&fixture.env),
-                    ]
-                )),
-                sub_invocations: std::vec![]
-            }
-        )
-    );
-
-    // 6d23hr at 20% of 0.7 BLND/sec
-    // 7d + 7d at 11% of 0.7 BLND/sec
-    let emission_share_1 = 0_7000000.fixed_mul_floor(0_2000000, SCALAR_7).unwrap();
-    let emission_share_2 = 0_7000000.fixed_mul_floor(0_1111111, SCALAR_7).unwrap();
-    let emitted_blnd_1 = ((7 * 24 * 60 * 60 - 61 * 60) * SCALAR_7)
-        .fixed_mul_floor(emission_share_1, SCALAR_7)
-        .unwrap();
-    let emitted_blnd_2 = ((14 * 24 * 60 * 60 + 1) * SCALAR_7)
-        .fixed_mul_floor(emission_share_2, SCALAR_7)
-        .unwrap();
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
-    assert_eq!(
-        event,
-        vec![
-            &fixture.env,
-            (
-                fixture.backstop.address.clone(),
-                (Symbol::new(&fixture.env, "claim"), sam.clone()).into_val(&fixture.env),
-                lp_tokens_minted.into_val(&fixture.env),
-            )
-        ]
-    );
-
-    assert_approx_eq_abs(
-        fixture.tokens[TokenIndex::BLND].balance(&fixture.lp.address) - comet_blend_balance,
-        emitted_blnd_1 + emitted_blnd_2,
-        SCALAR_7,
-    );
-    assert_approx_eq_abs(
-        bstop_blend_balance - fixture.tokens[TokenIndex::BLND].balance(&fixture.backstop.address),
-        emitted_blnd_1 + emitted_blnd_2,
-        SCALAR_7,
     );
 }
 

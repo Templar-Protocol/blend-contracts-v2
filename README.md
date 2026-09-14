@@ -24,6 +24,12 @@ Run all unit tests and the integration test suite with:
 
 ```
 make test
+
+Explicit base-versus-fork differential (ADR 0008 / ADR 0011; builds the pinned stock baseline from git). Run inside `devenv shell`, which provides the pinned Stellar CLI:
+
+```
+make differential
+```
 ```
 
 ## Deployment
