@@ -1,0 +1,53 @@
+{
+  "status": "POST_VALIDATION_SOURCE_REPAIRS_RECORDED",
+  "validation_run": {
+    "results": "astra-final-integration-validation-results.json",
+    "abi_equal_all": true,
+    "workspace_tests_passed": 495,
+    "differential": "adr8_base_fork_differential ok; all common-domain steps matched; negative controls detected every mutation"
+  },
+  "wasm_drift_attribution": {
+    "claim": "Integrated pool.wasm differs from root/source/target baseline ONLY because that baseline predates the ADR 0008/0011 fork commits.",
+    "evidence": "Frozen final-candidate optimized artifacts hash equal to integrated-ready revised hashes for pool/backstop/pool_factory; validator compared against pre-fork baseline tree.",
+    "hashes": {
+      "pool": {
+        "final_candidate": "bff2e2a989046179742b7095a7f14b772e60f3556b35ed9037c40568239bbae0",
+        "integrated_ready": "bff2e2a989046179742b7095a7f14b772e60f3556b35ed9037c40568239bbae0"
+      },
+      "backstop": {
+        "final_candidate": "6bd13007c020b617c43c718c2ad3d2d13605d4d42fa8f739da2293f8a4e293a0",
+        "integrated_ready": "6bd13007c020b617c43c718c2ad3d2d13605d4d42fa8f739da2293f8a4e293a0"
+      },
+      "pool_factory": {
+        "final_candidate": "80abaf3c68fd15adade9f82165baa9b50d85800e497c99b45809e1fbd7397de2",
+        "integrated_ready": "80abaf3c68fd15adade9f82165baa9b50d85800e497c99b45809e1fbd7397de2"
+      }
+    },
+    "note": "final-candidate artifacts were produced from the same frozen sources; cargo stage reran there but stellar optimize was unavailable in that shell, so existing optimized artifacts were hashed."
+  },
+  "repairs": [
+    {
+      "file": "pool/src/pool/reserve.rs",
+      "change": "Restored c2_s0_d_forward_exact_u64 verbatim from astra-loss-composition lane (only diff: rustfmt rewrap of the fn-pointer binding line). Closes FinalProofInventory missing-source finding; C2 /forward dependency now binds.",
+      "cfg": "kani"
+    },
+    {
+      "file": "pool/src/pool/inverse_partitions.rs",
+      "change": "Restored enumerative check_rate(rate_h, amount:u8) + unwind(257) all-256-amount loop with completeness assertion and cover; final inverse targets expect 1 cover each.",
+      "cfg": "kani"
+    }
+  ],
+  "post_repair_check": "cargo check -p pool --lib exit 0; cargo fmt --all clean",
+  "binding": "Post-repair native/differential run used pre-repair source, but both repaired files are #[cfg(kani)]-gated and excluded from wasm/native builds, so those gates remain binding. Fresh Kani execution of the final inventory is still REQUIRED before any acceptance or commit claim.",
+  "revalidation": {
+    "when": "2026-09-15T15:24:06+00:00",
+    "command": "devenv shell -- python3 proof-packaging/validate-integration.py --candidate astra-integrated-ready (cwd live repo)",
+    "result": "PASSED",
+    "gates": [
+      "495 native workspace tests",
+      "ABI equality on pool/backstop/pool_factory",
+      "exact differential with negative controls (all mutations detected)"
+    ],
+    "note": "binds the POST-repair integrated tree (restored c2_s0_d_forward_exact_u64 body + enumerative inverse_partitions.rs, both cfg(kani)-gated)"
+  }
+}

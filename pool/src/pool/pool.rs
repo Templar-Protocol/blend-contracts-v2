@@ -73,10 +73,7 @@ impl Pool {
     /// ### Arguments
     /// * `action_type` - The type of action being performed
     pub fn require_action_allowed(&self, e: &Env, action_type: u32) {
-        // disable borrowing or auction cancellation for any non-active pool and disable supplying for any frozen pool
-        if (self.config.status > 1 && (action_type == 4 || action_type == 9))
-            || (self.config.status > 3 && (action_type == 2 || action_type == 0))
-        {
+        if is_action_disallowed(self.config.status, action_type) {
             panic_with_error!(e, PoolError::InvalidPoolStatus);
         }
     }
@@ -135,6 +132,50 @@ impl Pool {
         }
         self.prices.set(asset.clone(), price_data.price);
         price_data.price
+    }
+}
+
+/// Whether `action_type` is disallowed by the pool status gate:
+/// - borrow (4) and cancel auction (9) are disallowed for any non-active pool (status > 1)
+/// - supply (0) and supply collateral (2) are additionally disallowed once the pool is frozen (status > 3)
+///
+/// Any other action id, including ids outside RequestType, passes this gate.
+fn is_action_disallowed(status: u32, action_type: u32) -> bool {
+    (status > 1 && (action_type == 4 || action_type == 9))
+        || (status > 3 && (action_type == 2 || action_type == 0))
+}
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// Exact pool status/action decision table over independent full-width
+    /// u32 status and action ids, with no assumptions: invalid status and
+    /// action values are genuine inputs and keep the predicate's actual
+    /// behavior (they pass this gate and remain subject to RequestType
+    /// parsing elsewhere).
+    #[kani::proof]
+    fn prove_pool_action_status_table() {
+        let status: u32 = kani::any();
+        let action: u32 = kani::any();
+        let disallowed = is_action_disallowed(status, action);
+
+        if status <= 1 {
+            assert!(!disallowed);
+        } else if status <= 3 {
+            assert_eq!(disallowed, action == 4 || action == 9);
+        } else {
+            assert_eq!(
+                disallowed,
+                action == 4 || action == 9 || action == 2 || action == 0
+            );
+        }
+
+        // non-vacuity witnesses on the documented gate boundaries
+        assert!(is_action_disallowed(2, 4));
+        assert!(is_action_disallowed(4, 0));
+        assert!(!is_action_disallowed(1, 4));
+        assert!(!is_action_disallowed(3, 0));
     }
 }
 

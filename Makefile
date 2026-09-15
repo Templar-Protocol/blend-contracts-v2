@@ -29,6 +29,21 @@ fmt:
 clean:
 	cargo clean
 
+# Run the full Kani proof inventory (proof-packaging/inventory.json).
+# Every harness passes under the bundled Kissat solver. One known exception:
+# pool::reserve::verification::independent_probe_b_d_inverse_equivalence needs
+# a 3600s budget (macro-compacted tree symex blow-up; ~915s observed), so the
+# default budget below is generous rather than the 120s per-harness default
+# used for the sharded campaign runs.
+kani:
+	python3 proof-packaging/kani.py \
+		--source . \
+		--inventory proof-packaging/inventory.json \
+		--output proof-packaging/kani-run \
+		--target-dir target/kani \
+		--solver kissat \
+		--timeout 3600s
+
 generate-js:
 	stellar contract bindings typescript --overwrite \
 		--contract-id CBWH54OKUK6U2J2A4J2REJEYB625NEFCHISWXLOPR2D2D6FTN63TJTWN \

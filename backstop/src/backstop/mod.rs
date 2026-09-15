@@ -8,6 +8,8 @@ mod withdrawal;
 pub use withdrawal::{execute_dequeue_withdrawal, execute_queue_withdrawal, execute_withdraw};
 
 mod pool;
+#[cfg(kani)]
+pub use pool::threshold_from_product;
 pub use pool::{
     is_pool_above_threshold, load_pool_backstop_data, require_is_from_pool_factory,
     PoolBackstopData, PoolBalance,
