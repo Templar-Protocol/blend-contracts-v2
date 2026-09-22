@@ -150,6 +150,15 @@ class KaniReleaseTest(unittest.TestCase):
             self.assertTrue((output / f"{release}.tar.zst").is_file())
             self.assertTrue((output / f"{release}.tar.zst.sha256").is_file())
 
+            (package / "kani.py").chmod(0o600)
+            package.chmod(0o700)
+            mode_output = root / "mode-output"
+            publish(mode_output)
+            self.assertEqual(
+                digest(output / f"{release}.tar.zst"),
+                digest(mode_output / f"{release}.tar.zst"),
+            )
+
             record["source_sha256_before"] = {**sources, "src/lib.rs": "0" * 64}
             record["source_sha256_after"] = record["source_sha256_before"]
             rejected = publish(root / "source-rejected", check=False)
@@ -183,6 +192,75 @@ class KaniReleaseTest(unittest.TestCase):
             self.assertNotEqual(0, rejected.returncode)
             self.assertIn("result fields do not match retained log", rejected.stderr)
             self.assertFalse((root / "verdict-rejected").exists())
+
+    def test_rust_compile_error_precedes_timeout_text(self):
+        record = {
+            "expected_covers": 0,
+            "signal": None,
+            "execution_error": None,
+            "exit": 1,
+        }
+        verdict = KANI_RELEASE.parse_log(
+            record, b"error[E0308]: mismatched types after timeout\n"
+        )[0]
+        self.assertEqual("COMPILE_FAILURE", verdict)
+
+    def test_command_reports_process_failures(self):
+        with mock.patch.object(KANI_RELEASE.subprocess, "run") as process:
+            process.side_effect = FileNotFoundError("missing")
+            with self.assertRaisesRegex(ValueError, "cannot execute gh"):
+                KANI_RELEASE.command(["gh", "api", "user"])
+
+            process.side_effect = subprocess.CalledProcessError(
+                1, ["gh", "api", "user"], stderr="HTTP 401: Bad credentials"
+            )
+            with self.assertRaisesRegex(ValueError, "Bad credentials"):
+                KANI_RELEASE.command(["gh", "api", "user"], capture=True)
+
+            process.side_effect = subprocess.TimeoutExpired(
+                ["git", "archive"], KANI_RELEASE.COMMAND_TIMEOUTS["git"]
+            )
+            with self.assertRaisesRegex(ValueError, "command timed out"):
+                KANI_RELEASE.command(["git", "archive"])
+            self.assertEqual(
+                KANI_RELEASE.COMMAND_TIMEOUTS["git"],
+                process.call_args.kwargs["timeout"],
+            )
+
+    def test_archive_timeout_stops_pipeline_and_removes_partial_output(self):
+        with tempfile.TemporaryDirectory(prefix="kani-archive-test-") as temporary:
+            root = Path(temporary)
+            release_name = "kani-run-1234567-2026-09-15"
+            destination = root / f"{release_name}.tar.zst"
+            destination.write_text("partial")
+
+            tar = mock.Mock()
+            tar.stdout = mock.Mock()
+            tar.poll.return_value = None
+            zstd = mock.Mock()
+            zstd.poll.return_value = None
+            zstd.wait.side_effect = [
+                subprocess.TimeoutExpired(["zstd"], KANI_RELEASE.ARCHIVE_ZSTD_TIMEOUT),
+                0,
+            ]
+            with (
+                mock.patch.object(
+                    KANI_RELEASE.subprocess, "Popen", side_effect=[tar, zstd]
+                ),
+                mock.patch.object(
+                    KANI_RELEASE.time,
+                    "monotonic",
+                    side_effect=[0, KANI_RELEASE.ARCHIVE_TAR_TIMEOUT],
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "archive build timed out"):
+                    KANI_RELEASE.build_archive(
+                        root, release_name, "2026-09-15", destination
+                    )
+
+            tar.terminate.assert_called_once()
+            zstd.terminate.assert_called_once()
+            self.assertFalse(destination.exists())
 
     def test_publish_checks_exact_tag_before_publication(self):
         release_name = "kani-run-1234567-2026-09-15"
@@ -303,6 +381,54 @@ class KaniReleaseTest(unittest.TestCase):
 
         self.assertTrue(any(args[:3] == ("gh", "release", "create") for args in events))
         self.assertFalse(any("--draft=false" in args for args in events))
+
+    def test_publish_handles_command_failures_around_draft_creation(self):
+        release_name = "kani-run-1234567-2026-09-15"
+        commit = "1" * 40
+        archive_hash = "a" * 64
+        archive = Path("/tmp") / f"{release_name}.tar.zst"
+        checksum = Path("/tmp") / f"{archive.name}.sha256"
+
+        for failure in ("create", "download"):
+            with self.subTest(failure=failure):
+                commands = []
+
+                def fake_run(argv, **_kwargs):
+                    commands.append(tuple(argv))
+                    if argv[:3] == ["gh", "release", failure]:
+                        raise subprocess.CalledProcessError(
+                            1, argv, stderr="HTTP 401: Bad credentials"
+                        )
+                    return subprocess.CompletedProcess(argv, 0, "", "")
+
+                with (
+                    mock.patch.object(
+                        KANI_RELEASE.subprocess, "run", side_effect=fake_run
+                    ),
+                    mock.patch.object(KANI_RELEASE, "require_github_absent"),
+                    mock.patch.object(KANI_RELEASE, "release_metadata"),
+                    mock.patch.object(KANI_RELEASE, "verify_release_metadata"),
+                    mock.patch.object(
+                        KANI_RELEASE, "remote_tag_commit", return_value=commit
+                    ),
+                ):
+                    with self.assertRaises(ValueError) as raised:
+                        KANI_RELEASE.publish_release(
+                            "Templar-Protocol/blend-contracts-v2",
+                            release_name,
+                            commit,
+                            archive,
+                            checksum,
+                            Path("/tmp/RELEASE_NOTES.md"),
+                            archive_hash,
+                        )
+
+                if failure == "create":
+                    self.assertNotIn("retained after", str(raised.exception))
+                else:
+                    self.assertIn("retained after", str(raised.exception))
+                self.assertIn("Bad credentials", str(raised.exception))
+                self.assertFalse(any("--draft=false" in args for args in commands))
 
 
 if __name__ == "__main__":
