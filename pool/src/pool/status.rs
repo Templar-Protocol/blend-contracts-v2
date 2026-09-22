@@ -144,7 +144,7 @@ fn threshold_from_product(product: i128) -> i128 {
 // The existing dev-dependency supplies the backstop suffix consumed by the unchanged
 // scale-agreement theorem below.
 #[cfg(all(kani, test))]
-#[path = "status_verification.rs"]
+#[path = "../proofs/status.rs"]
 mod verification;
 
 #[cfg(test)]

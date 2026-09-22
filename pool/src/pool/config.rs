@@ -1604,5 +1604,5 @@ mod tests {
 }
 
 #[cfg(kani)]
-#[path = "config_verification.rs"]
+#[path = "../proofs/config.rs"]
 mod verification;

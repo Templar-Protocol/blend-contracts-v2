@@ -1916,5 +1916,5 @@ mod tests {
 }
 
 #[cfg(kani)]
-#[path = "actions_verification.rs"]
+#[path = "../proofs/actions.rs"]
 mod verification;

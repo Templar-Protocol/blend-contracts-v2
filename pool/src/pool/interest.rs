@@ -134,7 +134,7 @@ fn finish_accrual(
 /// this domain; overflow-freedom over all metadata-valid u32 tuples is NOT
 /// claimed and stays a separately recorded representability premise.
 #[cfg(kani)]
-#[path = "interest_verification.rs"]
+#[path = "../proofs/interest.rs"]
 mod verification;
 
 #[cfg(test)]
