@@ -133,6 +133,9 @@ fn finish_accrual(
 /// The u32 rate sum r_two + r_one + r_base (<= 1765 here) cannot overflow on
 /// this domain; overflow-freedom over all metadata-valid u32 tuples is NOT
 /// claimed and stays a separately recorded representability premise.
+#[cfg(kani)]
+#[path = "interest_verification.rs"]
+mod verification;
 
 #[cfg(test)]
 mod tests {

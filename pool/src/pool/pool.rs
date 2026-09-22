@@ -145,6 +145,9 @@ fn is_action_disallowed(status: u32, action_type: u32) -> bool {
         || (status > 3 && (action_type == 2 || action_type == 0))
 }
 
+#[cfg(kani)]
+#[path = "pool_verification.rs"]
+mod verification;
 
 #[cfg(test)]
 mod tests {

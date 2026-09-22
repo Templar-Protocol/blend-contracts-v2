@@ -1604,49 +1604,5 @@ mod tests {
 }
 
 #[cfg(kani)]
-mod verification {
-    use super::*;
-
-    #[kani::proof]
-    fn prove_disable_only_transition() {
-        let current = ReserveConfig {
-            index: kani::any(),
-            decimals: kani::any(),
-            c_factor: kani::any(),
-            l_factor: kani::any(),
-            util: kani::any(),
-            max_util: kani::any(),
-            r_base: kani::any(),
-            r_one: kani::any(),
-            r_two: kani::any(),
-            r_three: kani::any(),
-            reactivity: kani::any(),
-            supply_cap: kani::any(),
-            enabled: kani::any(),
-        };
-        let mut candidate = current.clone();
-        assert!(!is_disable_only(&current, &candidate));
-        candidate.enabled = true;
-        assert!(!is_disable_only(&current, &candidate));
-        candidate.enabled = false;
-        assert_eq!(is_disable_only(&current, &candidate), current.enabled);
-
-        let field: u8 = kani::any();
-        kani::assume(field < 12);
-        match field {
-            0 => candidate.index ^= 1,
-            1 => candidate.decimals ^= 1,
-            2 => candidate.c_factor ^= 1,
-            3 => candidate.l_factor ^= 1,
-            4 => candidate.util ^= 1,
-            5 => candidate.max_util ^= 1,
-            6 => candidate.r_base ^= 1,
-            7 => candidate.r_one ^= 1,
-            8 => candidate.r_two ^= 1,
-            9 => candidate.r_three ^= 1,
-            10 => candidate.reactivity ^= 1,
-            _ => candidate.supply_cap ^= 1,
-        }
-        assert!(!is_disable_only(&current, &candidate));
-    }
-}
+#[path = "config_verification.rs"]
+mod verification;

@@ -1915,3 +1915,6 @@ mod tests {
     }
 }
 
+#[cfg(kani)]
+#[path = "actions_verification.rs"]
+mod verification;

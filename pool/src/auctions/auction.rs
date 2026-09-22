@@ -322,6 +322,9 @@ fn require_unique_addresses(e: &Env, list: &Vec<Address>) {
     }
 }
 
+#[cfg(kani)]
+#[path = "auction_verification.rs"]
+mod verification;
 
 #[cfg(test)]
 mod tests {
