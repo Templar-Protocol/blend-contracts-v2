@@ -1,0 +1,107 @@
+name: verification-fuzz
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verification-fuzz.yml'
+      - 'justfile'
+      - 'verification/**'
+      - 'shared/**'
+      - 'pool/**'
+      - 'backstop/**'
+      - 'pool-factory/**'
+      - 'test-suites/**'
+      - 'mocks/**'
+      - 'Makefile'
+      - 'rust-toolchain.toml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verification-fuzz.yml'
+      - 'justfile'
+      - 'verification/**'
+      - 'shared/**'
+      - 'pool/**'
+      - 'backstop/**'
+      - 'pool-factory/**'
+      - 'test-suites/**'
+      - 'mocks/**'
+      - 'Makefile'
+      - 'rust-toolchain.toml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-fuzz-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      VERIFY_SYSTEMD_MODE: system
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pinned Rust toolchains and runners
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.81 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+          rustup toolchain install nightly-2025-11-25 --profile minimal --component rust-src
+          cargo +nightly-2025-11-25 install just --version 1.51.0 --locked
+          cargo +nightly-2025-11-25 install cargo-fuzz --version 0.13.2 --locked
+
+      - name: Install pinned Stellar CLI
+        uses: stellar/stellar-cli@f4fd838380408dcad3e39f704e8d56d6408c63e2 # v22.6.0
+        with:
+          version: 22.6.0
+
+      - name: Fetch locked dependencies
+        shell: bash
+        run: exec just --unstable _verification-fetch
+
+      - name: Verify containment and cancellation
+        shell: bash
+        run: |
+          set -euo pipefail
+          just verify-doctor
+          exec just verify-self-test
+
+      - name: Build production Wasm fixtures
+        shell: bash
+        run: exec just build
+
+      - name: Run fuzz harness regression tests
+        shell: bash
+        run: exec just test-fuzz
+
+      - name: Replay committed seeds in native and Wasm modes
+        shell: bash
+        run: exec just fuzz-replay all both
+
+      - name: Run seven bounded campaigns
+        shell: bash
+        run: exec just fuzz all 60 1
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-verification-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            target/verification/runs/
+            test-suites/fuzz/artifacts/
