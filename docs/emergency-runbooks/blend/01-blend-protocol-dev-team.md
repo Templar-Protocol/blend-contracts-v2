@@ -36,10 +36,14 @@ Before any incident, the dev team must keep the following in a known-good state:
   (topics `["delete_auction", auction_type, user]`).
   At minimum: events `set_admin` (emitted by `accept_admin`),
   `set_status`, `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`,
-  `update_pool`, `bad_debt`, `defaulted_debt`, `new_auction`,
+  `update_pool`, `bad_debt`, `defaulted_debt`, `debt_setoff`,
+  `collateral_orphaned`, `orphan_settled`, `new_auction`,
   `fill_auction`, `delete_auction`, `gulp`, `gulp_emissions`,
   `reserve_emission_update`; and function invocations of `propose_admin`
-  and `set_emissions_config`.
+  and `set_emissions_config`. On the ADR-0008 fork, `debt_setoff`,
+  `collateral_orphaned` and `orphan_settled` are the only events that
+  explain a `b_supply`/`d_supply` change inside a `bad_debt` or final
+  liquidation fill; `bad_debt` and `update_pool` never fire there.
 - A war room channel that can be joined within 5 minutes by:
   - Dev on-call (rotating).
   - Each pool admin on-call we publicly support.

@@ -102,16 +102,18 @@ impl User {
     /// against the balance if necessary and updates the reserve's b_rate and d_supply.
     ///
     /// This should only be called if the liabilities are being defaulted on. The liability will
-    /// be forgiven and suppliers will lose funds.
+    /// be forgiven and outstanding suppliers will lose funds. With no supplier claims,
+    /// preserve b_rate while clearing the debt.
     pub fn default_liabilities(&mut self, e: &Env, reserve: &mut Reserve, amount: i128) {
         self.remove_liabilities(e, reserve, amount);
-        // determine amount of funds in underlying that have defaulted
-        // and deduct them from the b_rate
-        let default_amount = reserve.to_asset_from_d_token(e, amount);
-        let b_rate_loss = default_amount.fixed_div_ceil(&e, &reserve.data.b_supply, &SCALAR_12);
-        reserve.data.b_rate -= b_rate_loss;
-        if reserve.data.b_rate < 0 {
-            reserve.data.b_rate = 0;
+        // Only outstanding supplier claims absorb the default.
+        if reserve.data.b_supply > 0 {
+            let default_amount = reserve.to_asset_from_d_token(e, amount);
+            let b_rate_loss = default_amount.fixed_div_ceil(&e, &reserve.data.b_supply, &SCALAR_12);
+            reserve.data.b_rate -= b_rate_loss;
+            if reserve.data.b_rate < 0 {
+                reserve.data.b_rate = 0;
+            }
         }
     }
 
@@ -599,6 +601,31 @@ mod tests {
             );
             assert_eq!(reserve_0.data.b_rate, 1_210_000_000_000);
             assert_eq!(reserve_0.data.b_supply, 750_0000000);
+        });
+    }
+
+    #[test]
+    fn test_default_liabilities_without_suppliers_preserves_b_rate() {
+        let e = Env::default();
+        e.mock_all_auths();
+        let pool = testutils::create_pool(&e);
+        let mut reserve = testutils::default_reserve(&e);
+        reserve.data.d_supply = 0;
+        reserve.data.b_supply = 0;
+        reserve.data.b_rate = 1_250_000_000_000;
+        let mut user = User {
+            address: Address::generate(&e),
+            positions: Positions::env_default(&e),
+        };
+
+        e.as_contract(&pool, || {
+            user.add_liabilities(&e, &mut reserve, 20_0000000);
+            user.default_liabilities(&e, &mut reserve, 20_0000000);
+
+            assert!(!user.has_liabilities());
+            assert_eq!(reserve.data.d_supply, 0);
+            assert_eq!(reserve.data.b_supply, 0);
+            assert_eq!(reserve.data.b_rate, 1_250_000_000_000);
         });
     }
 

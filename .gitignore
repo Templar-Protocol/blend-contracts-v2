@@ -9,3 +9,8 @@ test_snapshots/
 local.*
 
 /js
+
+# Devenv
+.devenv*
+devenv.local.nix
+.direnv

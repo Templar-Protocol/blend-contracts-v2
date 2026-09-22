@@ -39,10 +39,13 @@ state:
   `set_admin` event; `del_auction` (function) emits the `delete_auction`
   event. At minimum: events `set_admin` (emitted by `accept_admin`),
   `set_status`, `queue_set_reserve`, `cancel_set_reserve`, `set_reserve`,
-  `update_pool`, `bad_debt`, `defaulted_debt`, `new_auction`,
+  `update_pool`, `bad_debt`, `defaulted_debt`, `debt_setoff`,
+  `collateral_orphaned`, `orphan_settled`, `new_auction`,
   `fill_auction`, `delete_auction`; function invocations of
   `propose_admin` and `set_emissions_config`; and backstop `q4w_pct`
-  thresholds (30 / 50 / 60 / 75%).
+  thresholds (30 / 50 / 60 / 75%). On the ADR-0008 fork the last three
+  events are the only explanation for supply/debt totals moving inside
+  `bad_debt` or a final liquidation fill.
 - Direct contact with: the Blend dev on-call (see
   [`01-blend-protocol-dev-team.md`](./01-blend-protocol-dev-team.md)),
   every curator vault that holds a material share of your pool, and the

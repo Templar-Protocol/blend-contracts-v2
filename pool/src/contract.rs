@@ -390,13 +390,7 @@ impl Pool for PoolContract {
     }
 
     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
-        storage::extend_instance(&e);
-        let admin = storage::get_admin(&e);
-        admin.require_auth();
-
-        pool::execute_update_pool(&e, backstop_take_rate, max_positions, min_collateral);
-
-        PoolEvents::update_pool(&e, admin, backstop_take_rate, max_positions, min_collateral);
+        panic_with_error!(&e, PoolError::BadRequest);
     }
 
     fn queue_set_reserve(e: Env, asset: Address, metadata: ReserveConfig) {
@@ -487,10 +481,7 @@ impl Pool for PoolContract {
         flash_loan: FlashLoan,
         requests: Vec<Request>,
     ) -> Positions {
-        storage::extend_instance(&e);
-        from.require_auth();
-
-        pool::execute_submit_with_flash_loan(&e, &from, flash_loan, requests)
+        panic_with_error!(&e, PoolError::BadRequest);
     }
 
     fn update_status(e: Env) -> u32 {
@@ -529,11 +520,7 @@ impl Pool for PoolContract {
     }
 
     fn set_emissions_config(e: Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
-        storage::extend_instance(&e);
-        let admin = storage::get_admin(&e);
-        admin.require_auth();
-
-        emissions::set_pool_emissions(&e, res_emission_metadata);
+        panic_with_error!(&e, PoolError::BadRequest);
     }
 
     fn claim(e: Env, from: Address, reserve_token_ids: Vec<u32>, to: Address) -> i128 {

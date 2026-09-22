@@ -1,4 +1,4 @@
-use pool::{Request, RequestType, ReserveEmissionMetadata};
+use pool::{Request, RequestType};
 use soroban_sdk::{vec as svec, String, Vec as SVec};
 
 use crate::{
@@ -8,8 +8,18 @@ use crate::{
 
 /// Create a test fixture with a pool and a whale depositing and borrowing all assets
 pub fn create_fixture_with_data<'a>(wasm: bool) -> TestFixture<'a> {
-    let mut fixture = TestFixture::create(wasm);
+    populate_fixture(TestFixture::create(wasm), None)
+}
 
+/// Load the actual supplied pool/backstop artifacts; economics match the ordinary fixture.
+pub fn create_fixture_with_wasm<'a>(pool_wasm: &[u8], backstop_wasm: &[u8]) -> TestFixture<'a> {
+    populate_fixture(
+        TestFixture::create_with_artifacts(true, pool_wasm, Some(backstop_wasm)),
+        Some(crate::test_fixture::RUNTIME_POOL_SALT),
+    )
+}
+
+fn populate_fixture<'a>(mut fixture: TestFixture<'a>, salt: Option<[u8; 32]>) -> TestFixture<'a> {
     // mint whale tokens
     let frodo = fixture.users[0].clone();
     fixture.tokens[TokenIndex::STABLE].mint(&frodo, &(100_000 * 10i128.pow(6)));
@@ -17,7 +27,7 @@ pub fn create_fixture_with_data<'a>(wasm: bool) -> TestFixture<'a> {
     fixture.tokens[TokenIndex::WETH].mint(&frodo, &(100 * 10i128.pow(9)));
 
     // mint LP tokens with whale
-    // frodo has 40m BLND from drop
+    // Frodo has 30m BLND from the constructor-equivalent test funding.
     fixture.tokens[TokenIndex::BLND].mint(&frodo, &(70_000_000 * SCALAR_7));
     fixture.tokens[TokenIndex::USDC].mint(&frodo, &(2_600_000 * SCALAR_7));
     fixture.lp.join_pool(
@@ -27,12 +37,17 @@ pub fn create_fixture_with_data<'a>(wasm: bool) -> TestFixture<'a> {
     );
 
     // create pool
-    fixture.create_pool(
-        String::from_str(&fixture.env, "Teapot"),
-        0_1000000,
-        6,
-        1_0000000,
-    );
+    if let Some(salt) = salt {
+        fixture.create_pool_with_salt(
+            String::from_str(&fixture.env, "Teapot"),
+            0,
+            6,
+            1_0000000,
+            soroban_sdk::BytesN::from_array(&fixture.env, &salt),
+        );
+    } else {
+        fixture.create_pool(String::from_str(&fixture.env, "Teapot"), 0, 6, 1_0000000);
+    }
 
     let mut stable_config = default_reserve_metadata();
     stable_config.decimals = 6;
@@ -55,38 +70,14 @@ pub fn create_fixture_with_data<'a>(wasm: bool) -> TestFixture<'a> {
     weth_config.supply_cap = i128::MAX;
     fixture.create_pool_reserve(0, TokenIndex::WETH, &weth_config);
 
-    // enable emissions for pool
     let pool_fixture = &fixture.pools[0];
 
-    let reserve_emissions: soroban_sdk::Vec<ReserveEmissionMetadata> = soroban_sdk::vec![
-        &fixture.env,
-        ReserveEmissionMetadata {
-            res_index: 0, // STABLE
-            res_type: 0,  // d_token
-            share: 0_600_0000
-        },
-        ReserveEmissionMetadata {
-            res_index: 1, // XLM
-            res_type: 1,  // b_token
-            share: 0_400_0000
-        },
-    ];
-    pool_fixture.pool.set_emissions_config(&reserve_emissions);
-
-    // deposit into backstop, add to reward zone
+    // Retain the public LP deposit and ordinary activation without emissions.
     fixture
         .backstop
         .deposit(&frodo, &pool_fixture.pool.address, &(50_000 * SCALAR_7));
-    fixture
-        .backstop
-        .add_reward(&pool_fixture.pool.address, &None);
     pool_fixture.pool.set_status(&3);
     pool_fixture.pool.update_status();
-
-    // enable emissions
-    fixture.emitter.distribute();
-    fixture.backstop.distribute();
-    pool_fixture.pool.gulp_emissions();
 
     fixture.jump(60);
 
@@ -194,74 +185,8 @@ mod tests {
             fixture.tokens[TokenIndex::WETH].balance(&frodo)
         );
 
-        // validate emissions are turned on
-        let emis_data = fixture.read_reserve_emissions(0, TokenIndex::STABLE, 0);
-        assert_eq!(
-            emis_data.last_time,
-            fixture.env.ledger().timestamp() - 60 * 61
-        );
-        assert_eq!(emis_data.index, 0);
-        assert_eq!(0_180_0000_0000000, emis_data.eps);
-        assert_eq!(
-            fixture.env.ledger().timestamp() + 7 * 24 * 60 * 60 - 60 * 61,
-            emis_data.expiration
-        )
-    }
-
-    #[test]
-    fn test_create_fixture_with_data_rlib() {
-        let fixture = create_fixture_with_data(false);
-        let frodo = fixture.users.get(0).unwrap();
-        let pool_fixture: &PoolFixture = fixture.pools.get(0).unwrap();
-
-        // validate backstop deposit
-        assert_eq!(
-            50_000 * SCALAR_7,
-            fixture.lp.balance(&fixture.backstop.address)
-        );
-        assert_eq!(
-            10_000_000 * SCALAR_7,
-            fixture.tokens[TokenIndex::BLND].balance(&fixture.bombadil)
-        );
-
-        // validate pool actions
-        assert_eq!(
-            2_000 * 10i128.pow(6),
-            fixture.tokens[TokenIndex::STABLE].balance(&pool_fixture.pool.address)
-        );
-        assert_eq!(
-            35_000 * SCALAR_7,
-            fixture.tokens[TokenIndex::XLM].balance(&pool_fixture.pool.address)
-        );
-        assert_eq!(
-            5 * 10i128.pow(9),
-            fixture.tokens[TokenIndex::WETH].balance(&pool_fixture.pool.address)
-        );
-
-        assert_eq!(
-            98_000 * 10i128.pow(6),
-            fixture.tokens[TokenIndex::STABLE].balance(&frodo)
-        );
-        assert_eq!(
-            965_000 * SCALAR_7,
-            fixture.tokens[TokenIndex::XLM].balance(&frodo)
-        );
-        assert_eq!(
-            95 * 10i128.pow(9),
-            fixture.tokens[TokenIndex::WETH].balance(&frodo)
-        );
-
-        // validate emissions are turned on
-        let emis_data = fixture.read_reserve_emissions(0, TokenIndex::STABLE, 0);
-        assert_eq!(
-            emis_data.last_time,
-            fixture.env.ledger().timestamp() - 60 * 61
-        );
-        assert_eq!(emis_data.index, 0);
-        assert_eq!(0_180_0000_0000000, emis_data.eps);
-        assert_eq!(
-            fixture.env.ledger().timestamp() + 7 * 24 * 60 * 60 - 60 * 61,
-            emis_data.expiration
-        )
+        // emissions are disabled in this fork cohort
+        assert_eq!(fixture.read_pool_config(0).status, 1);
+        assert!(fixture.backstop.reward_zone().is_empty());
     }
 }

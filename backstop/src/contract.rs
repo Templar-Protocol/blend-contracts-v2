@@ -1,8 +1,6 @@
 use crate::{
     backstop::{self, load_pool_backstop_data, PoolBackstopData, UserBalance, Q4W},
     constants::{MAX_BACKFILLED_EMISSIONS, SCALAR_7},
-    dependencies::EmitterClient,
-    emissions,
     errors::BackstopError,
     events::BackstopEvents,
     storage,
@@ -262,52 +260,27 @@ impl Backstop for BackstopContract {
     /********** Emissions **********/
 
     fn distribute(e: Env) -> i128 {
-        storage::extend_instance(&e);
-        let new_emissions = emissions::distribute(&e);
-
-        BackstopEvents::distribute(&e, new_emissions);
-        new_emissions
+        panic_with_error!(&e, BackstopError::BadRequest);
     }
 
     fn gulp_emissions(e: Env, pool: Address) -> i128 {
-        storage::extend_instance(&e);
-        pool.require_auth();
-        let (backstop_emissions, pool_emissions) = emissions::gulp_emissions(&e, &pool);
-
-        BackstopEvents::gulp_emissions(&e, pool, backstop_emissions, pool_emissions);
-        pool_emissions
+        panic_with_error!(&e, BackstopError::BadRequest);
     }
 
     fn add_reward(e: Env, to_add: Address, to_remove: Option<Address>) {
-        storage::extend_instance(&e);
-        emissions::add_to_reward_zone(&e, to_add.clone(), to_remove.clone());
-
-        BackstopEvents::rw_zone_add(&e, to_add, to_remove);
+        panic_with_error!(&e, BackstopError::BadRequest);
     }
 
     fn remove_reward(e: Env, to_remove: Address) {
-        storage::extend_instance(&e);
-        emissions::remove_from_reward_zone(&e, to_remove.clone());
-
-        BackstopEvents::rw_zone_remove(&e, to_remove);
+        panic_with_error!(&e, BackstopError::BadRequest);
     }
 
     fn claim(e: Env, from: Address, pool_addresses: Vec<Address>, min_lp_tokens_out: i128) -> i128 {
-        storage::extend_instance(&e);
-        from.require_auth();
-
-        let amount = emissions::execute_claim(&e, &from, &pool_addresses, &min_lp_tokens_out);
-
-        BackstopEvents::claim(&e, from, amount);
-        amount
+        panic_with_error!(&e, BackstopError::BadRequest);
     }
 
     fn drop(e: Env) {
-        let mut drop_list = storage::get_drop_list(&e);
-        let backfilled_emissions = storage::get_backfill_emissions(&e);
-        drop_list.push_back((e.current_contract_address(), backfilled_emissions));
-        let emitter_client = EmitterClient::new(&e, &storage::get_emitter(&e));
-        emitter_client.drop(&drop_list)
+        panic_with_error!(&e, BackstopError::BadRequest);
     }
 
     /********** Fund Management *********/
