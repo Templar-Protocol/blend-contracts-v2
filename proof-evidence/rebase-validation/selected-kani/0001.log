@@ -1,0 +1,389 @@
+Kani Rust Verifier 0.67.0 (cargo plugin)
+   Compiling proc-macro2 v1.0.92
+   Compiling unicode-ident v1.0.11
+   Compiling version_check v0.9.4
+   Compiling typenum v1.16.0
+   Compiling serde v1.0.192
+   Compiling autocfg v1.1.0
+   Compiling serde_json v1.0.108
+   Compiling ryu v1.0.15
+   Compiling cfg-if v1.0.0
+   Compiling itoa v1.0.9
+   Compiling libc v0.2.150
+   Compiling subtle v2.5.0
+   Compiling const-oid v0.9.4
+   Compiling semver v1.0.18
+   Compiling strsim v0.10.0
+   Compiling ident_case v1.0.1
+   Compiling thiserror v1.0.43
+   Compiling fnv v1.0.7
+   Compiling syn v1.0.109
+   Compiling paste v1.0.14
+   Compiling data-encoding v2.6.0
+   Compiling ppv-lite86 v0.2.17
+   Compiling escape-bytes v0.1.1
+   Compiling either v1.8.1
+   Compiling base16ct v0.2.0
+   Compiling zerocopy v0.7.35
+   Compiling cpufeatures v0.2.9
+   Compiling libm v0.2.7
+   Compiling once_cell v1.18.0
+   Compiling hashbrown v0.14.3
+   Compiling equivalent v1.0.1
+   Compiling indexmap-nostd v0.4.0
+   Compiling downcast-rs v1.2.0
+   Compiling base64 v0.13.1
+   Compiling prettyplease v0.2.10
+   Compiling spin v0.9.8
+   Compiling smallvec v1.11.0
+   Compiling wasmi_arena v0.4.0
+   Compiling soroban-env-host v22.1.3
+   Compiling static_assertions v1.1.0
+   Compiling ethnum v1.5.0
+   Compiling keccak v0.1.4
+   Compiling hex-literal v0.4.1
+   Compiling cast v0.3.0
+   Compiling itertools v0.10.5
+   Compiling wasmparser-nostd v0.100.1
+   Compiling generic-array v0.14.7
+   Compiling ahash v0.8.11
+   Compiling num-traits v0.2.17
+   Compiling num-integer v0.1.45
+   Compiling num-bigint v0.4.3
+   Compiling rustc_version v0.4.1
+   Compiling indexmap v2.1.0
+   Compiling hashbrown v0.13.2
+   Compiling quote v1.0.37
+   Compiling curve25519-dalek v4.1.3
+   Compiling soroban-sdk v22.0.7
+   Compiling syn v2.0.90
+   Compiling getrandom v0.2.11
+   Compiling rand_core v0.6.4
+   Compiling wasmparser v0.116.1
+   Compiling rand_chacha v0.3.1
+   Compiling ff v0.13.0
+   Compiling group v0.13.0
+   Compiling rand v0.8.5
+   Compiling wasmi_core v0.13.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.6
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.8
+   Compiling ark-std v0.4.0
+   Compiling soroban-wasmi v0.31.1-soroban.20.0.1
+   Compiling darling_core v0.20.3
+   Compiling ark-serialize-derive v0.4.2
+   Compiling derivative v2.2.0
+   Compiling ark-ff-asm v0.4.2
+   Compiling ark-ff-macros v0.4.2
+   Compiling serde_derive v1.0.192
+   Compiling zeroize_derive v1.4.2
+   Compiling thiserror-impl v1.0.43
+   Compiling num-derive v0.4.1
+   Compiling curve25519-dalek-derive v0.1.0
+   Compiling soroban-builtin-sdk-macros v22.1.3
+   Compiling bytes-lit v0.0.5
+   Compiling darling_macro v0.20.3
+   Compiling zeroize v1.8.1
+   Compiling der v0.7.7
+   Compiling darling v0.20.3
+   Compiling serde_with_macros v3.4.0
+   Compiling crypto-bigint v0.5.2
+   Compiling sec1 v0.7.3
+   Compiling signature v2.1.0
+   Compiling ark-serialize v0.4.2
+   Compiling hmac v0.12.1
+   Compiling sha3 v0.10.8
+   Compiling ed25519 v2.2.2
+   Compiling rfc6979 v0.4.0
+   Compiling ark-ff v0.4.2
+   Compiling elliptic-curve v0.13.8
+   Compiling ecdsa v0.16.9
+   Compiling primeorder v0.13.6
+   Compiling p256 v0.13.2
+   Compiling k256 v0.13.4
+   Compiling ed25519-dalek v2.1.1
+   Compiling hex v0.4.3
+   Compiling serde_with v3.4.0
+   Compiling crate-git-revision v0.0.6
+   Compiling ark-poly v0.4.2
+   Compiling stellar-strkey v0.0.9
+   Compiling stellar-xdr v22.1.0
+   Compiling soroban-env-common v22.1.3
+   Compiling soroban-sdk-macros v22.0.7
+   Compiling ark-ec v0.4.2
+   Compiling ark-bls12-381 v0.4.0
+   Compiling soroban-spec v22.0.7
+   Compiling soroban-spec-rust v22.0.7
+   Compiling soroban-env-macros v22.1.3
+   Compiling soroban-ledger-snapshot v22.0.7
+   Compiling soroban-fixed-point-math v1.3.0
+   Compiling moderc3156 v0.1.0 (https://github.com/xycloo/xycloans?rev=d9a7ae1#d9a7ae16)
+   Compiling sep-41-token v1.2.0
+   Compiling sep-40-oracle v1.2.0
+   Compiling pool v2.0.0 (/tmp/templar-kani-rebase/pool)
+warning: unused import: `set_pool_emissions`
+ --> pool/src/emissions/mod.rs:2:35
+  |
+2 | pub use manager::{gulp_emissions, set_pool_emissions, ReserveEmissionMetadata};
+  |                                   ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `execute_update_pool`
+  --> pool/src/pool/mod.rs:10:26
+   |
+10 |     execute_set_reserve, execute_update_pool,
+   |                          ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `execute_submit_with_flash_loan`
+  --> pool/src/pool/mod.rs:20:34
+   |
+20 | pub use submit::{execute_submit, execute_submit_with_flash_loan};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `backstop_take_rate`
+   --> pool/src/contract.rs:392:28
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                            ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_backstop_take_rate`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `max_positions`
+   --> pool/src/contract.rs:392:53
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                                                     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_max_positions`
+
+warning: unused variable: `min_collateral`
+   --> pool/src/contract.rs:392:73
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                                                                         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_min_collateral`
+
+warning: unused variable: `from`
+   --> pool/src/contract.rs:480:9
+    |
+480 |         from: Address,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_from`
+
+warning: unused variable: `flash_loan`
+   --> pool/src/contract.rs:481:9
+    |
+481 |         flash_loan: FlashLoan,
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_flash_loan`
+
+warning: unused variable: `requests`
+   --> pool/src/contract.rs:482:9
+    |
+482 |         requests: Vec<Request>,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_requests`
+
+warning: unused variable: `res_emission_metadata`
+   --> pool/src/contract.rs:522:37
+    |
+522 |     fn set_emissions_config(e: Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
+    |                                     ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_res_emission_metadata`
+
+warning: unused variable: `old_b_rate`
+    --> pool/src/pool/reserve.rs:5203:13
+     |
+5203 |         let old_b_rate = data.b_rate;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_b_rate`
+
+warning: unused variable: `old_b_rate`
+    --> pool/src/pool/reserve.rs:5247:13
+     |
+5247 |         let old_b_rate = data.b_rate;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_b_rate`
+
+warning: function `set_pool_emissions` is never used
+  --> pool/src/emissions/manager.rs:37:8
+   |
+37 | pub fn set_pool_emissions(e: &Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
+   |        ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated functions `update_pool`, `bad_debt`, and `flash_loan` are never used
+   --> pool/src/events.rs:30:12
+    |
+  7 | impl PoolEvents {
+    | --------------- associated functions in this implementation
+...
+ 30 |     pub fn update_pool(
+    |            ^^^^^^^^^^^
+...
+157 |     pub fn bad_debt(e: &Env, user: Address, asset: Address, d_tokens: i128) {
+    |            ^^^^^^^^
+...
+316 |     pub fn flash_loan(
+    |            ^^^^^^^^^^
+
+warning: function `execute_update_pool` is never used
+  --> pool/src/pool/config.rs:47:8
+   |
+47 | pub fn execute_update_pool(
+   |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `execute_submit_with_flash_loan` is never used
+  --> pool/src/pool/submit.rs:70:8
+   |
+70 | pub fn execute_submit_with_flash_loan(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `has_collateral` is never used
+   --> pool/src/pool/user.rs:116:12
+    |
+ 44 | impl User {
+    | --------- method in this implementation
+...
+116 |     pub fn has_collateral(&self) -> bool {
+    |            ^^^^^^^^^^^^^^
+
+warning: function `set_pool_emissions` is never used
+   --> pool/src/storage.rs:586:8
+    |
+586 | pub fn set_pool_emissions(e: &Env, emissions: &Map<u32, u64>) {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: variable `X` should have a snake case name
+    --> pool/src/pool/user.rs:1346:13
+     |
+1346 |         let X: u16 = kani::any();
+     |             ^ help: convert the identifier to snake case (notice the capitalization): `x`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `D` should have a snake case name
+    --> pool/src/pool/user.rs:1429:13
+     |
+1429 |         let D: i128 = kani::any();
+     |             ^ help: convert the identifier to snake case: `d`
+
+warning: variable `L` should have a snake case name
+    --> pool/src/pool/user.rs:1435:13
+     |
+1435 |         let L: i128 = kani::any();
+     |             ^ help: convert the identifier to snake case: `l`
+
+warning: variable `X` should have a snake case name
+    --> pool/src/pool/user.rs:1490:13
+     |
+1490 |         let X: u16 = kani::any();
+     |             ^ help: convert the identifier to snake case (notice the capitalization): `x`
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.05s
+Checking harness pool::bad_debt::verification::prove_orphan_collateral_decision...
+CBMC 6.8.0 (cbmc-6.8.0)
+CBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux
+Reading GOTO program from file /tmp/templar-kani-rebase-target/kani/x86_64-unknown-linux-gnu/debug/deps/pool__RNvNtNtNtCs6jmWA5Pfhs0_4pool4pool8bad_debt12verification32prove_orphan_collateral_decision.out
+Generating GOTO Program
+Adding CPROVER library (x86_64)
+Removal of function pointers and virtual functions
+Generic Property Instrumentation
+Running with 16 object bits, 48 offset bits (user-specified)
+Starting Bounded Model Checking
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1656 column 13 function pool::bad_debt::verification::prove_orphan_collateral_decision thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1659 column 13 function pool::bad_debt::verification::prove_orphan_collateral_decision thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1654 column 9 function pool::bad_debt::verification::prove_orphan_collateral_decision thread 0
+Runtime Symex: 0.00961581s
+size of program expression: 727 steps
+slicing removed 328 assignments
+Generated 11 VCC(s), 11 remaining after simplification
+Runtime Postprocess Equation: 0.000293716s
+Passing problem to propositional reduction
+converting SSA
+Runtime Convert SSA: 0.00123797s
+Running propositional reduction
+Post-processing
+Runtime Post-process: 8.9449e-05s
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.00316152s
+Runtime decision procedure: 0.00447563s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.00214174s
+Runtime decision procedure: 0.00217544s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.00211697s
+Runtime decision procedure: 0.00214077s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.00238903s
+Runtime decision procedure: 0.00241358s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 20
+result:UNSATISFIABLE
+Runtime Solver: 0.00203918s
+Runtime decision procedure: 0.00206004s
+
+RESULTS:
+Check 1: pool::bad_debt::verification::prove_orphan_collateral_decision.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: !orphan"
+	 - Location: pool/src/pool/bad_debt.rs:1656:13 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+Check 2: pool::bad_debt::verification::prove_orphan_collateral_decision.assertion.2
+	 - Status: SUCCESS
+	 - Description: "assertion failed: !orphan"
+	 - Location: pool/src/pool/bad_debt.rs:1659:13 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+Check 3: pool::bad_debt::verification::prove_orphan_collateral_decision.cover.1
+	 - Status: SATISFIED
+	 - Description: "cover condition: had_default && has_collateral"
+	 - Location: pool/src/pool/bad_debt.rs:1661:9 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+Check 4: pool::bad_debt::verification::prove_orphan_collateral_decision.cover.2
+	 - Status: SATISFIED
+	 - Description: "cover condition: had_default && !has_collateral"
+	 - Location: pool/src/pool/bad_debt.rs:1662:9 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+Check 5: pool::bad_debt::verification::prove_orphan_collateral_decision.cover.3
+	 - Status: SATISFIED
+	 - Description: "cover condition: !had_default && has_collateral"
+	 - Location: pool/src/pool/bad_debt.rs:1663:9 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+Check 6: pool::bad_debt::verification::prove_orphan_collateral_decision.cover.4
+	 - Status: SATISFIED
+	 - Description: "cover condition: !had_default && !has_collateral"
+	 - Location: pool/src/pool/bad_debt.rs:1664:9 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+Check 7: pool::bad_debt::verification::prove_orphan_collateral_decision.assertion.3
+	 - Status: SUCCESS
+	 - Description: "assertion failed: orphan == (had_default && has_collateral)"
+	 - Location: pool/src/pool/bad_debt.rs:1654:9 in function pool::bad_debt::verification::prove_orphan_collateral_decision
+
+
+SUMMARY:
+ ** 0 of 3 failed
+
+ ** 4 of 4 cover properties satisfied
+
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 0.0831074s
+
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.

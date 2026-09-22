@@ -1,0 +1,11 @@
+{
+  "tag": "kani-lending-proof-evidence-v1",
+  "source_snapshot_commit": "252ae51fd61cfbbd35fa02097754bb53e4212161",
+  "base_commit": "54afdae01bb8e484514940229e06460aa3fa6a1f",
+  "contents": [
+    "proof-packaging/** from the source snapshot",
+    "proof-evidence/rebase-validation/** raw conflict-local logs and receipts"
+  ],
+  "scope": "Public proof custody. Historical full-inventory receipts apply to the pre-cleanup/pre-rewrite snapshot; rebase-validation carries the rebased conflict-local reruns. No production acceptance claim.",
+  "secrets_or_identity_material": false
+}

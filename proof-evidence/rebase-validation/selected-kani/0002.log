@@ -1,0 +1,1119 @@
+Kani Rust Verifier 0.67.0 (cargo plugin)
+   Compiling pool v2.0.0 (/tmp/templar-kani-rebase/pool)
+warning: unused import: `set_pool_emissions`
+ --> pool/src/emissions/mod.rs:2:35
+  |
+2 | pub use manager::{gulp_emissions, set_pool_emissions, ReserveEmissionMetadata};
+  |                                   ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `execute_update_pool`
+  --> pool/src/pool/mod.rs:10:26
+   |
+10 |     execute_set_reserve, execute_update_pool,
+   |                          ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `execute_submit_with_flash_loan`
+  --> pool/src/pool/mod.rs:20:34
+   |
+20 | pub use submit::{execute_submit, execute_submit_with_flash_loan};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `backstop_take_rate`
+   --> pool/src/contract.rs:392:28
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                            ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_backstop_take_rate`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `max_positions`
+   --> pool/src/contract.rs:392:53
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                                                     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_max_positions`
+
+warning: unused variable: `min_collateral`
+   --> pool/src/contract.rs:392:73
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                                                                         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_min_collateral`
+
+warning: unused variable: `from`
+   --> pool/src/contract.rs:480:9
+    |
+480 |         from: Address,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_from`
+
+warning: unused variable: `flash_loan`
+   --> pool/src/contract.rs:481:9
+    |
+481 |         flash_loan: FlashLoan,
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_flash_loan`
+
+warning: unused variable: `requests`
+   --> pool/src/contract.rs:482:9
+    |
+482 |         requests: Vec<Request>,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_requests`
+
+warning: unused variable: `res_emission_metadata`
+   --> pool/src/contract.rs:522:37
+    |
+522 |     fn set_emissions_config(e: Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
+    |                                     ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_res_emission_metadata`
+
+warning: unused variable: `old_b_rate`
+    --> pool/src/pool/reserve.rs:5203:13
+     |
+5203 |         let old_b_rate = data.b_rate;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_b_rate`
+
+warning: unused variable: `old_b_rate`
+    --> pool/src/pool/reserve.rs:5247:13
+     |
+5247 |         let old_b_rate = data.b_rate;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_b_rate`
+
+warning: function `set_pool_emissions` is never used
+  --> pool/src/emissions/manager.rs:37:8
+   |
+37 | pub fn set_pool_emissions(e: &Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
+   |        ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated functions `update_pool`, `bad_debt`, and `flash_loan` are never used
+   --> pool/src/events.rs:30:12
+    |
+  7 | impl PoolEvents {
+    | --------------- associated functions in this implementation
+...
+ 30 |     pub fn update_pool(
+    |            ^^^^^^^^^^^
+...
+157 |     pub fn bad_debt(e: &Env, user: Address, asset: Address, d_tokens: i128) {
+    |            ^^^^^^^^
+...
+316 |     pub fn flash_loan(
+    |            ^^^^^^^^^^
+
+warning: function `execute_update_pool` is never used
+  --> pool/src/pool/config.rs:47:8
+   |
+47 | pub fn execute_update_pool(
+   |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `execute_submit_with_flash_loan` is never used
+  --> pool/src/pool/submit.rs:70:8
+   |
+70 | pub fn execute_submit_with_flash_loan(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `has_collateral` is never used
+   --> pool/src/pool/user.rs:116:12
+    |
+ 44 | impl User {
+    | --------- method in this implementation
+...
+116 |     pub fn has_collateral(&self) -> bool {
+    |            ^^^^^^^^^^^^^^
+
+warning: function `set_pool_emissions` is never used
+   --> pool/src/storage.rs:586:8
+    |
+586 | pub fn set_pool_emissions(e: &Env, emissions: &Map<u32, u64>) {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: variable `X` should have a snake case name
+    --> pool/src/pool/user.rs:1346:13
+     |
+1346 |         let X: u16 = kani::any();
+     |             ^ help: convert the identifier to snake case (notice the capitalization): `x`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `D` should have a snake case name
+    --> pool/src/pool/user.rs:1429:13
+     |
+1429 |         let D: i128 = kani::any();
+     |             ^ help: convert the identifier to snake case: `d`
+
+warning: variable `L` should have a snake case name
+    --> pool/src/pool/user.rs:1435:13
+     |
+1435 |         let L: i128 = kani::any();
+     |             ^ help: convert the identifier to snake case: `l`
+
+warning: variable `X` should have a snake case name
+    --> pool/src/pool/user.rs:1490:13
+     |
+1490 |         let X: u16 = kani::any();
+     |             ^ help: convert the identifier to snake case (notice the capitalization): `x`
+
+warning: Found the following unsupported constructs:
+             - caller_location (1)
+             - foreign function (1)
+         
+         Verification will fail if one or more of these constructs is reachable.
+         See https://model-checking.github.io/kani/rust-feature-support.html for more details.
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.76s
+Checking harness pool::bad_debt::verification::prove_setoff_guarded_parametric...
+CBMC 6.8.0 (cbmc-6.8.0)
+CBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux
+Reading GOTO program from file /tmp/templar-kani-rebase-target/kani/x86_64-unknown-linux-gnu/debug/deps/pool__RNvNtNtNtCs6jmWA5Pfhs0_4pool4pool8bad_debt12verification31prove_setoff_guarded_parametric.out
+Generating GOTO Program
+Adding CPROVER library (x86_64)
+Removal of function pointers and virtual functions
+Generic Property Instrumentation
+Running with 16 object bits, 48 offset bits (user-specified)
+Starting Bounded Model Checking
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<(i128, i128, i128), (i128, i128, i128)> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1692 column 13 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<(i128, i128, i128), (i128, i128, i128)> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1692 column 13 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<(i128, i128, i128), (i128, i128, i128)> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1684 column 13 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<(i128, i128, i128), (i128, i128, i128)> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1684 column 13 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<u32, u32> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<u32, u32> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1731 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 439 column 17 function core::panicking::assert_failed_inner thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs line 394 column 5 function core::panicking::assert_failed::<(i128, i128, i128), (i128, i128, i128)> thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1692 column 13 function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1780 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1779 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1778 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1777 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1776 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1784 column 9 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1782 column 13 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs line 51 column 21 function pool::bad_debt::verification::prove_setoff_guarded_parametric thread 0
+Runtime Symex: 0.208606s
+size of program expression: 9389 steps
+slicing removed 6202 assignments
+Generated 567 VCC(s), 57 remaining after simplification
+Runtime Postprocess Equation: 0.00318385s
+Passing problem to propositional reduction
+converting SSA
+Runtime Convert SSA: 0.0165413s
+Running propositional reduction
+Post-processing
+Runtime Post-process: 5.02e-06s
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.187351s
+Runtime decision procedure: 0.204201s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.179565s
+Runtime decision procedure: 0.179643s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.168977s
+Runtime decision procedure: 0.169054s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.171617s
+Runtime decision procedure: 0.171688s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 0.174344s
+Runtime decision procedure: 0.174418s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 20
+result:UNSATISFIABLE
+Runtime Solver: 0.252583s
+Runtime decision procedure: 0.252675s
+
+RESULTS:
+Check 1: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.assertion.1
+	 - Status: SUCCESS
+	 - Description: "index out of bounds: the length is less than or equal to the given index"
+	 - Location: pool/src/pool/bad_debt.rs:1693:45 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 2: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1694:33 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 3: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.assertion.3
+	 - Status: SUCCESS
+	 - Description: "index out of bounds: the length is less than or equal to the given index"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 4: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.assertion.4
+	 - Status: SUCCESS
+	 - Description: "assertion failed: slot < 2"
+	 - Location: pool/src/pool/bad_debt.rs:1692:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 5: core::cell::Cell::<u32>::replace.safety_check.1
+	 - Status: SUCCESS
+	 - Description: "misaligned pointer to reference cast: address must be a multiple of its type's alignment"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:511:31 in function core::cell::Cell::<u32>::replace
+
+Check 6: core::cell::Cell::<u32>::replace.safety_check.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:511:31 in function core::cell::Cell::<u32>::replace
+
+Check 7: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to subtract with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:138:27 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 8: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.1
+	 - Status: SUCCESS
+	 - Description: "assertion failed: burn_cap > 0 && burn_cap <= 255"
+	 - Location: pool/src/pool/bad_debt.rs:1731:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 9: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1770:24 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 10: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.3
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1780:45 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 11: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.4
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.residual >= 0 && setoff.repaid + setoff.residual == amount"
+	 - Location: pool/src/pool/bad_debt.rs:1780:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 12: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.5
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.repaid > 0 && setoff.repaid <= amount"
+	 - Location: pool/src/pool/bad_debt.rs:1779:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 13: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.6
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.burn > 0 && setoff.burn <= claim"
+	 - Location: pool/src/pool/bad_debt.rs:1778:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 14: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.7
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.repaid == repaid_exp"
+	 - Location: pool/src/pool/bad_debt.rs:1777:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 15: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.8
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.burn == pay_burn"
+	 - Location: pool/src/pool/bad_debt.rs:1776:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 16: pool::bad_debt::verification::prove_setoff_guarded_parametric.cover.1
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid > 0 && setoff.residual == 0"
+	 - Location: pool/src/pool/bad_debt.rs:1786:9 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 17: pool::bad_debt::verification::prove_setoff_guarded_parametric.cover.2
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid > 0 && setoff.residual > 0"
+	 - Location: pool/src/pool/bad_debt.rs:1787:9 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 18: pool::bad_debt::verification::prove_setoff_guarded_parametric.cover.3
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid == 0 && claim == 0"
+	 - Location: pool/src/pool/bad_debt.rs:1788:9 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 19: pool::bad_debt::verification::prove_setoff_guarded_parametric.cover.4
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid == 0 && claim > 0 && data.b_rate == 0"
+	 - Location: pool/src/pool/bad_debt.rs:1789:9 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 20: pool::bad_debt::verification::prove_setoff_guarded_parametric.cover.5
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid == 0 && claim > 0 && data.b_rate > 0"
+	 - Location: pool/src/pool/bad_debt.rs:1790:9 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 21: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.9
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.has_default() == (setoff.residual > 0)"
+	 - Location: pool/src/pool/bad_debt.rs:1784:9 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 22: pool::bad_debt::verification::prove_setoff_guarded_parametric.assertion.10
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.repaid == 0 && setoff.burn == 0 && setoff.residual == amount"
+	 - Location: pool/src/pool/bad_debt.rs:1782:13 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 23: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.assertion.1
+	 - Status: SUCCESS
+	 - Description: "index out of bounds: the length is less than or equal to the given index"
+	 - Location: pool/src/pool/bad_debt.rs:1685:45 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 24: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1686:34 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 25: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.assertion.3
+	 - Status: SUCCESS
+	 - Description: "index out of bounds: the length is less than or equal to the given index"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 26: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.assertion.4
+	 - Status: SUCCESS
+	 - Description: "assertion failed: slot < 2"
+	 - Location: pool/src/pool/bad_debt.rs:1684:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 27: core::panicking::assert_failed_inner.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: pool/src/lib.rs:0:0 in function core::panicking::assert_failed_inner
+
+Check 28: core::panicking::assert_failed_inner.assertion.1
+	 - Status: SUCCESS
+	 - Description: "This is a placeholder message; Kani doesn't support message formatted at runtime"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs:434:23 in function core::panicking::assert_failed_inner
+
+Check 29: core::panicking::assert_failed_inner.assertion.2
+	 - Status: SUCCESS
+	 - Description: "This is a placeholder message; Kani doesn't support message formatted at runtime"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs:439:17 in function core::panicking::assert_failed_inner
+
+Check 30: pool::bad_debt::verification::rate_hundredths.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 31: pool::bad_debt::verification::rate_hundredths.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 32: pool::bad_debt::verification::rate_hundredths.assertion.3
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 33: pool::bad_debt::verification::rate_hundredths.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 34: pool::bad_debt::verification::rate_hundredths.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 35: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 36: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 37: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 38: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 39: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 40: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 41: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.array_bounds.1
+	 - Status: SUCCESS
+	 - Description: "index out of bounds: the length is less than or equal to the given index"
+	 - Location: pool/src/pool/bad_debt.rs:1687:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 42: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:51:85 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::floor
+
+Check 43: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 44: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 45: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 46: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 47: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 48: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 49: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 50: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.8
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 51: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.9
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 52: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.10
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 53: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.11
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 54: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.12
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 55: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.13
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 56: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.14
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 57: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.15
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 58: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.16
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 59: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.17
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 60: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.18
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 61: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.19
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 62: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.20
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 63: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.21
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 64: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.22
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 65: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.23
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 66: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.24
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 67: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.25
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:51:85 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 68: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.26
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:51:85 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 69: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.27
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 70: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.28
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 71: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.29
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 72: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.30
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 73: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.31
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 74: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.32
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:22 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 75: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.33
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 76: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.34
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 77: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.35
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 78: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.36
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 79: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.37
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 80: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.38
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:46:35 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 81: pool::bad_debt::verification::prove_setoff_guarded_parametric.pointer_dereference.39
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:51:85 in function pool::bad_debt::verification::prove_setoff_guarded_parametric
+
+Check 82: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 83: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 84: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 85: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 86: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 87: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 88: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 89: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 90: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 91: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 92: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 93: pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<pool::bad_debt::verification::SetoffMath>
+
+Check 94: core::mem::replace::<u32>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:893:22 in function core::mem::replace::<u32>
+
+Check 95: core::mem::replace::<u32>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:893:22 in function core::mem::replace::<u32>
+
+Check 96: core::mem::replace::<u32>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:893:22 in function core::mem::replace::<u32>
+
+Check 97: core::mem::replace::<u32>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:893:22 in function core::mem::replace::<u32>
+
+Check 98: core::mem::replace::<u32>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:893:22 in function core::mem::replace::<u32>
+
+Check 99: core::mem::replace::<u32>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:893:22 in function core::mem::replace::<u32>
+
+Check 100: core::mem::replace::<u32>.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:894:9 in function core::mem::replace::<u32>
+
+Check 101: core::mem::replace::<u32>.pointer_dereference.8
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:894:9 in function core::mem::replace::<u32>
+
+Check 102: core::mem::replace::<u32>.pointer_dereference.9
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:894:9 in function core::mem::replace::<u32>
+
+Check 103: core::mem::replace::<u32>.pointer_dereference.10
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:894:9 in function core::mem::replace::<u32>
+
+Check 104: core::mem::replace::<u32>.pointer_dereference.11
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:894:9 in function core::mem::replace::<u32>
+
+Check 105: core::mem::replace::<u32>.pointer_dereference.12
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:894:9 in function core::mem::replace::<u32>
+
+Check 106: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 107: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 108: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 109: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 110: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 111: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 112: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>
+
+Check 113: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>
+
+Check 114: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>
+
+Check 115: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>
+
+Check 116: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>
+
+Check 117: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<pool::bad_debt::verification::SetoffMath>
+
+Check 118: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 119: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 120: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 121: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 122: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 123: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 124: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 125: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.8
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 126: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.9
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 127: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.10
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 128: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.11
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 129: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.12
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 130: core::cell::Cell::<u32>::get.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:552:18 in function core::cell::Cell::<u32>::get
+
+Check 131: core::cell::Cell::<u32>::get.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:552:18 in function core::cell::Cell::<u32>::get
+
+Check 132: core::cell::Cell::<u32>::get.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:552:18 in function core::cell::Cell::<u32>::get
+
+Check 133: core::cell::Cell::<u32>::get.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:552:18 in function core::cell::Cell::<u32>::get
+
+Check 134: core::cell::Cell::<u32>::get.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:552:18 in function core::cell::Cell::<u32>::get
+
+Check 135: core::cell::Cell::<u32>::get.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cell.rs:552:18 in function core::cell::Cell::<u32>::get
+
+Check 136: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 137: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 138: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 139: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 140: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 141: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<pool::bad_debt::verification::SetoffMath>
+
+Check 142: core::panicking::assert_failed_inner.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panicking.rs:433:11 in function core::panicking::assert_failed_inner
+
+Check 143: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 144: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 145: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 146: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 147: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 148: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 149: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.array_bounds.1
+	 - Status: SUCCESS
+	 - Description: "index out of bounds: the length is less than or equal to the given index"
+	 - Location: pool/src/pool/bad_debt.rs:1695:13 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 150: <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/macros/mod.rs:51:85 in function <pool::bad_debt::verification::SetoffMath as math::FixedMath>::ceil
+
+Check 151: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>
+
+Check 152: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>
+
+Check 153: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>
+
+Check 154: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>
+
+Check 155: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>
+
+Check 156: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<pool::bad_debt::verification::SetoffMath>
+
+Check 157: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:54 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 158: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:54 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 159: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:54 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 160: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:54 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 161: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:54 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 162: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:54 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 163: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:63 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 164: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.8
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:63 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 165: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.9
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:63 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 166: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.10
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:63 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 167: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.11
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:63 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+Check 168: core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq.pointer_dereference.12
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1865:63 in function core::cmp::impls::<impl core::cmp::PartialEq for i128>::eq
+
+
+SUMMARY:
+ ** 0 of 163 failed
+
+ ** 5 of 5 cover properties satisfied
+
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 1.8226197s
+
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.

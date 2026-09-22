@@ -1,0 +1,920 @@
+✨ devenv 2.1.2 is out of date. Please update to 2.3.1: https://devenv.sh/getting-started/#installation
+Kani Rust Verifier 0.67.0 (cargo plugin)
+   Compiling pool v2.0.0 (/tmp/templar-kani-rebase/pool)
+warning: unused import: `set_pool_emissions`
+ --> pool/src/emissions/mod.rs:2:35
+  |
+2 | pub use manager::{gulp_emissions, set_pool_emissions, ReserveEmissionMetadata};
+  |                                   ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `execute_update_pool`
+  --> pool/src/pool/mod.rs:10:26
+   |
+10 |     execute_set_reserve, execute_update_pool,
+   |                          ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `execute_submit_with_flash_loan`
+  --> pool/src/pool/mod.rs:20:34
+   |
+20 | pub use submit::{execute_submit, execute_submit_with_flash_loan};
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `backstop_take_rate`
+   --> pool/src/contract.rs:392:28
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                            ^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_backstop_take_rate`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `max_positions`
+   --> pool/src/contract.rs:392:53
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                                                     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_max_positions`
+
+warning: unused variable: `min_collateral`
+   --> pool/src/contract.rs:392:73
+    |
+392 |     fn update_pool(e: Env, backstop_take_rate: u32, max_positions: u32, min_collateral: i128) {
+    |                                                                         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_min_collateral`
+
+warning: unused variable: `from`
+   --> pool/src/contract.rs:480:9
+    |
+480 |         from: Address,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_from`
+
+warning: unused variable: `flash_loan`
+   --> pool/src/contract.rs:481:9
+    |
+481 |         flash_loan: FlashLoan,
+    |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_flash_loan`
+
+warning: unused variable: `requests`
+   --> pool/src/contract.rs:482:9
+    |
+482 |         requests: Vec<Request>,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_requests`
+
+warning: unused variable: `res_emission_metadata`
+   --> pool/src/contract.rs:522:37
+    |
+522 |     fn set_emissions_config(e: Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
+    |                                     ^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_res_emission_metadata`
+
+warning: unused variable: `old_b_rate`
+    --> pool/src/pool/reserve.rs:5203:13
+     |
+5203 |         let old_b_rate = data.b_rate;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_b_rate`
+
+warning: unused variable: `old_b_rate`
+    --> pool/src/pool/reserve.rs:5247:13
+     |
+5247 |         let old_b_rate = data.b_rate;
+     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_b_rate`
+
+warning: function `set_pool_emissions` is never used
+  --> pool/src/emissions/manager.rs:37:8
+   |
+37 | pub fn set_pool_emissions(e: &Env, res_emission_metadata: Vec<ReserveEmissionMetadata>) {
+   |        ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated functions `update_pool`, `bad_debt`, and `flash_loan` are never used
+   --> pool/src/events.rs:30:12
+    |
+  7 | impl PoolEvents {
+    | --------------- associated functions in this implementation
+...
+ 30 |     pub fn update_pool(
+    |            ^^^^^^^^^^^
+...
+157 |     pub fn bad_debt(e: &Env, user: Address, asset: Address, d_tokens: i128) {
+    |            ^^^^^^^^
+...
+316 |     pub fn flash_loan(
+    |            ^^^^^^^^^^
+
+warning: function `execute_update_pool` is never used
+  --> pool/src/pool/config.rs:47:8
+   |
+47 | pub fn execute_update_pool(
+   |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `execute_submit_with_flash_loan` is never used
+  --> pool/src/pool/submit.rs:70:8
+   |
+70 | pub fn execute_submit_with_flash_loan(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `has_collateral` is never used
+   --> pool/src/pool/user.rs:116:12
+    |
+ 44 | impl User {
+    | --------- method in this implementation
+...
+116 |     pub fn has_collateral(&self) -> bool {
+    |            ^^^^^^^^^^^^^^
+
+warning: function `set_pool_emissions` is never used
+   --> pool/src/storage.rs:586:8
+    |
+586 | pub fn set_pool_emissions(e: &Env, emissions: &Map<u32, u64>) {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: variable `X` should have a snake case name
+    --> pool/src/pool/user.rs:1346:13
+     |
+1346 |         let X: u16 = kani::any();
+     |             ^ help: convert the identifier to snake case (notice the capitalization): `x`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: variable `D` should have a snake case name
+    --> pool/src/pool/user.rs:1429:13
+     |
+1429 |         let D: i128 = kani::any();
+     |             ^ help: convert the identifier to snake case: `d`
+
+warning: variable `L` should have a snake case name
+    --> pool/src/pool/user.rs:1435:13
+     |
+1435 |         let L: i128 = kani::any();
+     |             ^ help: convert the identifier to snake case: `l`
+
+warning: variable `X` should have a snake case name
+    --> pool/src/pool/user.rs:1490:13
+     |
+1490 |         let X: u16 = kani::any();
+     |             ^ help: convert the identifier to snake case (notice the capitalization): `x`
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.79s
+Checking harness pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions...
+CBMC 6.8.0 (cbmc-6.8.0)
+CBMC version 6.8.0 (cbmc-6.8.0) 64-bit x86_64 linux
+Reading GOTO program from file /tmp/templar-kani-rebase-target/kani/x86_64-unknown-linux-gnu/debug/deps/pool__RNvNtNtNtCs6jmWA5Pfhs0_4pool4pool8bad_debt12verification46prove_setoff_exact_policy_split_and_conditions.out
+Generating GOTO Program
+Adding CPROVER library (x86_64)
+Removal of function pointers and virtual functions
+Generic Property Instrumentation
+Running with 16 object bits, 48 offset bits (user-specified)
+Starting Bounded Model Checking
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 43 column 13 function soroban_fixed_point_math::i128::mul_div_ceil thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 54 column 25 function soroban_fixed_point_math::i128::div_ceil thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1014 column 15 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2175 column 5 function core::option::unwrap_failed thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1016 column 21 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 43 column 13 function soroban_fixed_point_math::i128::mul_div_ceil thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 54 column 25 function soroban_fixed_point_math::i128::div_ceil thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1014 column 15 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2175 column 5 function core::option::unwrap_failed thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1016 column 21 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 25 column 13 function soroban_fixed_point_math::i128::mul_div_floor thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 33 column 25 function soroban_fixed_point_math::i128::div_floor thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1014 column 15 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2175 column 5 function core::option::unwrap_failed thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1016 column 21 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 25 column 13 function soroban_fixed_point_math::i128::mul_div_floor thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2666 column 15 function <core::option::Option<i128> as core::ops::Try>::branch thread 0
+aborting path on assume(false) at file /home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs line 33 column 25 function soroban_fixed_point_math::i128::div_floor thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1014 column 15 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 2175 column 5 function core::option::unwrap_failed thread 0
+aborting path on assume(false) at file /home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs line 1016 column 21 function core::option::Option::<i128>::unwrap thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1621 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1618 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1617 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1616 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1615 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1633 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1631 column 9 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1625 column 13 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+aborting path on assume(false) at file pool/src/pool/bad_debt.rs line 1610 column 9 function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions thread 0
+Runtime Symex: 0.120651s
+size of program expression: 7222 steps
+slicing removed 4331 assignments
+Generated 267 VCC(s), 136 remaining after simplification
+Runtime Postprocess Equation: 0.00324147s
+Passing problem to propositional reduction
+converting SSA
+Runtime Convert SSA: 0.25545s
+Running propositional reduction
+Post-processing
+Runtime Post-process: 5.36e-06s
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 5.19771s
+Runtime decision procedure: 5.45354s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 5.4214s
+Runtime decision procedure: 5.42151s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 6.2201s
+Runtime decision procedure: 6.22023s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 11.5784s
+Runtime decision procedure: 11.5785s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 10
+result:SATISFIABLE
+Runtime Solver: 13.7053s
+Runtime decision procedure: 13.7055s
+Running propositional reduction
+Solving with External SAT solver
+Writing temporary CNF
+Invoking SAT solver
+Solver returned code: 20
+result:UNSATISFIABLE
+Runtime Solver: 3164.4s
+Runtime decision procedure: 3164.4s
+
+RESULTS:
+Check 1: pool::bad_debt::verification::rate_hundredths.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 2: pool::bad_debt::verification::rate_hundredths.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 3: pool::bad_debt::verification::rate_hundredths.assertion.3
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 4: pool::bad_debt::verification::rate_hundredths.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 5: pool::bad_debt::verification::rate_hundredths.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1540:9 in function pool::bad_debt::verification::rate_hundredths
+
+Check 6: soroban_fixed_point_math::i128::mul_div_ceil.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:43:13 in function soroban_fixed_point_math::i128::mul_div_ceil
+
+Check 7: core::num::<impl u64>::div_ceil.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3487:21 in function core::num::<impl u64>::div_ceil
+
+Check 8: core::num::<impl u64>::div_ceil.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3487:21 in function core::num::<impl u64>::div_ceil
+
+Check 9: core::num::<impl u64>::div_ceil.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to calculate the remainder with a divisor of zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3488:21 in function core::num::<impl u64>::div_ceil
+
+Check 10: core::num::<impl u64>::div_ceil.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to calculate the remainder with a divisor of zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3488:21 in function core::num::<impl u64>::div_ceil
+
+Check 11: core::num::<impl u64>::div_ceil.assertion.3
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3490:17 in function core::num::<impl u64>::div_ceil
+
+Check 12: soroban_fixed_point_math::i128::div_ceil.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:54:25 in function soroban_fixed_point_math::i128::div_ceil
+
+Check 13: soroban_fixed_point_math::i128::div_ceil.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:55:9 in function soroban_fixed_point_math::i128::div_ceil
+
+Check 14: soroban_fixed_point_math::i128::div_ceil.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:55:9 in function soroban_fixed_point_math::i128::div_ceil
+
+Check 15: soroban_fixed_point_math::i128::div_ceil.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:55:9 in function soroban_fixed_point_math::i128::div_ceil
+
+Check 16: soroban_fixed_point_math::i128::div_ceil.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:55:9 in function soroban_fixed_point_math::i128::div_ceil
+
+Check 17: core::num::<impl i128>::rem_euclid.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to calculate the remainder with a divisor of zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:3178:21 in function core::num::<impl i128>::rem_euclid
+
+Check 18: core::num::<impl i128>::rem_euclid.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to calculate the remainder with overflow"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:3178:21 in function core::num::<impl i128>::rem_euclid
+
+Check 19: core::num::<impl i128>::rem_euclid.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to calculate the remainder with overflow"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:3178:21 in function core::num::<impl i128>::rem_euclid
+
+Check 20: core::num::<impl i128>::rem_euclid.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to calculate the remainder with a divisor of zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:3178:21 in function core::num::<impl i128>::rem_euclid
+
+Check 21: core::num::<impl i128>::checked_div.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:883:31 in function core::num::<impl i128>::checked_div
+
+Check 22: core::num::<impl i128>::checked_div.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:883:31 in function core::num::<impl i128>::checked_div
+
+Check 23: soroban_fixed_point_math::i128::div_floor.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:33:25 in function soroban_fixed_point_math::i128::div_floor
+
+Check 24: soroban_fixed_point_math::i128::div_floor.assertion.1
+	 - Status: UNREACHABLE
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:34:9 in function soroban_fixed_point_math::i128::div_floor
+
+Check 25: soroban_fixed_point_math::i128::div_floor.assertion.2
+	 - Status: UNREACHABLE
+	 - Description: "attempt to divide with overflow"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:34:9 in function soroban_fixed_point_math::i128::div_floor
+
+Check 26: soroban_fixed_point_math::i128::div_floor.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide with overflow"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:34:9 in function soroban_fixed_point_math::i128::div_floor
+
+Check 27: soroban_fixed_point_math::i128::div_floor.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:34:9 in function soroban_fixed_point_math::i128::div_floor
+
+Check 28: core::option::Option::<i128>::unwrap.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:1014:15 in function core::option::Option::<i128>::unwrap
+
+Check 29: core::option::unwrap_failed.assertion.1
+	 - Status: SUCCESS
+	 - Description: "called `Option::unwrap()` on a `None` value"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:2175:5 in function core::option::unwrap_failed
+
+Check 30: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1595:24 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 31: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1595:24 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 32: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.arithmetic_overflow.1
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1595:24 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 33: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.3
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1596:24 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 34: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.4
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1596:24 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 35: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.arithmetic_overflow.2
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1596:24 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 36: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.5
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1598:31 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 37: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.6
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1599:28 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 38: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.7
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1601:27 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 39: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.8
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1601:27 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 40: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.arithmetic_overflow.3
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1601:27 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 41: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.9
+	 - Status: SUCCESS
+	 - Description: "attempt to multiply with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1602:48 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 42: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.10
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1602:48 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 43: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.arithmetic_overflow.4
+	 - Status: SUCCESS
+	 - Description: "attempt to divide by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1602:48 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 44: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.11
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:1621:45 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 45: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.12
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.residual >= 0 && setoff.repaid + setoff.residual == amount"
+	 - Location: pool/src/pool/bad_debt.rs:1621:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 46: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.13
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.repaid > 0 && setoff.repaid <= amount"
+	 - Location: pool/src/pool/bad_debt.rs:1618:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 47: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.14
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.burn > 0 && setoff.burn <= claim"
+	 - Location: pool/src/pool/bad_debt.rs:1617:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 48: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.15
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.repaid == repaid_exp as i128"
+	 - Location: pool/src/pool/bad_debt.rs:1616:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 49: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.16
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.burn == b_exp as i128"
+	 - Location: pool/src/pool/bad_debt.rs:1615:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 50: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.cover.1
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid > 0 && setoff.residual == 0"
+	 - Location: pool/src/pool/bad_debt.rs:1636:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 51: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.cover.2
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid > 0 && setoff.residual > 0"
+	 - Location: pool/src/pool/bad_debt.rs:1637:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 52: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.cover.3
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid == 0 && claim == 0"
+	 - Location: pool/src/pool/bad_debt.rs:1638:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 53: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.cover.4
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid == 0 && claim > 0 && data.b_rate == 0"
+	 - Location: pool/src/pool/bad_debt.rs:1639:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 54: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.cover.5
+	 - Status: SATISFIED
+	 - Description: "cover condition: setoff.repaid == 0 && claim > 0 && data.b_rate > 0"
+	 - Location: pool/src/pool/bad_debt.rs:1640:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 55: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.17
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.residual == amount && setoff.has_default()"
+	 - Location: pool/src/pool/bad_debt.rs:1633:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 56: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.18
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.has_default() == (setoff.residual > 0)"
+	 - Location: pool/src/pool/bad_debt.rs:1631:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 57: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.19
+	 - Status: SUCCESS
+	 - Description: "assertion failed: setoff.repaid == 0 && setoff.burn == 0 && setoff.residual == amount"
+	 - Location: pool/src/pool/bad_debt.rs:1625:13 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 58: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.assertion.20
+	 - Status: SUCCESS
+	 - Description: "assertion failed: (setoff.repaid > 0) == (repaid_exp > 0)"
+	 - Location: pool/src/pool/bad_debt.rs:1610:9 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 59: pool::bad_debt::supply_setoff::<()>.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to subtract with overflow"
+	 - Location: pool/src/pool/bad_debt.rs:138:27 in function pool::bad_debt::supply_setoff::<()>
+
+Check 60: <core::option::Option<i128> as core::ops::Try>::branch.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:2666:15 in function <core::option::Option<i128> as core::ops::Try>::branch
+
+Check 61: soroban_fixed_point_math::i128::mul_div_floor.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:25:13 in function soroban_fixed_point_math::i128::mul_div_floor
+
+Check 62: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 63: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 64: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 65: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 66: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 67: pool::bad_debt::SupplySetoff::has_default.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/bad_debt.rs:118:9 in function pool::bad_debt::SupplySetoff::has_default
+
+Check 68: pool::bad_debt::supply_setoff::<()>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<()>
+
+Check 69: pool::bad_debt::supply_setoff::<()>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<()>
+
+Check 70: pool::bad_debt::supply_setoff::<()>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<()>
+
+Check 71: pool::bad_debt::supply_setoff::<()>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<()>
+
+Check 72: pool::bad_debt::supply_setoff::<()>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<()>
+
+Check 73: pool::bad_debt::supply_setoff::<()>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/bad_debt.rs:129:21 in function pool::bad_debt::supply_setoff::<()>
+
+Check 74: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>
+
+Check 75: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>
+
+Check 76: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>
+
+Check 77: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>
+
+Check 78: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>
+
+Check 79: pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:219:28 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_b_token::<()>
+
+Check 80: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 81: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 82: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 83: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 84: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 85: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 86: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 87: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.8
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 88: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.9
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 89: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.10
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 90: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.11
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 91: core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt.pointer_dereference.12
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for u64>::lt
+
+Check 92: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>
+
+Check 93: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>
+
+Check 94: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>
+
+Check 95: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>
+
+Check 96: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>
+
+Check 97: pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:235:39 in function pool::reserve::<impl storage::ReserveData>::to_d_token_down::<()>
+
+Check 98: soroban_fixed_point_math::i128::div_ceil.division-by-zero.1
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:55:9 in function soroban_fixed_point_math::i128::div_ceil
+
+Check 99: core::num::<impl u64>::div_ceil.division-by-zero.1
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3487:21 in function core::num::<impl u64>::div_ceil
+
+Check 100: core::num::<impl u64>::div_ceil.division-by-zero.2
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/uint_macros.rs:3488:21 in function core::num::<impl u64>::div_ceil
+
+Check 101: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.division-by-zero.1
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1601:27 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 102: pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions.division-by-zero.2
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: pool/src/pool/bad_debt.rs:1602:48 in function pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+
+Check 103: core::num::<impl i128>::rem_euclid.division-by-zero.1
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:3178:21 in function core::num::<impl i128>::rem_euclid
+
+Check 104: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>
+
+Check 105: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>
+
+Check 106: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>
+
+Check 107: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>
+
+Check 108: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>
+
+Check 109: pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:223:27 in function pool::reserve::<impl storage::ReserveData>::to_asset_from_d_token::<()>
+
+Check 110: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 111: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 112: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 113: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 114: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 115: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:50 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 116: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.7
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 117: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.8
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 118: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.9
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 119: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.10
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 120: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.11
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 121: core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt.pointer_dereference.12
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs:1903:59 in function core::cmp::impls::<impl core::cmp::PartialOrd for i128>::lt
+
+Check 122: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>
+
+Check 123: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>
+
+Check 124: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>
+
+Check 125: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>
+
+Check 126: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>
+
+Check 127: pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: pool/src/pool/reserve.rs:231:38 in function pool::reserve::<impl storage::ReserveData>::to_b_token_up::<()>
+
+Check 128: core::num::<impl i128>::checked_div.division-by-zero.1
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2025-11-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/num/int_macros.rs:883:31 in function core::num::<impl i128>::checked_div
+
+Check 129: soroban_fixed_point_math::i128::div_floor.division-by-zero.1
+	 - Status: SUCCESS
+	 - Description: "division by zero"
+	 - Location: ../../home/common/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/soroban-fixed-point-math-1.3.0/src/i128.rs:34:9 in function soroban_fixed_point_math::i128::div_floor
+
+
+SUMMARY:
+ ** 0 of 124 failed (2 unreachable)
+
+ ** 5 of 5 cover properties satisfied
+
+
+VERIFICATION:- SUCCESSFUL
+Verification Time: 3208.0918s
+
+Manual Harness Summary:
+Complete - 1 successfully verified harnesses, 0 failures, 1 total.
