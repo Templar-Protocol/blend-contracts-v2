@@ -241,7 +241,7 @@ class KaniReleaseTest(unittest.TestCase):
             zstd.poll.return_value = None
             zstd.wait.side_effect = [
                 subprocess.TimeoutExpired(["zstd"], KANI_RELEASE.ARCHIVE_ZSTD_TIMEOUT),
-                0,
+                subprocess.TimeoutExpired(["zstd"], KANI_RELEASE.PROCESS_STOP_TIMEOUT),
             ]
             with (
                 mock.patch.object(
@@ -260,6 +260,7 @@ class KaniReleaseTest(unittest.TestCase):
 
             tar.terminate.assert_called_once()
             zstd.terminate.assert_called_once()
+            zstd.kill.assert_called_once()
             self.assertFalse(destination.exists())
 
     def test_publish_checks_exact_tag_before_publication(self):
