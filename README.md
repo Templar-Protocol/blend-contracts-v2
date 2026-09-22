@@ -91,25 +91,30 @@ just fuzz all 60 1
 
 Select one target with, for example,
 `just fuzz fuzz_pool_factory 60 1`. Inputs decode to at most eight fixed-width
-operations. Committed seeds include deep-success and rejection/boundary
-sequences. `both` replay mode requires identical native and optimized-Wasm
-reports. The libFuzzer campaigns use AddressSanitizer, a 4,096-byte input
-limit, a 10-second per-input timeout, and a 2 GiB libFuzzer RSS limit inside
-the stricter 4 GiB process-tree cgroup.
+operations, and libFuzzer accepts at most 65 bytes: the one-byte header plus
+eight eight-byte operation records. Committed seeds include deep-success and
+rejection/boundary sequences. `both` replay mode requires identical native and
+optimized-Wasm reports. The libFuzzer campaigns use AddressSanitizer, a
+10-second per-input timeout, and a 2 GiB libFuzzer RSS limit inside the stricter
+4 GiB process-tree cgroup.
 
-The drivers assert selected accounting and state-transition invariants plus
-configuration, auction-staleness, withdrawal-maturity, and claim-clearing
-boundaries. Authorization sensitivity is checked by the existing integration
-suite rather than a fuzz-driver authorization oracle. External token, oracle,
-and liquidity-pool dependencies remain deterministic Soroban test fixtures;
-this is not a live network or deployment test.
+The drivers assert selected accounting and state-transition invariants,
+including conservative accrued reserve coverage, post-submit actor health,
+exact status decisions, configuration boundaries, auction staleness,
+withdrawal maturity, and claim clearing. Only Soroban errors whose runtime type
+is `Contract` count as generated rejections; host, authorization, budget, and
+VM faults remain harness failures. Authorization sensitivity is otherwise
+checked by the existing integration suite rather than a general fuzz-driver
+authorization oracle. External token, oracle, and liquidity-pool dependencies
+remain deterministic Soroban test fixtures; this is not a live network or
+deployment test.
 Generated corpora and crash artifacts are ignored locally; CI retains crash
 and run evidence for 14 days.
 
 ### Kani
 
 The production contracts call a small `no_std` policy kernel in
-`contract-kernel`. Its 37 registered harnesses prove configuration bounds,
+`contract-kernel`. Its 38 registered harnesses prove configuration bounds,
 pool status/action rules, auction schedules, backstop threshold arithmetic
 and monotonicity, queue conservation and maturity, and emission allocation:
 

@@ -28,7 +28,7 @@ The repository owns three production contracts:
 - `backstop`
 - `pool-factory`
 
-The verification registry maps all seven fuzz targets and all 37 Kani harnesses to these subjects. Mock contracts remain fixtures and are not counted as verified production contracts.
+The verification registry maps all seven fuzz targets and all 38 Kani harnesses to these subjects. Mock contracts remain fixtures and are not counted as verified production contracts.
 
 ### 2.2 External or deliberately unproved components
 
@@ -63,7 +63,7 @@ It does not mean that every public entrypoint has a complete economic specificat
 ```mermaid
 flowchart TD
     A[Pool / Backstop / Pool Factory] --> B[Production-used no_std contract-kernel]
-    B --> C[37 exact Kani harnesses]
+    B --> C[38 exact Kani harnesses]
     A --> D[Seven bounded fuzz drivers]
     D --> E[Native production contracts]
     D --> F[Optimized Wasm contracts]
@@ -169,31 +169,41 @@ The Soroban clients, maps, vectors, storage, events, authentication, and cross-c
 
 **Auditability effect.** Each proof can name one production-used function and a small independent reference without requiring a reviewer to trust a host stub.
 
-### D4. Preserve signed and saturating threshold behavior while providing tractable bounded paths
+### D4. Preserve one signed, saturating threshold formula and prove its production wrappers directly
 
-**Decision.** The threshold kernel has guarded bounded arithmetic paths and retains the original signed, saturating path as fallback:
+**Decision.** The threshold kernel retains the original formula as its only
+production implementation. It truncates each raw balance to whole units, forms
+`BLND^4 * USDC` through signed `i128::saturating_mul`, derives the scaled
+numeric value with `product.saturating_mul(10^7) / 10^25`, and compares the same
+product with `10^25` for the boolean predicate. Both
+`pool::backstop_threshold` and `backstop::above_threshold` call that shared
+helper. There is no optimized branch or alternate production arithmetic.
 
-- whole balances from `0..=1_000_000` use structurally bounded `u64`/`u128` multiplication;
-- larger or negative whole balances use the original `i128::saturating_mul` chain;
-- products through `256_000^5` use division by the algebraically equivalent `10^18` divisor;
-- larger or negative products use the original `saturating_mul(10^7) / 10^25` expression.
+**Why.** A proof-oriented shortcut in the production function creates a second
+arithmetic implementation and an unnecessary compatibility surface. Kani
+tractability belongs in the harness: balances are constructed from narrow
+symbolic seeds, monotonicity increases are bounded, and only intervals that hit
+the 600-second deadline are bisected without shrinking the overall domain.
 
-**Why.** Full-width nonlinear multiplication and division generated intractable CBMC circuits. Assumed numeric ranges do not reduce circuit width; constructing values from narrow integer types does. The guards make that narrowness structural while retaining the prior behavior outside the proof domain.
+**Correctness effect.** Agreement harnesses compare both production results
+with an independent ordinary-multiplication oracle over the documented
+`u8`-seed domain and raw-unit remainder cases. Monotonicity harnesses call the
+two public production wrappers before and after a `0..=1_000` whole-unit
+increase in either axis, asserting numeric monotonicity, predicate
+monotonicity, and boolean/numeric agreement.
 
-**Correctness effect.** The bounded path makes threshold agreement and monotonicity checks terminate under the 4 GiB/600-second harness limits. The fallback preserves negative and saturation semantics that the protocol does not ordinarily reach but existing code defined.
+**Auditability effect.** The registry exposes every contiguous partition and
+required threshold-side cover. The boundary harness separately checks signed
+inputs, saturation extremes, exact threshold equality, and raw-unit neighbors.
 
-**Auditability effect.** Dedicated dispatch harnesses check values immediately below, at, and above both guards, negative inputs, and saturation points against the prior formulas. Boundary harnesses also check the exact threshold and raw-unit neighbors.
-
-**Residual obligation.** These dispatch harnesses are concrete boundary checks, not a universally quantified equivalence proof over every `i128` value. The algebraic equivalence and guard arithmetic remain important manual-review items. An auditor should confirm:
-
-- bounded intermediate maxima fit the selected unsigned types;
-- casts back to `i128` cannot exceed `i128::MAX` inside the guards;
-- `floor(p * 10^7 / 10^25) == floor(p / 10^18)` on the guarded nonnegative domain; and
-- every negative or out-of-range input reaches the original signed fallback.
+**Residual obligation.** These are bounded nonlinear proofs, not a
+universally quantified proof over every `i128` pair. Signed and saturating
+behavior outside the concrete boundary points remains an explicit manual and
+integration-test review surface.
 
 ### D5. Use bounded Kani proofs with explicit domains and non-vacuity witnesses
 
-**Decision.** Kani 0.68.0 runs 37 exact harnesses, one at a time, with Kissat, safety and overflow checks enabled, `--jobs=1`, and a 600-second harness timeout.
+**Decision.** Kani 0.68.0 runs 38 exact harnesses, one at a time, with Kissat, safety and overflow checks enabled, `--jobs=1`, and a 600-second harness timeout.
 
 The proof inventory is:
 
@@ -202,8 +212,8 @@ The proof inventory is:
 | Factory/shared config | 1 | Full-width configuration inputs and exact boundary truth table |
 | Pool | 4 | Full-width status/action predicates and all-`u32` auction schedule |
 | Backstop threshold agreement | 8 | Contiguous BLND-seed tiles covering `0..=255`; USDC spans `u8`; documented raw-unit remainders |
-| Backstop threshold monotonicity | 16 | Eight contiguous BLND-seed tiles in each increase direction |
-| Threshold lemmas/dispatch/boundaries | 5 | Division ordering, threshold comparison, both fast-path dispatches, and concrete extremes |
+| Backstop threshold monotonicity | 21 | Contiguous BLND-seed partitions covering `0..=255` in each increase direction; timed-out intervals are bisected without dropping seeds |
+| Threshold boundaries | 1 | Signed inputs, saturating extremes, exact equality, and raw-unit neighbors through both production wrappers |
 | Queue/emissions | 3 | Full-width nonnegative queue amounts, full-width maturity times, and bounded backfill domain |
 
 Every assumption is intended to be either an API precondition or an explicit tractability bound. Required `kani::cover!` labels witness branch and boundary reachability. Low threshold tiles omit covers that are mathematically impossible in those tiles rather than pretending they are reachable.
@@ -220,7 +230,7 @@ Kani 0.68.0 also requires a Kani-only `repr(C)` on `QueueStep` to avoid an upstr
 
 ### D6. Make target discovery finite and exact
 
-**Decision.** `verification/targets.json` is the checked inventory for seven fuzz targets, their contract/entrypoint scope, 37 Kani harnesses, proof groups, partitions, and cover labels.
+**Decision.** `verification/targets.json` is the checked inventory for seven fuzz targets, their contract/entrypoint scope, 38 Kani harnesses, proof groups, partitions, and cover labels.
 
 Before execution:
 
@@ -245,7 +255,10 @@ Before execution:
 - fixed operation fields (`code`, `actor`, `asset`, `flags`, `amount`);
 - explicit outcomes for empty, empty-program, oversized, truncated, and trailing input.
 
-Each execution creates a fresh deterministic Soroban fixture. The fuzzer does not catch panics. Client return-conversion failures, invocation aborts, and untyped Wasm panics fail the input; ordinary typed contract errors are recorded as rejected transitions.
+The libFuzzer runner sets `-max_len=65`, exactly matching the largest accepted
+program: one header byte plus eight eight-byte operation records.
+
+Each execution creates a fresh deterministic Soroban fixture. The fuzzer does not catch panics. Client return-conversion failures, invocation aborts, and non-contract Soroban runtime errors fail the input; only invocation errors whose `ScErrorType` is exactly `Contract` are recorded as rejected transitions.
 
 The general fixture uses `MockPoolFactory` in native mode as a setup
 dependency. The dedicated `fuzz_pool_factory` driver does not count that mock:
@@ -260,7 +273,7 @@ logical modes.
 
 **Auditability effect.** A seed is a complete deterministic program, not a hidden sequence depending on prior corpus execution.
 
-**Trade-off.** The common `contract_call` classifier treats any typed contract-domain error as a rejected transition. Target-specific assertions defend selected boundaries, but the classifier does not prove that every rejection used the expected error code. Auditors should treat rejection-only paths without a target-specific oracle as exploration, not a complete negative-path specification.
+**Trade-off.** The common `contract_call` classifier accepts only runtime-typed `Contract` errors as generated rejections, but it intentionally does not prove that every such rejection used the operation-specific error code. Target-specific assertions defend selected boundaries, including exact pool-status codes. Auditors should treat other rejection-only paths as exploration, not a complete negative-path specification.
 
 The current fixtures leave Soroban's host budget unlimited for scenario
 execution. The cgroup and libFuzzer timeout still bound machine resources, but
@@ -281,7 +294,7 @@ observable contract, not inferred from successful native execution.
 
 **Correctness effect.** A deterministic difference in observed behavior is a hard failure.
 
-**Auditability effect.** Fifteen small committed seeds provide stable, reviewable reproductions for successful and rejected/boundary paths.
+**Auditability effect.** Seventeen small committed seeds provide stable, reviewable reproductions for successful and rejected/boundary paths, including a maximal eight-operation program and the absent-auction getter no-op.
 
 **Trade-off.** `RunReport.state` is not a hash of all ledger storage or events. Equality proves parity only for the observations mixed into each driver and the assertions executed along that path.
 
@@ -290,8 +303,10 @@ observable contract, not inferred from successful native execution.
 **Decision.** Drivers assert selected state and boundary properties instead of relying on “did not panic.” Examples include:
 
 - pool/factory configuration bounds;
-- nonnegative reserve and position state;
-- exact stored configuration after accepted updates;
+- conservative per-reserve asset coverage after accrued-rate rounding and
+  backstop credit;
+- independent post-success actor health after borrow and collateral withdrawal;
+- exact status-transition results, error codes, and stored configuration;
 - strict stale-auction deletion after 500 elapsed blocks;
 - withdrawal maturity at `expires == now`;
 - token/share deltas for deposit, withdrawal, donation, and draw;
@@ -316,7 +331,7 @@ The authorization mutation was detected by the existing integration suite, not b
 
 ### D10. Commit deep and boundary seeds; keep generated corpus transient
 
-**Decision.** Fifteen seeds live under `test-suites/fuzz/seeds/<target>/`. Generated corpus and crash directories are ignored locally. CI uploads crash artifacts and run evidence for 14 days.
+**Decision.** Seventeen seeds live under `test-suites/fuzz/seeds/<target>/`. Generated corpus and crash directories are ignored locally. CI uploads crash artifacts and run evidence for 14 days.
 
 **Why.** Purely random campaigns often spend their budget on constructor and early-validation failures. Small successful transcripts make deeper state transitions reproducible from the first execution, while a mutable corpus can continue exploring locally or in CI.
 
@@ -365,9 +380,9 @@ This table describes the implemented drivers, not a future coverage aspiration.
 
 | Target | Production calls and observations | Principal implemented assertions | Important residual scope |
 |---|---|---|---|
-| `fuzz_pool_general` | `submit`, `submit_with_allowance`, `claim`, config/reserve/position reads | Returned/stored position shape; nonnegative reserve/accounting fields; valid stored config and positive position entries | No explicit auth oracle; typed rejections are not all error-code-specific; no complete independent interest/health model |
-| `fuzz_pool_admin` | Admin proposal/acceptance, pool config, reserve queue/cancel/apply, status changes | Exact config acceptance predicate and stored values; reserve-count/config invariants | Reserve timelock and error-code behavior are exercised but not comprehensively modeled |
-| `fuzz_pool_auctions` | Interest and liquidation auction creation, get/delete, bad debt | Auction existence; strict stale-deletion boundary; shared pool invariants | Does not currently execute auction fills or independently model bid/lot rounding; interest auction type 1 is not generated |
+| `fuzz_pool_general` | `submit`, `submit_with_allowance`, `claim`, config/reserve/position reads | Returned/stored position shape; conservative `cash + ceil(debt) >= floor(supplier claims) + backstop credit` per reserve after every operation; independent price/factor health after successful borrow or collateral withdrawal | No general auth oracle; contract rejections are not all error-code-specific; no complete independent interest-accrual model or diverse live-oracle behavior |
+| `fuzz_pool_admin` | Admin proposal/acceptance, pool config, reserve queue/cancel/apply, status changes | Exact config acceptance and persistence; reserve-count/config invariants; kernel-backed status result, exact `1200`/`1204` mapping, rollback on rejection, and real `q4w_pct` transition coverage | Reserve timelock behavior and every reserve-operation error code are not exhaustively modeled |
+| `fuzz_pool_auctions` | Interest auction type 2 and liquidation auction type 0 creation, interest get/delete, bad-debt processing | Created-auction existence/readability; absent-auction getter no-op; strict stale-deletion boundary; shared pool invariants | Does not execute auction fills or independently model bid/lot rounding; bad-debt auction type 1 is not explicitly created by this driver |
 | `fuzz_pool_flash_loan` | `flash_loan` with three assets and a zero-amount rejection | Pool/actor token conservation and shared pool invariants | No explicit missing-auth or configured reentrancy lane in this driver |
 | `fuzz_backstop_balances` | Deposit, queue/dequeue, withdraw, donate, draw, balance getters | Token/share deltas, exact maturity predicate, q4w bounds, LP-token/pool-token conservation for the configured pool | One principal and one pool; queue capacity/order and every error code are not exhaustively modeled |
 | `fuzz_emissions` | Distribute, gulp emissions, pool/backstop claims, config, reward add/remove/drop, getters | Nonnegative transfers; repeated pool claim clears accrual; emission config acceptance; reward-zone membership | No independent 70/30 allocation model, constructor/drop-total boundary, or full reward-zone replacement model |
@@ -390,10 +405,16 @@ These gaps are useful audit targets. The registry makes current target ownership
 ### 6.2 New or changed risk surfaces
 
 1. `contract-kernel` is now part of production contract behavior. Reviewers should inspect every callsite and error mapping, not only the harnesses.
-2. The guarded threshold fast paths add branch complexity. Their fallback and boundary checks reduce risk but do not replace a full equivalence review.
+2. Direct nonlinear threshold proofs require finite symbolic construction and
+   explicit partitions. A Kani/solver upgrade may change which interval widths
+   fit the fixed 600-second deadline, but must not silently shrink the domain.
 3. The Kani-only representation workaround depends on the pinned Kani compiler. A Kani upgrade must retest whether it is still needed.
 4. Deterministic fixtures improve reproducibility but reduce environmental diversity. They cannot model live oracle, token, emitter, or Comet failures by themselves.
-5. A generic typed-error classifier favors exploration over exact negative-path specifications. Important rejection paths still need explicit error and rollback assertions in tests or drivers.
+5. The independent accounting and health oracles are intentionally maintained
+   outside production arithmetic, but still consume fixture prices, reserve
+   rates, and configuration. Contract-typed rejection paths without a
+   target-specific assertion remain exploration rather than exact error-code
+   specifications.
 
 ## 7. Auditability impact
 
@@ -419,7 +440,7 @@ A green run does not establish:
 - absence of economic/design vulnerabilities;
 - transaction atomicity for every rejected call;
 - storage/event compatibility with a deployed historical artifact;
-- full-width nonlinear threshold equivalence;
+- full-width nonlinear threshold properties beyond the registered bounded domains;
 - live deployment correctness; or
 - release approval.
 
@@ -427,9 +448,11 @@ A green run does not establish:
 
 Local evidence under `target/verification/` is generated and uncommitted. GitHub artifacts are retained for 14 days and are not signed release attestations. A formal audit or release process should archive the relevant workflow run, source revision, lockfile hashes, optimized-Wasm hashes, and uploaded evidence in a durable audit package.
 
-## 8. Validation snapshot
+## 8. Validation evidence
 
-The following results describe one local working-tree validation on 2026-09-19. They are evidence of that run, not a permanent statement about later revisions.
+### 8.1 Historical baseline — 2026-09-19
+
+The following results describe one local working-tree validation on 2026-09-19. They are historical evidence of that run, not a statement about later revisions.
 
 | Command/check | Observed result | Interpretation |
 |---|---|---|
@@ -572,7 +595,7 @@ The framework makes the following areas easier to audit but does not close them 
 5. flash-loan receiver failure and reentrancy behavior;
 6. reward-zone replacement, emission allocation, and backfill/reset accounting;
 7. pool-factory collision, metadata, event, and unknown-Wasm-hash behavior;
-8. full equivalence of threshold fast paths and signed fallback behavior;
+8. signed and saturating threshold behavior outside the bounded proof partitions;
 9. compatibility against the exact Wasm artifacts intended for deployment; and
 10. durable, revision-bound evidence retention for release approval.
 
