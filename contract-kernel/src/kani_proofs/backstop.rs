@@ -334,8 +334,13 @@ macro_rules! monotonic_partition {
 }
 
 monotonic_partition!(threshold_monotonicity_blnd_0_31, blnd, 0, 31, below_only);
-monotonic_partition!(threshold_monotonicity_blnd_32_63, blnd, 32, 63, below_only);
-monotonic_partition!(threshold_monotonicity_blnd_64_95, blnd, 64, 95, both_sides);
+monotonic_partition!(threshold_monotonicity_blnd_32_47, blnd, 32, 47, below_only);
+monotonic_partition!(threshold_monotonicity_blnd_48_63, blnd, 48, 63, below_only);
+monotonic_partition!(threshold_monotonicity_blnd_64_71, blnd, 64, 71, below_only);
+monotonic_partition!(threshold_monotonicity_blnd_72_79, blnd, 72, 79, below_only);
+monotonic_partition!(threshold_monotonicity_blnd_80_87, blnd, 80, 87, both_sides);
+monotonic_partition!(threshold_monotonicity_blnd_88_91, blnd, 88, 91, both_sides);
+monotonic_partition!(threshold_monotonicity_blnd_92_95, blnd, 92, 95, both_sides);
 monotonic_partition!(
     threshold_monotonicity_blnd_96_103,
     blnd,
@@ -365,23 +370,107 @@ monotonic_partition!(
     both_sides
 );
 monotonic_partition!(
-    threshold_monotonicity_blnd_128_159,
+    threshold_monotonicity_blnd_128_135,
     blnd,
     128,
+    135,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_136_143,
+    blnd,
+    136,
+    143,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_144_147,
+    blnd,
+    144,
+    147,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_148_151,
+    blnd,
+    148,
+    151,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_152_159,
+    blnd,
+    152,
     159,
     both_sides
 );
 monotonic_partition!(
-    threshold_monotonicity_blnd_160_191,
+    threshold_monotonicity_blnd_160_167,
     blnd,
     160,
+    167,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_168_175,
+    blnd,
+    168,
+    175,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_176_179,
+    blnd,
+    176,
+    179,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_180_183,
+    blnd,
+    180,
+    183,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_184_191,
+    blnd,
+    184,
     191,
     both_sides
 );
 monotonic_partition!(
-    threshold_monotonicity_blnd_192_223,
+    threshold_monotonicity_blnd_192_195,
     blnd,
     192,
+    195,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_196_199,
+    blnd,
+    196,
+    199,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_200_203,
+    blnd,
+    200,
+    203,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_204_207,
+    blnd,
+    204,
+    207,
+    both_sides
+);
+monotonic_partition!(
+    threshold_monotonicity_blnd_208_223,
+    blnd,
+    208,
     223,
     both_sides
 );
