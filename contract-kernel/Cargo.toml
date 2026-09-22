@@ -1,0 +1,12 @@
+[package]
+name = "blend-contract-kernel"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

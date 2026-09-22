@@ -16,6 +16,7 @@ testutils = [
 ]
 
 [dependencies]
+blend-contract-kernel = { path = "../contract-kernel" }
 soroban-sdk = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
 cast = { workspace = true }

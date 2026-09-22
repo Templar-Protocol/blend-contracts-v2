@@ -14,3 +14,5 @@ pub const SECONDS_PER_WEEK: u64 = 604800;
 
 /// Max amount of reserves that can be added to a pool
 pub const MAX_RESERVES: u32 = 30;
+
+const _: () = assert!(2 * MAX_RESERVES == blend_contract_kernel::config::MAX_POSITIONS);

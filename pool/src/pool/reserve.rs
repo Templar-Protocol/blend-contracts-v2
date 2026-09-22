@@ -5,9 +5,9 @@ use soroban_sdk::{contracttype, panic_with_error, Address, Env};
 use crate::{
     constants::{SCALAR_12, SCALAR_7},
     errors::PoolError,
-    pool::actions::RequestType,
     storage::{self, PoolConfig, ReserveConfig, ReserveData},
 };
+use blend_contract_kernel::pool::reserve_action_allowed;
 
 use super::interest::calc_accrual;
 
@@ -144,14 +144,8 @@ impl Reserve {
     /// ### Arguments
     /// * `action_type` - The type of action being performed
     pub fn require_action_allowed(&self, e: &Env, action_type: u32) {
-        // disable borrowing or auction cancellation for any non-active pool and disable supplying for any frozen pool
-        if !self.config.enabled {
-            if action_type == RequestType::Supply as u32
-                || action_type == RequestType::SupplyCollateral as u32
-                || action_type == RequestType::Borrow as u32
-            {
-                panic_with_error!(e, PoolError::ReserveDisabled);
-            }
+        if !reserve_action_allowed(self.config.enabled, action_type) {
+            panic_with_error!(e, PoolError::ReserveDisabled);
         }
     }
 
@@ -239,7 +233,7 @@ impl Reserve {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testutils;
+    use crate::{pool::RequestType, testutils};
     use soroban_sdk::testutils::{Address as _, Ledger, LedgerInfo};
 
     #[test]

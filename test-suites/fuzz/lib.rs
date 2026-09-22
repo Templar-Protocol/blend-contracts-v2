@@ -1,252 +1,274 @@
-//! Common code for fuzzing test suites.
-#![allow(unused)]
-#![no_main]
+//! Deterministic, bounded drivers shared by libFuzzer and seed replay.
 
-use soroban_fixed_point_math::FixedPoint;
-use pool::{PoolState, PositionData, Request, RequestType};
-use libfuzzer_sys::fuzz_target;
-use soroban_sdk::testutils::arbitrary::{fuzz_catch_panic, arbitrary::{self, Arbitrary, Unstructured}};
-use soroban_sdk::{testutils::Address as _, vec, Address, token::TokenClient};
-use test_suites::{
-    assertions::assert_approx_eq_abs,
-    create_fixture_with_data,
-    test_fixture::{PoolFixture, TestFixture, TokenIndex, SCALAR_7, SCALAR_12},
-};
+mod drivers;
+pub mod model;
 
-#[derive(Arbitrary, Debug)]
-pub struct NatI128(
-    #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(i64::MAX as i128)))] pub i128,
-);
+use model::DecodeOutcome;
+use soroban_sdk::xdr::ScErrorType;
+use soroban_sdk::{Env, Error, InvokeError};
+use std::fmt;
+use std::str::FromStr;
 
-type ContractResult<T> = Result<T, Result<soroban_sdk::Error, soroban_sdk::InvokeError>>;
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Target {
+    PoolGeneral,
+    PoolAdmin,
+    PoolAuctions,
+    PoolFlashLoan,
+    BackstopBalances,
+    Emissions,
+    PoolFactory,
+}
 
-/// Panic if a contract call result might have been the result of an unexpected panic.
-///
-/// Calls that return an error with type `ScErrorType::WasmVm` and code `ScErrorCode::InvalidAction`
-/// are assumed to be unintended errors. These are the codes that result from plain `panic!` invocations,
-/// thus contracts should never simply call `panic!`, but instead use `panic_with_error!`.
-///
-/// Other rare types of internal exception can return `InvalidAction`.
-#[track_caller]
-pub fn verify_contract_result<T>(env: &soroban_sdk::Env, r: &ContractResult<T>) {
-    use soroban_sdk::testutils::Events;
-    use soroban_sdk::xdr::{ScErrorCode, ScErrorType};
-    use soroban_sdk::{ConversionError, Error};
-    match r {
-        Err(Ok(e)) => {
-            if e.is_type(ScErrorType::WasmVm) && e.is_code(ScErrorCode::InvalidAction) {
-                let msg = "contract failed with InvalidAction - unexpected panic?";
-                eprintln!("{msg}");
-                eprintln!("recent events (10):");
-                for (i, event) in env.events().all().iter().rev().take(10).enumerate() {
-                    eprintln!("{i}: {event:?}");
-                }
-                panic!("{msg}");
-            }
+impl Target {
+    pub const ALL: [Self; 7] = [
+        Self::PoolGeneral,
+        Self::PoolAdmin,
+        Self::PoolAuctions,
+        Self::PoolFlashLoan,
+        Self::BackstopBalances,
+        Self::Emissions,
+        Self::PoolFactory,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PoolGeneral => "fuzz_pool_general",
+            Self::PoolAdmin => "fuzz_pool_admin",
+            Self::PoolAuctions => "fuzz_pool_auctions",
+            Self::PoolFlashLoan => "fuzz_pool_flash_loan",
+            Self::BackstopBalances => "fuzz_backstop_balances",
+            Self::Emissions => "fuzz_emissions",
+            Self::PoolFactory => "fuzz_pool_factory",
         }
-        _ => {}
     }
 }
 
-/// The set of tokens that the pool supports.
-#[derive(Arbitrary, Debug, Clone, Copy)]
-pub enum PoolReserveToken {
-    WETH = 2,
-    XLM = 3,
-    STABLE = 4,
-}
-
-/// Jump the Env `timestamp` forward by `amount` seconds.
-///
-/// Does not change the `sequence` to prevent any ledger expirations.
-#[derive(Arbitrary, Debug)]
-pub struct PassTime {
-    pub amount: u64,
-}
-
-/// Jump the Env `timestamp` forward by `amount` seconds and the Env
-/// `sequence` by `amount` / 5 blocks.
-#[derive(Arbitrary, Debug)]
-pub struct PassTimeAndBlocks {
-    pub amount: u64,
-}
-
-/// Supply `amount` of `token` into the pool.
-#[derive(Arbitrary, Debug)]
-pub struct Supply {
-    pub amount: i128,
-    pub token: PoolReserveToken,
-}
-
-/// Withdraw `amount` of `token` out of the pool for `user`.
-#[derive(Arbitrary, Debug)]
-pub struct Withdraw {
-    pub amount: i128,
-    pub token: PoolReserveToken,
-}
-
-/// Borrow `amount` of `token` out of the pool for `user`.
-#[derive(Arbitrary, Debug)]
-pub struct Borrow {
-    pub amount: i128,
-    pub token: PoolReserveToken,
-}
-
-/// Repay `amount` of `token` into the pool for `user`.
-#[derive(Arbitrary, Debug)]
-pub struct Repay {
-    pub amount: i128,
-    pub token: PoolReserveToken,
-}
-
-/// Claim emissions from the pool for `user`.
-#[derive(Arbitrary, Debug)]
-pub struct ClaimPool {}
-
-/// Claim emissions from the backstop for `user`.
-#[derive(Arbitrary, Debug)]
-pub struct ClaimBackstop {}
-
-impl PassTime {
-    pub fn run(&self, fixture: &TestFixture) {
-        fixture.jump(self.amount);
+impl fmt::Display for Target {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 
-impl PassTimeAndBlocks {
-    pub fn run(&self, fixture: &TestFixture) {
-        fixture.jump_with_sequence(self.amount);
+impl FromStr for Target {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|target| target.as_str() == value)
+            .ok_or_else(|| format!("unknown fuzz target: {value}"))
     }
 }
 
-impl Supply {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let token = fixture
-            .tokens
-            .get(self.token as usize)
-            .unwrap()
-            .address
-            .clone();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
-            &vec![
-                &fixture.env,
-                Request {
-                    request_type: RequestType::SupplyCollateral as u32,
-                    address: token,
-                    amount: self.amount,
-                },
-            ],
-        );
-        verify_contract_result(&fixture.env, &r);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Mode {
+    Native,
+    Wasm,
+}
+
+impl Mode {
+    pub const fn uses_wasm(self) -> bool {
+        matches!(self, Self::Wasm)
     }
 }
 
-impl Withdraw {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let token = fixture
-            .tokens
-            .get(self.token as usize)
-            .unwrap()
-            .address
-            .clone();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
-            &vec![
-                &fixture.env,
-                Request {
-                    request_type: RequestType::WithdrawCollateral as u32,
-                    address: token,
-                    amount: self.amount,
-                },
-            ],
-        );
-        verify_contract_result(&fixture.env, &r);
+impl FromStr for Mode {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "native" => Ok(Self::Native),
+            "wasm" => Ok(Self::Wasm),
+            _ => Err(format!("unknown replay mode: {value}")),
+        }
     }
 }
 
-impl Borrow {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let token = fixture
-            .tokens
-            .get(self.token as usize)
-            .unwrap()
-            .address
-            .clone();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
-            &vec![
-                &fixture.env,
-                Request {
-                    request_type: RequestType::Borrow as u32,
-                    address: token,
-                    amount: self.amount,
-                },
-            ],
-        );
-        verify_contract_result(&fixture.env, &r);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InputClass {
+    Executed,
+    Empty,
+    EmptyProgram,
+    TooManyOperations,
+    Truncated,
+    TrailingBytes,
+}
+
+impl From<DecodeOutcome> for InputClass {
+    fn from(value: DecodeOutcome) -> Self {
+        match value {
+            DecodeOutcome::Empty => Self::Empty,
+            DecodeOutcome::EmptyProgram => Self::EmptyProgram,
+            DecodeOutcome::TooManyOperations => Self::TooManyOperations,
+            DecodeOutcome::Truncated => Self::Truncated,
+            DecodeOutcome::TrailingBytes => Self::TrailingBytes,
+        }
     }
 }
 
-impl Repay {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let token = fixture
-            .tokens
-            .get(self.token as usize)
-            .unwrap()
-            .address
-            .clone();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
-            &vec![
-                &fixture.env,
-                Request {
-                    request_type: RequestType::Repay as u32,
-                    address: token,
-                    amount: self.amount,
-                },
-            ],
-        );
-        verify_contract_result(&fixture.env, &r);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RunReport {
+    pub input: InputClass,
+    pub operations: u8,
+    pub applied: u8,
+    pub rejected: u8,
+    pub noops: u8,
+    pub state: u64,
+}
+
+impl RunReport {
+    pub const fn decoded(operations: usize) -> Self {
+        Self {
+            input: InputClass::Executed,
+            operations: operations as u8,
+            applied: 0,
+            rejected: 0,
+            noops: 0,
+            state: 0xcbf2_9ce4_8422_2325,
+        }
+    }
+
+    pub const fn decode_failure(outcome: DecodeOutcome) -> Self {
+        Self {
+            input: match outcome {
+                DecodeOutcome::Empty => InputClass::Empty,
+                DecodeOutcome::EmptyProgram => InputClass::EmptyProgram,
+                DecodeOutcome::TooManyOperations => InputClass::TooManyOperations,
+                DecodeOutcome::Truncated => InputClass::Truncated,
+                DecodeOutcome::TrailingBytes => InputClass::TrailingBytes,
+            },
+            operations: 0,
+            applied: 0,
+            rejected: 0,
+            noops: 0,
+            state: 0xcbf2_9ce4_8422_2325,
+        }
+    }
+
+    pub fn applied(&mut self) {
+        self.applied = self
+            .applied
+            .checked_add(1)
+            .expect("bounded operation count");
+        self.mix(1);
+    }
+
+    pub fn rejected(&mut self) {
+        self.rejected = self
+            .rejected
+            .checked_add(1)
+            .expect("bounded operation count");
+        self.mix(2);
+    }
+
+    pub fn noop(&mut self) {
+        self.noops = self.noops.checked_add(1).expect("bounded operation count");
+        self.mix(3);
+    }
+
+    pub fn observe_u64(&mut self, value: u64) {
+        self.mix(value);
+    }
+
+    pub fn observe_i128(&mut self, value: i128) {
+        self.mix(value as u128 as u64);
+        self.mix((value as u128 >> 64) as u64);
+    }
+
+    fn mix(&mut self, value: u64) {
+        self.state ^= value;
+        self.state = self.state.wrapping_mul(0x0000_0100_0000_01b3);
     }
 }
 
-impl ClaimPool {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = pool_fixture
-            .pool
-            .try_claim(&user, &vec![&fixture.env, 0, 3], &user);
-        verify_contract_result(&fixture.env, &r);
+/// Classify a generated `try_*` client call. Only contract-domain errors are
+/// valid rejected transitions. Return conversion failures, invocation aborts,
+/// and host faults are harness failures rather than rejected fuzz inputs.
+pub fn contract_call<T, E: fmt::Debug>(
+    _env: &Env,
+    result: Result<Result<T, E>, Result<Error, InvokeError>>,
+    report: &mut RunReport,
+) -> Option<T> {
+    match result {
+        Ok(Ok(value)) => {
+            report.applied();
+            Some(value)
+        }
+        Ok(Err(error)) => panic!("contract return conversion failed: {error:?}"),
+        Err(Ok(error)) => {
+            assert!(
+                error.is_type(ScErrorType::Contract),
+                "unexpected non-contract invocation error: {error:?}"
+            );
+            report.rejected();
+            None
+        }
+        Err(Err(error)) => panic!("contract invocation aborted: {error:?}"),
     }
 }
 
-impl ClaimBackstop {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = fixture.backstop.try_claim(
-            &user,
-            &vec![&fixture.env, pool_fixture.pool.address.clone()],
-            &user,
-        );
-        verify_contract_result(&fixture.env, &r);
+pub fn run(target: Target, input: &[u8], mode: Mode) -> RunReport {
+    let operations = match model::decode(input) {
+        Ok(operations) => operations,
+        Err(outcome) => return RunReport::decode_failure(outcome),
+    };
+    drivers::run(target, &operations, mode)
+}
+
+pub fn fuzz(target: Target, input: &[u8]) {
+    let _ = run(target, input, Mode::Native);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_suites::create_fixture_with_data;
+
+    fn classify_absent_auction(mode: Mode) {
+        let fixture = create_fixture_with_data(mode.uses_wasm());
+        let pool = &fixture.pools[0].pool;
+        let result = pool.try_get_auction(&2, &fixture.backstop.address);
+        let mut report = RunReport::decoded(1);
+        let _ = contract_call(&fixture.env, result, &mut report);
+    }
+
+    #[test]
+    #[should_panic(expected = "unexpected non-contract invocation error")]
+    fn native_absent_auction_is_a_host_fault() {
+        classify_absent_auction(Mode::Native);
+    }
+
+    #[test]
+    #[should_panic(expected = "unexpected non-contract invocation error")]
+    fn wasm_absent_auction_is_a_host_fault() {
+        classify_absent_auction(Mode::Wasm);
+    }
+
+    #[test]
+    fn typed_contract_rejection_is_counted() {
+        for mode in [Mode::Native, Mode::Wasm] {
+            let fixture = create_fixture_with_data(mode.uses_wasm());
+            let pool = &fixture.pools[0].pool;
+            let mut report = RunReport::decoded(1);
+            let result = pool.try_set_status(&1);
+
+            assert!(contract_call(&fixture.env, result, &mut report).is_none());
+            assert_eq!(report.applied, 0);
+            assert_eq!(report.rejected, 1);
+        }
+    }
+
+    #[test]
+    fn absent_auction_getter_is_a_driver_precondition_noop() {
+        let input = [1, 2, 0, 0, 0, 0, 0, 0, 0];
+        for mode in [Mode::Native, Mode::Wasm] {
+            let report = run(Target::PoolAuctions, &input, mode);
+            assert_eq!(report.input, InputClass::Executed);
+            assert_eq!(report.operations, 1);
+            assert_eq!(report.applied, 0);
+            assert_eq!(report.rejected, 0);
+            assert_eq!(report.noops, 1);
+        }
     }
 }

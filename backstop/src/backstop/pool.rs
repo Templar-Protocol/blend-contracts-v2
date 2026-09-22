@@ -1,3 +1,5 @@
+#[cfg(test)]
+use blend_contract_kernel::backstop::above_threshold;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{contracttype, panic_with_error, unwrap::UnwrapOptimized, Address, Env};
 
@@ -97,28 +99,6 @@ pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) {
             panic_with_error!(e, BackstopError::NotPool);
         }
     }
-}
-
-/// Calculate the threshold for the pool's backstop balance
-///
-/// Returns true if the pool's backstop balance is above the threshold
-pub fn is_pool_above_threshold(pool_backstop_data: &PoolBackstopData) -> bool {
-    // @dev: Calculation for pools product constant of underlying will often overflow i128
-    //       so saturating mul is used. This is safe because the threshold is below i128::MAX and the
-    //       protocol does not need to differentiate between pools over the threshold product constant.
-    //       The calculation is:
-    //        - Threshold % = (bal_blnd^4 * bal_usdc) / PC^5 such that PC is 100k
-    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
-
-    // floor balances to nearest full unit and calculate saturated pool product constant
-    let bal_blnd = pool_backstop_data.blnd / SCALAR_7;
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7;
-    let saturating_pool_pc = bal_blnd
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_usdc);
-    saturating_pool_pc >= threshold_pc
 }
 
 /// The pool's backstop balances
@@ -418,7 +398,7 @@ mod tests {
             token_spot_price: 0_1000000,
         }; // ~99% threshold
 
-        let result = is_pool_above_threshold(&pool_backstop_data);
+        let result = above_threshold(pool_backstop_data.blnd, pool_backstop_data.usdc);
         assert!(!result);
     }
 
@@ -436,7 +416,7 @@ mod tests {
             token_spot_price: 0_1000000,
         }; // ~3.6% threshold - rounds to zero in calc
 
-        let result = is_pool_above_threshold(&pool_backstop_data);
+        let result = above_threshold(pool_backstop_data.blnd, pool_backstop_data.usdc);
         assert!(!result);
     }
 
@@ -454,7 +434,7 @@ mod tests {
             token_spot_price: 0_1000000,
         }; // 100% threshold
 
-        let result = is_pool_above_threshold(&pool_backstop_data);
+        let result = above_threshold(pool_backstop_data.blnd, pool_backstop_data.usdc);
         assert!(result);
     }
 
@@ -472,7 +452,7 @@ mod tests {
             token_spot_price: 0_1000000,
         }; // 362x threshold
 
-        let result = is_pool_above_threshold(&pool_backstop_data);
+        let result = above_threshold(pool_backstop_data.blnd, pool_backstop_data.usdc);
         assert!(result);
     }
 

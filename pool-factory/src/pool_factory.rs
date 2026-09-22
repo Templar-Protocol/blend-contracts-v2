@@ -3,12 +3,11 @@ use crate::{
     events::PoolFactoryEvents,
     storage::{self, PoolInitMeta},
 };
+use blend_contract_kernel::config::valid_pool_config;
 use soroban_sdk::{
     contract, contractclient, contractimpl, panic_with_error, Address, Bytes, BytesN, Env, IntoVal,
     String,
 };
-
-const SCALAR_7: u32 = 1_0000000;
 
 #[contract]
 pub struct PoolFactoryContract;
@@ -72,20 +71,7 @@ impl PoolFactory for PoolFactoryContract {
         storage::extend_instance(&e);
         let pool_init_meta = storage::get_pool_init_meta(&e);
 
-        // verify backstop take rate is within [0,1) with 7 decimals
-        if backstop_take_rate >= SCALAR_7 {
-            panic_with_error!(&e, PoolFactoryError::InvalidPoolInitArgs);
-        }
-
-        // verify max positions is at least 2 and less than 64
-        // pools have a max of 30 reserves, so 60 is the max number of positions
-        if max_positions < 2 || max_positions > 60 {
-            panic_with_error!(&e, PoolFactoryError::InvalidPoolInitArgs);
-        }
-
-        // verify max positions is at least 2 and less than 64
-        // pools have a max of 50 reserves, so 100 is the max number of positions
-        if min_collateral < 0 {
+        if !valid_pool_config(backstop_take_rate, max_positions, min_collateral) {
             panic_with_error!(&e, PoolFactoryError::InvalidPoolInitArgs);
         }
 

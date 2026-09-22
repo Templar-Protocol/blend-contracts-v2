@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "fuzz": [
+    {
+      "target": "fuzz_pool_general",
+      "contracts": ["pool"],
+      "entrypoints": ["submit", "submit_with_allowance", "claim", "get_config", "get_reserve_list", "get_reserve", "get_positions"]
+    },
+    {
+      "target": "fuzz_pool_admin",
+      "contracts": ["pool"],
+      "entrypoints": ["propose_admin", "accept_admin", "update_pool", "queue_set_reserve", "cancel_set_reserve", "set_reserve", "update_status", "set_status", "get_admin", "get_config", "get_reserve_list", "get_reserve"]
+    },
+    {
+      "target": "fuzz_pool_auctions",
+      "contracts": ["pool"],
+      "entrypoints": ["new_auction", "get_auction", "del_auction", "bad_debt", "get_positions"]
+    },
+    {
+      "target": "fuzz_pool_flash_loan",
+      "contracts": ["pool"],
+      "entrypoints": ["flash_loan"]
+    },
+    {
+      "target": "fuzz_backstop_balances",
+      "contracts": ["backstop"],
+      "entrypoints": ["deposit", "queue_withdrawal", "dequeue_withdrawal", "withdraw", "draw", "donate", "user_balance", "pool_data", "backstop_token"]
+    },
+    {
+      "target": "fuzz_emissions",
+      "contracts": ["pool", "backstop"],
+      "entrypoints": ["gulp_emissions", "set_emissions_config", "claim", "get_reserve_emissions", "get_user_emissions", "distribute", "add_reward", "remove_reward", "reward_zone", "drop"]
+    },
+    {
+      "target": "fuzz_pool_factory",
+      "contracts": ["pool-factory", "pool"],
+      "entrypoints": ["__constructor", "deploy", "is_pool", "get_config"]
+    }
+  ],
+  "kani": [
+    {
+      "group": "factory",
+      "harness": "kani_proofs::config::pool_config_bounds",
+      "covers": ["rate_9_999_999", "rate_10_000_000", "positions_2", "positions_60", "positions_61", "collateral_minus_1", "collateral_zero", "accepted", "rejected"]
+    },
+    {
+      "group": "pool",
+      "harness": "kani_proofs::pool::automatic_status",
+      "covers": ["status_4_rejected", "status_6_rejected", "q4w_75_equality", "q4w_50_equality", "q4w_60_equality", "q4w_30_equality", "default_current", "threshold_not_met"]
+    },
+    {
+      "group": "pool",
+      "harness": "kani_proofs::pool::admin_status",
+      "covers": ["active_allowed", "active_equality_rejected", "admin_ice_equality_rejected", "status_3_allowed", "freeze_allowed", "invalid_request"]
+    },
+    {
+      "group": "pool",
+      "harness": "kani_proofs::pool::action_permissions",
+      "covers": ["pool_borrow_forbidden", "pool_cancel_forbidden", "pool_supply_forbidden", "pool_collateral_forbidden", "reserve_supply_forbidden", "reserve_collateral_forbidden", "reserve_borrow_forbidden", "enabled_reserve", "invalid_tag_predicate_behavior"]
+    },
+    {
+      "group": "pool",
+      "harness": "kani_proofs::pool::auction_schedule",
+      "covers": ["elapsed_0", "elapsed_199", "elapsed_200", "elapsed_201", "elapsed_399", "elapsed_400", "elapsed_401"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_0_31",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 0, "max": 31},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_32_63",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 32, "max": 63},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_64_95",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 64, "max": 95},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "above_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_96_127",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 96, "max": 127},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "exact_threshold", "above_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_128_159",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 128, "max": 159},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "above_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_160_191",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 160, "max": 191},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "above_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_192_223",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 192, "max": 223},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "above_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_agreement_blnd_224_255",
+      "partition_set": "threshold_agreement",
+      "partition": {"axis": "blnd_whole_seed", "min": 224, "max": 255},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "below_threshold", "above_threshold", "remainder_0", "remainder_1", "remainder_half", "remainder_max"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_0_31",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 0, "max": 31},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_32_63",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 32, "max": 63},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_64_95",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 64, "max": 95},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_96_103",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 96, "max": 103},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_104_111",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 104, "max": 111},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_112_119",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 112, "max": 119},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_120_127",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 120, "max": 127},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_128_159",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 128, "max": 159},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_160_191",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 160, "max": 191},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_192_223",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 192, "max": 223},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_blnd_224_255",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "blnd", "min": 224, "max": 255},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_0_31",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 0, "max": 31},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_32_63",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 32, "max": 63},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_64_95",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 64, "max": 95},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_96_103",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 96, "max": 103},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_104_111",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 104, "max": 111},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_112_127",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 112, "max": 127},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_128_159",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 128, "max": 159},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_160_191",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 160, "max": 191},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_192_223",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 192, "max": 223},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_monotonicity_usdc_224_255",
+      "partition_set": "threshold_monotonicity",
+      "partition": {"axis": "blnd_whole_seed", "direction": "usdc", "min": 224, "max": 255},
+      "covers": ["blnd_partition_min", "blnd_partition_max", "increase_zero", "increase_1000", "starts_below_threshold", "starts_at_or_above_threshold"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::threshold_boundary_points",
+      "covers": ["zero_axis_extreme", "saturated_extreme", "exact_threshold", "subunit_neighbors"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::queue_conservation",
+      "covers": ["zero_exact", "partial", "nonzero_exact", "continue"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::withdrawal_maturity",
+      "covers": ["not_expired", "exact_maturity", "max_exact_maturity", "past_maturity", "mature_partial", "mature_exact", "mature_continue"]
+    },
+    {
+      "group": "backstop",
+      "harness": "kani_proofs::backstop::backfill_limit",
+      "covers": ["no_room", "rejected_current", "exact_fill", "partial_capped_fill", "zero_request"]
+    }
+  ]
+}
