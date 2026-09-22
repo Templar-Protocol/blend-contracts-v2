@@ -5,8 +5,8 @@ use num_bigint::BigInt;
 use pool::{Request, RequestType};
 use sep_40_oracle::{Asset, PriceFeedClient};
 use soroban_sdk::{vec, Address, Vec};
-use test_suites::test_fixture::{TestFixture, TokenIndex};
 use test_suites::create_fixture_with_data;
+use test_suites::test_fixture::{TestFixture, TokenIndex};
 
 pub fn run(operations: &[Operation], mode: Mode) -> RunReport {
     let mut fixture = create_fixture_with_data(mode.uses_wasm());
@@ -138,14 +138,8 @@ fn assert_submit_health(fixture: &TestFixture<'_>, actor: &Address) {
 
     for asset in pool.get_reserve_list() {
         let reserve = pool.get_reserve(&asset);
-        let collateral_shares = positions
-            .collateral
-            .get(reserve.config.index)
-            .unwrap_or(0);
-        let debt_shares = positions
-            .liabilities
-            .get(reserve.config.index)
-            .unwrap_or(0);
+        let collateral_shares = positions.collateral.get(reserve.config.index).unwrap_or(0);
+        let debt_shares = positions.liabilities.get(reserve.config.index).unwrap_or(0);
         if collateral_shares == 0 && debt_shares == 0 {
             continue;
         }
@@ -178,8 +172,11 @@ fn assert_submit_health(fixture: &TestFixture<'_>, actor: &Address) {
                 &BigInt::from(reserve.data.d_rate),
                 &rate_scalar,
             );
-            let effective_debt =
-                mul_div_ceil(&debt_assets, &factor_scalar, &BigInt::from(reserve.config.l_factor));
+            let effective_debt = mul_div_ceil(
+                &debt_assets,
+                &factor_scalar,
+                &BigInt::from(reserve.config.l_factor),
+            );
             liability_base += mul_div_ceil(&price, &effective_debt, &asset_scalar);
         }
     }
@@ -190,8 +187,7 @@ fn assert_submit_health(fixture: &TestFixture<'_>, actor: &Address) {
 
     if liability_base > BigInt::from(0) {
         let health = mul_div_floor(&collateral_base, &oracle_scalar, &liability_base);
-        let minimum =
-            mul_div_floor(&oracle_scalar, &BigInt::from(1_0000100i128), &factor_scalar);
+        let minimum = mul_div_floor(&oracle_scalar, &BigInt::from(1_0000100i128), &factor_scalar);
         assert!(
             health >= minimum,
             "post-submit health below minimum: health={health}, minimum={minimum}"

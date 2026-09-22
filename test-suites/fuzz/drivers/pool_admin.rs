@@ -7,8 +7,8 @@ use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::ScErrorType;
 use soroban_sdk::{Address, Error, InvokeError};
 use std::fmt;
-use test_suites::test_fixture::TestFixture;
 use test_suites::create_fixture_with_data;
+use test_suites::test_fixture::TestFixture;
 
 pub fn run(operations: &[Operation], mode: Mode) -> RunReport {
     let fixture = create_fixture_with_data(mode.uses_wasm());

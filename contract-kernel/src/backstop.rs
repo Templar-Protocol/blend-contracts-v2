@@ -74,4 +74,3 @@ pub const fn cap_backfill(current: i128, requested: i128) -> Option<(i128, i128)
         Some((allocated, current + allocated))
     }
 }
-

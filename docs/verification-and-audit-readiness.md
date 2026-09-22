@@ -313,7 +313,7 @@ observable contract, not inferred from successful native execution.
 - repeated emission claims transferring zero without new accrual; and
 - deployment acceptance matching an independent configuration predicate.
 
-Five temporary production mutations were used to demonstrate that relevant checks fail:
+The historical 2026-09-19 baseline used five temporary production mutations:
 
 1. factory/pool configuration upper-bound comparison;
 2. auction staleness comparison;
@@ -321,13 +321,35 @@ Five temporary production mutations were used to demonstrate that relevant check
 4. required pool-user authorization; and
 5. claim-accrual clearing.
 
-The authorization mutation was detected by the existing integration suite, not by a fuzz-driver authorization oracle.
+The 2026-09-22 remediation added eight focused sensitivity checks:
+
+1. restoring the former `WasmVm`-only classifier made native and Wasm
+   absent-auction faults stop panicking;
+2. inflating stored STABLE supplier shares triggered the reserve-deficit
+   assertion in native and Wasm modes while clean accrued and donation/gulp
+   controls passed;
+3. removing the borrow health guard let a rejected `100` collateral / `90`
+   borrow sequence reach the independent health assertion;
+4. removing the collateral-withdrawal health guard let a rejected
+   `100` collateral / `50` borrow / `60` withdrawal sequence reach that same
+   assertion;
+5. negating the public numeric threshold wrapper failed direct monotonicity;
+6. deleting one BLND multiplication failed the independent agreement oracle;
+7. changing `MAX_RESERVES` from `30` to `31` failed the compile-time
+   `2 * MAX_RESERVES == MAX_POSITIONS` assertion; and
+8. removing successful automatic-status persistence failed the native fixture
+   and status regression checks.
+
+Every source mutation was restored immediately, and its focused clean control
+passed afterward. The authorization mutation in the historical set was
+detected by the integration suite, not by a general fuzz-driver authorization
+oracle.
 
 **Why.** An assertion that survives the defect it claims to detect provides little assurance. Deliberate mutations test sensitivity without retaining mutation switches in production.
 
-**Correctness effect.** The checks have evidence of detecting these five concrete defect classes.
+**Correctness effect.** The checks have concrete evidence of detecting the named defect classes, including runtime fault misclassification, accounting deficits, health-check bypasses, threshold drift, constant drift, and missing status persistence.
 
-**Auditability effect.** `MUTATION-CHECK` comments identify the defending assertions. This is evidence for those mutations only, not mutation-score coverage of the repository.
+**Auditability effect.** Focused tests, replay inputs, Kani assertions, compile-time assertions, and `MUTATION-CHECK` comments identify the defending oracle. This is evidence for those mutations only, not mutation-score coverage of the repository.
 
 ### D10. Commit deep and boundary seeds; keep generated corpus transient
 
@@ -400,7 +422,7 @@ These gaps are useful audit targets. The registry makes current target ownership
 4. **Contract-level state is exercised across calls.** Fuzz programs can combine time movement, configuration, balance, auction, factory, and emission operations.
 5. **Native/Wasm divergence becomes observable.** The same deterministic seed must produce the same report in both representations.
 6. **Verification failure semantics are stronger.** Resource limits, missing discovery, unsatisfied covers, solver uncertainty, lockfile drift, timeout, and OOM cannot be reported as a pass.
-7. **Tests are shown to be sensitive to selected defects.** The five mutation experiments give concrete evidence beyond green-path execution.
+7. **Tests are shown to be sensitive to selected defects.** The historical five and remediation sensitivity checks provide concrete evidence beyond green-path execution.
 
 ### 6.2 New or changed risk surfaces
 

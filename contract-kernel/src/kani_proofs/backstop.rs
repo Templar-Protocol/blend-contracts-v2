@@ -1,7 +1,7 @@
 use crate::{
     backstop::{
-        above_threshold, cap_backfill, consume_queue_entry, threshold_values,
-        withdraw_queue_entry, QueueStep, MAX_BACKFILLED_EMISSIONS,
+        above_threshold, cap_backfill, consume_queue_entry, threshold_values, withdraw_queue_entry,
+        QueueStep, MAX_BACKFILLED_EMISSIONS,
     },
     pool::backstop_threshold,
 };
@@ -444,7 +444,6 @@ monotonic_partition!(
     255,
     both_sides
 );
-
 
 /// Scope: deterministic signed, extreme, exact-threshold and ±1 raw-unit
 /// regression points for both production wrappers. No assumptions or loops;
