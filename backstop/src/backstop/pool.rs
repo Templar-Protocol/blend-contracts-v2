@@ -715,3 +715,6 @@ mod tests {
     }
 }
 
+#[cfg(kani)]
+#[path = "pool_verification.rs"]
+mod verification;

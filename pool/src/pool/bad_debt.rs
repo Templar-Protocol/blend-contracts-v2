@@ -1529,3 +1529,6 @@ mod tests {
     }
 }
 
+#[cfg(kani)]
+#[path = "bad_debt_verification.rs"]
+mod verification;

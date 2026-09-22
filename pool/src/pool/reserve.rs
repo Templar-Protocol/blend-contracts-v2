@@ -285,6 +285,9 @@ impl ReserveData {
     }
 }
 
+#[cfg(kani)]
+#[path = "reserve_verification.rs"]
+mod verification;
 
 #[cfg(test)]
 mod tests {
@@ -945,3 +948,6 @@ mod tests {
     }
 }
 
+#[cfg(kani)]
+#[path = "inverse_partitions.rs"]
+mod inverse_partitions;

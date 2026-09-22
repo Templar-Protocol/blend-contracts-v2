@@ -21,6 +21,9 @@ impl FixedMath for Env {
     }
 }
 
+#[cfg(kani)]
+#[path = "math_verification.rs"]
+mod verification;
 
 #[cfg(test)]
 mod tests {
