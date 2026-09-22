@@ -1,3 +1,4 @@
+use blend_contract_kernel::pool::action_allowed;
 use soroban_sdk::{map, panic_with_error, unwrap::UnwrapOptimized, vec, Address, Env, Map, Vec};
 
 use sep_40_oracle::{Asset, PriceFeedClient};
@@ -73,10 +74,7 @@ impl Pool {
     /// ### Arguments
     /// * `action_type` - The type of action being performed
     pub fn require_action_allowed(&self, e: &Env, action_type: u32) {
-        // disable borrowing or auction cancellation for any non-active pool and disable supplying for any frozen pool
-        if (self.config.status > 1 && (action_type == 4 || action_type == 9))
-            || (self.config.status > 3 && (action_type == 2 || action_type == 0))
-        {
+        if !action_allowed(self.config.status, action_type) {
             panic_with_error!(e, PoolError::InvalidPoolStatus);
         }
     }

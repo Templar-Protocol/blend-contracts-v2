@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = [
+    "contract-kernel",
     "backstop",
     "pool",
     "mocks/mock-pool",

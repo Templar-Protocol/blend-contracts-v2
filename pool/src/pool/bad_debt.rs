@@ -1,8 +1,9 @@
 use soroban_sdk::{panic_with_error, Address, Env};
 
 use crate::{dependencies::BackstopClient, events::PoolEvents, storage, AuctionType, PoolError};
+use blend_contract_kernel::pool::backstop_threshold;
 
-use super::{calc_pool_backstop_threshold, Pool, User};
+use super::{Pool, User};
 
 /// Handles any bad debt that exists for "user"
 pub fn bad_debt(e: &Env, user: &Address) {
@@ -106,7 +107,7 @@ pub fn check_and_handle_backstop_bad_debt(
     if backstop_state.has_liabilities() {
         let backstop_client = BackstopClient::new(e, backstop_address);
         let pool_backstop_data = backstop_client.pool_data(&e.current_contract_address());
-        let threshold = calc_pool_backstop_threshold(&pool_backstop_data);
+        let threshold = backstop_threshold(pool_backstop_data.blnd, pool_backstop_data.usdc);
         if threshold < 0_0000003 {
             // ~5% of threshold
             let reserve_list = storage::get_res_list(e);

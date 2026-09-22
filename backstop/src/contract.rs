@@ -1,12 +1,13 @@
 use crate::{
     backstop::{self, load_pool_backstop_data, PoolBackstopData, UserBalance, Q4W},
-    constants::{MAX_BACKFILLED_EMISSIONS, SCALAR_7},
+    constants::SCALAR_7,
     dependencies::EmitterClient,
     emissions,
     errors::BackstopError,
     events::BackstopEvents,
     storage,
 };
+use blend_contract_kernel::backstop::MAX_BACKFILLED_EMISSIONS;
 use soroban_sdk::{contract, contractclient, contractimpl, panic_with_error, Address, Env, Vec};
 
 /// ### Backstop

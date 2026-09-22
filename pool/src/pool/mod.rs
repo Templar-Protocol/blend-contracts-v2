@@ -30,9 +30,7 @@ mod user;
 pub use user::{Positions, User};
 
 mod status;
-pub use status::{
-    calc_pool_backstop_threshold, execute_set_pool_status, execute_update_pool_status,
-};
+pub use status::{execute_set_pool_status, execute_update_pool_status};
 
 mod gulp;
 pub use gulp::execute_gulp;

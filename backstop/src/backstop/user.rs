@@ -1,3 +1,4 @@
+use blend_contract_kernel::backstop::{consume_queue_entry, withdraw_queue_entry, QueueStep};
 use soroban_sdk::{contracttype, panic_with_error, vec, Env, Vec};
 
 use crate::{
@@ -74,30 +75,28 @@ impl UserBalance {
     ///
     /// ### Errors
     /// If the user does not have enough shares currently eligible to withdraw
-    #[allow(clippy::comparison_chain)]
     pub fn withdraw_shares(&mut self, e: &Env, to_withdraw: i128) {
-        // validate the invoke has enough unlocked Q4W to claim
-        // manage the q4w list while verifying
-        let mut left_to_withdraw: i128 = to_withdraw;
+        let mut left_to_withdraw = to_withdraw;
+        let now = e.ledger().timestamp();
         for _index in 0..self.q4w.len() {
             let mut cur_q4w = self.q4w.pop_front_unchecked();
-            if cur_q4w.exp <= e.ledger().timestamp() {
-                if cur_q4w.amount > left_to_withdraw {
-                    // last record we need to update, but the q4w should remain
-                    cur_q4w.amount -= left_to_withdraw;
+            match withdraw_queue_entry(cur_q4w.amount, cur_q4w.exp, now, left_to_withdraw) {
+                Err(_) => panic_with_error!(e, BackstopError::NotExpired),
+                Ok(QueueStep::Partial { entry_remaining }) => {
+                    cur_q4w.amount = entry_remaining;
                     left_to_withdraw = 0;
                     self.q4w.push_front(cur_q4w);
                     break;
-                } else if cur_q4w.amount == left_to_withdraw {
-                    // last record we need to update, q4w fully consumed
+                }
+                Ok(QueueStep::Exact) => {
                     left_to_withdraw = 0;
                     break;
-                } else {
-                    // allow the pop to consume the record
-                    left_to_withdraw -= cur_q4w.amount;
                 }
-            } else {
-                panic_with_error!(e, BackstopError::NotExpired);
+                Ok(QueueStep::Continue {
+                    requested_remaining,
+                }) => {
+                    left_to_withdraw = requested_remaining;
+                }
             }
         }
 
@@ -113,26 +112,26 @@ impl UserBalance {
     ///
     /// ### Errors
     /// If they don't have enough queued shares to dequeue
-    #[allow(clippy::comparison_chain)]
     pub fn dequeue_shares(&mut self, e: &Env, to_dequeue: i128) {
-        // validate the invoke has enough unlocked Q4W to claim
-        // manage the q4w list while verifying
-        let mut left_to_dequeue: i128 = to_dequeue;
+        let mut left_to_dequeue = to_dequeue;
         for _index in 0..self.q4w.len() {
             let mut cur_q4w = self.q4w.pop_back_unchecked();
-            if cur_q4w.amount > left_to_dequeue {
-                // last record we need to update, but the q4w should remain
-                cur_q4w.amount -= left_to_dequeue;
-                left_to_dequeue = 0;
-                self.q4w.push_back(cur_q4w);
-                break;
-            } else if cur_q4w.amount == left_to_dequeue {
-                // last record we need to update, q4w fully consumed
-                left_to_dequeue = 0;
-                break;
-            } else {
-                // allow the pop to consume the record
-                left_to_dequeue -= cur_q4w.amount;
+            match consume_queue_entry(cur_q4w.amount, left_to_dequeue) {
+                QueueStep::Partial { entry_remaining } => {
+                    cur_q4w.amount = entry_remaining;
+                    left_to_dequeue = 0;
+                    self.q4w.push_back(cur_q4w);
+                    break;
+                }
+                QueueStep::Exact => {
+                    left_to_dequeue = 0;
+                    break;
+                }
+                QueueStep::Continue {
+                    requested_remaining,
+                } => {
+                    left_to_dequeue = requested_remaining;
+                }
             }
         }
 

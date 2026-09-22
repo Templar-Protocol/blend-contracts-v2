@@ -1,0 +1,87 @@
+name: verification-kani
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verification-kani.yml'
+      - 'justfile'
+      - 'verification/**'
+      - 'contract-kernel/**'
+      - 'pool/**'
+      - 'backstop/**'
+      - 'pool-factory/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verification-kani.yml'
+      - 'justfile'
+      - 'verification/**'
+      - 'contract-kernel/**'
+      - 'pool/**'
+      - 'backstop/**'
+      - 'pool-factory/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  schedule:
+    - cron: '43 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-kani-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kani:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      VERIFY_SYSTEMD_MODE: system
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install pinned Rust and Just
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.81 --profile minimal
+          rustup toolchain install nightly-2025-11-25 --profile minimal
+          cargo +nightly-2025-11-25 install just --version 1.51.0 --locked
+
+      - name: Install pinned Kani and CBMC
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +nightly-2025-11-25 install kani-verifier --version 0.68.0 --locked
+          cargo kani setup
+          cargo kani --version | grep -Fx 'Kani Rust Verifier 0.68.0 (cargo plugin)'
+
+      - name: Fetch locked dependencies
+        shell: bash
+        run: exec just --unstable _verification-fetch
+
+      - name: Verify containment
+        shell: bash
+        run: exec just verify-doctor
+
+      - name: Run all exact proofs serially
+        shell: bash
+        run: exec just kani
+
+      - name: Upload proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kani-verification-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            target/verification/kani-*.json
+            target/verification/kani-list.json
+            target/verification/runs/

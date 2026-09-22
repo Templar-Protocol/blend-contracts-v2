@@ -4,6 +4,7 @@ use crate::{
     pool::{Pool, User},
     storage,
 };
+use blend_contract_kernel::pool::auction_modifiers;
 use cast::i128;
 use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{contracttype, map, panic_with_error, Address, Env, Map, Vec};
@@ -207,23 +208,8 @@ fn scale_auction(
     };
 
     // determine block based auction modifiers
-    let bid_modifier: i128;
-    let lot_modifier: i128;
-    let per_block_scalar: i128 = 0_0050000; // modifier moves 0.5% every block
-    let block_dif = i128(e.ledger().sequence() - auction_data.block);
-    if block_dif > 200 {
-        // lot 100%, bid scaling down from 100% to 0%
-        lot_modifier = SCALAR_7;
-        if block_dif < 400 {
-            bid_modifier = SCALAR_7 - (block_dif - 200) * per_block_scalar;
-        } else {
-            bid_modifier = 0;
-        }
-    } else {
-        // lot scaling from 0% to 100%, bid 100%
-        lot_modifier = block_dif * per_block_scalar;
-        bid_modifier = SCALAR_7;
-    }
+    let elapsed_blocks = e.ledger().sequence() - auction_data.block;
+    let (bid_modifier, lot_modifier) = auction_modifiers(elapsed_blocks);
 
     // scale the auction
     let percent_filled_i128 = i128(percent_filled) * 1_00000; // scale to decimal form in 7 decimals from percentage

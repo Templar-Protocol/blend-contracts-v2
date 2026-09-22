@@ -1,10 +1,11 @@
 use crate::{
-    constants::{MAX_RESERVES, SCALAR_12, SCALAR_7, SECONDS_PER_WEEK},
+    constants::{SCALAR_12, SCALAR_7, SECONDS_PER_WEEK},
     errors::PoolError,
     storage::{
         self, has_queued_reserve_set, PoolConfig, QueuedReserveInit, ReserveConfig, ReserveData,
     },
 };
+use blend_contract_kernel::config::valid_pool_config;
 use soroban_sdk::{panic_with_error, Address, Env, String};
 
 use super::{pool::Pool, Reserve};
@@ -196,26 +197,19 @@ fn require_valid_reserve_metadata_changes(
 }
 
 fn require_valid_pool_config(e: &Env, config: &PoolConfig) {
-    // ensure backstop is [0,1)
-    if config.bstop_rate >= SCALAR_7 as u32 {
+    if !valid_pool_config(
+        config.bstop_rate,
+        config.max_positions,
+        config.min_collateral,
+    ) {
         panic_with_error!(e, PoolError::InvalidPoolConfigArgs);
-    }
-
-    // verify max positions is at least 2 and less than 2 * max reserves
-    if config.max_positions < 2 || config.max_positions > 2 * MAX_RESERVES {
-        panic_with_error!(&e, PoolError::InvalidPoolConfigArgs);
-    }
-
-    // verify min collateral is at least 0
-    if config.min_collateral < 0 {
-        panic_with_error!(&e, PoolError::InvalidPoolConfigArgs);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::storage::QueuedReserveInit;
     use crate::testutils;
+    use crate::{constants::MAX_RESERVES, storage::QueuedReserveInit};
 
     use super::*;
     use soroban_sdk::testutils::{Address as _, Ledger, LedgerInfo};

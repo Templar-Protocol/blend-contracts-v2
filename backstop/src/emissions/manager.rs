@@ -4,13 +4,16 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{panic_with_error, unwrap::UnwrapOptimized, vec, Address, Env, Vec};
 
 use crate::{
-    backstop::{is_pool_above_threshold, load_pool_backstop_data},
-    constants::{MAX_BACKFILLED_EMISSIONS, MAX_RZ_SIZE, SCALAR_7},
+    backstop::load_pool_backstop_data,
+    constants::{MAX_RZ_SIZE, SCALAR_7},
     dependencies::EmitterClient,
     errors::BackstopError,
     storage::{self, BackstopEmissionData, RzEmissions},
     PoolBalance,
 };
+#[cfg(test)]
+use blend_contract_kernel::backstop::MAX_BACKFILLED_EMISSIONS;
+use blend_contract_kernel::backstop::{above_threshold, cap_backfill};
 
 use super::distributor::update_emission_data;
 
@@ -26,7 +29,7 @@ pub fn add_to_reward_zone(e: &Env, to_add: Address, to_remove: Option<Address>) 
     // ensure to_add has met the minimum backstop deposit threshold
     // NOTE: "to_add" can only carry a pool balance if it is a deployed pool from the factory
     let pool_data = load_pool_backstop_data(e, &to_add);
-    if !is_pool_above_threshold(&pool_data) {
+    if !above_threshold(pool_data.blnd, pool_data.usdc) {
         panic_with_error!(e, BackstopError::InvalidRewardZoneEntry);
     }
 
@@ -60,7 +63,7 @@ pub fn remove_from_reward_zone(e: &Env, to_remove: Address) {
 
     // ensure to_remove has not met the backstop threshold
     let pool_data = load_pool_backstop_data(e, &to_remove);
-    if is_pool_above_threshold(&pool_data) {
+    if above_threshold(pool_data.blnd, pool_data.usdc) {
         panic_with_error!(e, BackstopError::BadRequest);
     } else {
         require_distribute_run_recently(e);
@@ -161,17 +164,14 @@ pub fn distribute(e: &Env) -> i128 {
     // if backfilling emissions, ensure we are not over the maximum backfilled emissions allotment.
     // backfilled emissions must fit within the maximum drop amount from the emitter.
     if is_backfill {
-        let mut cur_backfill = storage::get_backfill_emissions(e);
-        // panic if we already reached the maximum backfilled emissions
-        if cur_backfill >= MAX_BACKFILLED_EMISSIONS {
-            panic_with_error!(e, BackstopError::MaxBackfillEmissions);
+        let cur_backfill = storage::get_backfill_emissions(e);
+        match cap_backfill(cur_backfill, new_emissions) {
+            Some((allocated, new_total)) => {
+                new_emissions = allocated;
+                storage::set_backfill_emissions(e, &new_total);
+            }
+            None => panic_with_error!(e, BackstopError::MaxBackfillEmissions),
         }
-        // cap new emissions to the maximum backfilled emissions
-        if new_emissions + cur_backfill > MAX_BACKFILLED_EMISSIONS {
-            new_emissions = MAX_BACKFILLED_EMISSIONS - cur_backfill;
-        }
-        cur_backfill += new_emissions;
-        storage::set_backfill_emissions(e, &cur_backfill);
     }
     storage::set_last_distribution_time(e, &emitter_last_distribution);
 

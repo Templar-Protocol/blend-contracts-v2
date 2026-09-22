@@ -8,24 +8,33 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
-soroban-fixed-point-math = "1.3.0"
-soroban-sdk = { version = "22.0.4", features = ["testutils"] }
-extension-trait = "1"
+blend-contract-kernel = { path = "../../contract-kernel" }
+libfuzzer-sys = "0.4.10"
+num-bigint = "=0.4.3"
+sep-40-oracle = { version = "=1.2.0", features = ["testutils"] }
+soroban-sdk = { version = "22.0.7", features = ["testutils"] }
 
-[dependencies.test-suites]
-path = ".."
+[dependencies.backstop]
+path = "../../backstop"
+features = ["testutils"]
 
 [dependencies.pool]
 path = "../../pool"
 features = ["testutils"]
 
+[dependencies.pool-factory]
+path = "../../pool-factory"
+features = ["testutils"]
+
+[dependencies.test-suites]
+path = ".."
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
 
 [profile.release]
 debug = 1
+overflow-checks = true
 
 [lib]
 name = "fuzz_common"
@@ -34,5 +43,41 @@ path = "lib.rs"
 [[bin]]
 name = "fuzz_pool_general"
 path = "fuzz_targets/fuzz_pool_general.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_pool_admin"
+path = "fuzz_targets/fuzz_pool_admin.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_pool_auctions"
+path = "fuzz_targets/fuzz_pool_auctions.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_pool_flash_loan"
+path = "fuzz_targets/fuzz_pool_flash_loan.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_backstop_balances"
+path = "fuzz_targets/fuzz_backstop_balances.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_emissions"
+path = "fuzz_targets/fuzz_emissions.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_pool_factory"
+path = "fuzz_targets/fuzz_pool_factory.rs"
 test = false
 doc = false
