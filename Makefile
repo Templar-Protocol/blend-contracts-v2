@@ -42,6 +42,21 @@ differential: build
 	ADR8_DIFF_OUTPUT_DIR=$(abspath target/adr8-differential) \
 	cargo test -p test-suites --test adr8_differential -- --ignored --nocapture
 
+KANI_RELEASE_REPO ?= Templar-Protocol/blend-contracts-v2
+KANI_RELEASE_COMMIT ?= HEAD
+KANI_RELEASE_PACKAGE_DIR ?= target/kani-package
+KANI_RELEASE_RUN_DIR ?= target/kani-run
+KANI_RELEASE_OUTPUT_DIR ?= target/kani-releases
+
+kani-release:
+	python3 -m unittest scripts/test_kani_release.py
+	python3 scripts/kani_release.py \
+		--repo "$(KANI_RELEASE_REPO)" \
+		--commit "$(KANI_RELEASE_COMMIT)" \
+		--package-dir "$(KANI_RELEASE_PACKAGE_DIR)" \
+		--run-dir "$(KANI_RELEASE_RUN_DIR)" \
+		--output-dir "$(KANI_RELEASE_OUTPUT_DIR)" $(if $(KANI_RELEASE_DRY_RUN),--dry-run)
+
 fmt:
 	cargo fmt --all
 
