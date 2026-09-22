@@ -5,8 +5,8 @@ This PR keeps the code that is reviewed and merged: production arithmetic seams 
 ## Tracked proof surface
 
 - Runtime code remains in the ordinary `pool/src` and `backstop/src` modules.
-- Proof bodies live in sibling `*_verification.rs` files behind `#[cfg(kani)]` (or the existing `#[cfg(all(kani, test))]` status gate).
-- `pool/src/pool/inverse_partitions.rs` is proof-only exhaustive partition code.
+- Proof bodies live under each crate's `src/proofs/{module}.rs` behind `#[cfg(kani)]` (or the existing `#[cfg(all(kani, test))]` status gate).
+- `pool/src/proofs/inverse_partitions.rs` is proof-only exhaustive partition code.
 
 The split preserves module paths such as `pool::reserve::verification::*`; the released inventory selectors therefore still address the current proofs. Proof modules remain children of their production modules and require no broader production visibility.
 
@@ -70,6 +70,25 @@ devenv shell -- python3 \
 ```
 
 The runner refuses to overwrite an existing output directory, checks exact inventory selectors and expected covers, records source digests before and after each harness, and stops on the first non-PASS verdict. A new run binds its receipts to the current checkout rather than inheriting the historical result.
+
+## Publishing a future run
+
+`kani-release` expects a proof package containing `kani.py`, `inventory.json`, `original-obligations.json`, and `integrated-execution-receipt.json`, plus the runner output directory containing its nested `results.json` files and referenced logs:
+
+```sh
+make kani-release \
+  KANI_RELEASE_COMMIT="$(git rev-parse HEAD)" \
+  KANI_RELEASE_PACKAGE_DIR=/path/to/proof-packaging \
+  KANI_RELEASE_RUN_DIR=/path/to/integrated-run
+```
+
+The target derives `kani-run-{commit}-{date}` from the exact commit and earliest retained execution. It independently reconciles inventory fields, execution modes, verdicts, covers, source maps, campaign totals, and every referenced log before accepting the run.
+
+Inputs must be owned by the authenticated local operator and not group- or world-writable. The publisher snapshots them into a private directory, rejects symlinks and special files, builds a deterministic `.tar.zst`, verifies a local readback, and installs outputs without overwriting existing paths.
+
+Publishing atomically creates the `kani-run-*` tag at the full commit SHA before it creates the draft GitHub release. The target verifies the tag while the release is still private, verifies both remote asset digests through a fresh download, and only then publishes the draft; final metadata and tag checks run after publication, with a return to draft on failure. Set `KANI_RELEASE_DRY_RUN=1` to stop after local build and verification; override `KANI_RELEASE_REPO` or `KANI_RELEASE_OUTPUT_DIR` only when needed.
+
+This is a custody/integrity tool for a trusted operator with `gh` publication authority, not a cryptographic execution attestation. Run it with exclusive authority over `kani-run-*` tags, or protect that tag pattern against force updates; a concurrent writer can otherwise move any ordinary Git ref. Use an external signed attestation if proof authenticity must survive a malicious publishing operator.
 
 ## Claim boundary
 
