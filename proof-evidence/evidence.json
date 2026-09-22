@@ -1,11 +1,19 @@
 {
-  "tag": "kani-lending-proof-evidence-v1",
+  "tag": "kani-lending-proof-evidence-v2",
   "source_snapshot_commit": "252ae51fd61cfbbd35fa02097754bb53e4212161",
   "base_commit": "54afdae01bb8e484514940229e06460aa3fa6a1f",
   "contents": [
     "proof-packaging/** from the source snapshot",
-    "proof-evidence/rebase-validation/** raw conflict-local logs and receipts"
+    "proof-evidence/rebase-validation/** raw conflict-local logs and receipts",
+    "proof-evidence/integrated-run.tar.zst with 3197-harness raw shards, retry and long-probe outputs"
   ],
   "scope": "Public proof custody. Historical full-inventory receipts apply to the pre-cleanup/pre-rewrite snapshot; rebase-validation carries the rebased conflict-local reruns. No production acceptance claim.",
-  "secrets_or_identity_material": false
+  "secrets_or_identity_material": false,
+  "supersedes": "kani-lending-proof-evidence-v1",
+  "integrated_run": {
+    "archive_sha256": "d1f060c8e584dd39683c516d85d351ee4ce34b1909fef76e6285c9ebcc050794",
+    "member_manifest_sha256": "6ea9f1c115f9b56dfa2749524f9da4e17fe7fb5711770a7bcfb74996d62982a6",
+    "members": 3210,
+    "uncompressed_bytes": 340042144
+  }
 }
