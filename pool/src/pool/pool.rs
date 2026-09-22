@@ -73,10 +73,7 @@ impl Pool {
     /// ### Arguments
     /// * `action_type` - The type of action being performed
     pub fn require_action_allowed(&self, e: &Env, action_type: u32) {
-        // disable borrowing or auction cancellation for any non-active pool and disable supplying for any frozen pool
-        if (self.config.status > 1 && (action_type == 4 || action_type == 9))
-            || (self.config.status > 3 && (action_type == 2 || action_type == 0))
-        {
+        if is_action_disallowed(self.config.status, action_type) {
             panic_with_error!(e, PoolError::InvalidPoolStatus);
         }
     }
@@ -137,6 +134,17 @@ impl Pool {
         price_data.price
     }
 }
+
+/// Whether `action_type` is disallowed by the pool status gate:
+/// - borrow (4) and cancel auction (9) are disallowed for any non-active pool (status > 1)
+/// - supply (0) and supply collateral (2) are additionally disallowed once the pool is frozen (status > 3)
+///
+/// Any other action id, including ids outside RequestType, passes this gate.
+fn is_action_disallowed(status: u32, action_type: u32) -> bool {
+    (status > 1 && (action_type == 4 || action_type == 9))
+        || (status > 3 && (action_type == 2 || action_type == 0))
+}
+
 
 #[cfg(test)]
 mod tests {

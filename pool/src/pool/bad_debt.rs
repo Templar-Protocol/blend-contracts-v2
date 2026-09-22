@@ -1,6 +1,9 @@
 use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
-use crate::{dependencies::BackstopClient, events::PoolEvents, storage, AuctionType, PoolError};
+use crate::{
+    dependencies::BackstopClient, events::PoolEvents, math::FixedMath, storage,
+    storage::ReserveData, AuctionType, PoolError,
+};
 
 use super::{calc_pool_backstop_threshold, Pool, PositionData, User};
 
@@ -73,29 +76,22 @@ pub fn check_and_handle_user_bad_debt(
     for (index, amount) in liabilities.iter() {
         let asset = reserve_list.get_unchecked(index);
         let mut reserve = pool.load_reserve(e, &asset, true);
-        let mut defaulted = amount;
         let claim = user_state.get_supply(index);
-        if claim > 0 && reserve.data.b_rate > 0 {
-            let debt_assets = reserve.to_asset_from_d_token(e, amount);
-            let b_tokens = claim.min(reserve.to_b_token_up(e, debt_assets));
-            let covered_assets = reserve.to_asset_from_b_token(e, b_tokens);
-            let repaid = amount.min(reserve.to_d_token_down(e, covered_assets));
-            if repaid > 0 {
-                user_state.remove_supply(e, &mut reserve, b_tokens);
-                user_state.remove_liabilities(e, &mut reserve, repaid);
-                defaulted -= repaid;
-                PoolEvents::debt_setoff(e, asset.clone(), b_tokens, repaid);
-            }
+        let setoff = supply_setoff(e, &reserve.data, amount, claim);
+        if setoff.repaid > 0 {
+            user_state.remove_supply(e, &mut reserve, setoff.burn);
+            user_state.remove_liabilities(e, &mut reserve, setoff.repaid);
+            PoolEvents::debt_setoff(e, asset.clone(), setoff.burn, setoff.repaid);
         }
-        if defaulted > 0 {
-            user_state.default_liabilities(e, &mut reserve, defaulted);
+        if setoff.has_default() {
+            user_state.default_liabilities(e, &mut reserve, setoff.residual);
             had_default = true;
-            PoolEvents::defaulted_debt(e, asset, defaulted);
+            PoolEvents::defaulted_debt(e, asset, setoff.residual);
         }
         pool.cache_reserve(reserve);
     }
 
-    if had_default && !collateral.is_empty() {
+    if should_orphan_collateral(had_default, !collateral.is_empty()) {
         let mut pool_user = User::load(e, &e.current_contract_address());
         for (asset, index, amount) in collateral.iter() {
             require_no_b_token_emissions(e, index);
@@ -109,6 +105,49 @@ pub fn check_and_handle_user_bad_debt(
         pool_user.store(e);
     }
     true
+}
+
+struct SupplySetoff {
+    burn: i128,
+    repaid: i128,
+    residual: i128,
+}
+
+impl SupplySetoff {
+    fn has_default(&self) -> bool {
+        self.residual > 0
+    }
+}
+
+/// Calculate only committed setoff; rounded-zero repayment leaves the claim intact.
+fn supply_setoff(
+    math: &impl FixedMath,
+    reserve: &ReserveData,
+    amount: i128,
+    claim: i128,
+) -> SupplySetoff {
+    if claim > 0 && reserve.b_rate > 0 {
+        let debt_assets = reserve.to_asset_from_d_token(math, amount);
+        let b_tokens = claim.min(reserve.to_b_token_up(math, debt_assets));
+        let covered_assets = reserve.to_asset_from_b_token(math, b_tokens);
+        let repaid = amount.min(reserve.to_d_token_down(math, covered_assets));
+        if repaid > 0 {
+            return SupplySetoff {
+                burn: b_tokens,
+                repaid,
+                residual: amount - repaid,
+            };
+        }
+    }
+    SupplySetoff {
+        burn: 0,
+        repaid: 0,
+        residual: amount,
+    }
+}
+
+fn should_orphan_collateral(had_default: bool, has_collateral: bool) -> bool {
+    had_default && has_collateral
 }
 
 /// Orphan-custody b-token emissions prohibition; checked when orphan collateral is processed,
@@ -1489,3 +1528,4 @@ mod tests {
         });
     }
 }
+

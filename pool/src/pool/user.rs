@@ -1,7 +1,8 @@
-use soroban_fixed_point_math::SorobanFixedPoint;
+use crate::{
+    constants::SCALAR_12, emissions, math::FixedMath, storage, storage::ReserveData,
+    validator::require_nonnegative, PoolError,
+};
 use soroban_sdk::{contracttype, panic_with_error, Address, Env, Map};
-
-use crate::{constants::SCALAR_12, emissions, storage, validator::require_nonnegative, PoolError};
 
 use super::{Pool, Reserve};
 
@@ -107,14 +108,8 @@ impl User {
     pub fn default_liabilities(&mut self, e: &Env, reserve: &mut Reserve, amount: i128) {
         self.remove_liabilities(e, reserve, amount);
         // Only outstanding supplier claims absorb the default.
-        if reserve.data.b_supply > 0 {
-            let default_amount = reserve.to_asset_from_d_token(e, amount);
-            let b_rate_loss = default_amount.fixed_div_ceil(&e, &reserve.data.b_supply, &SCALAR_12);
-            reserve.data.b_rate -= b_rate_loss;
-            if reserve.data.b_rate < 0 {
-                reserve.data.b_rate = 0;
-            }
-        }
+        let new_rate = default_b_rate(e, &reserve.data, amount);
+        reserve.data.b_rate = new_rate;
     }
 
     /// Check if the user has collateral
@@ -158,7 +153,7 @@ impl User {
                 .collateral
                 .set(reserve.config.index, new_balance);
         }
-        reserve.data.b_supply -= amount;
+        reserve.data.burn_supply(amount);
     }
 
     /// Get the uncollateralized blendToken position for the reserve at the given index
@@ -195,7 +190,7 @@ impl User {
         } else {
             self.positions.supply.set(reserve.config.index, new_balance);
         }
-        reserve.data.b_supply -= amount;
+        reserve.data.burn_supply(amount);
     }
 
     /// Get the total supply and collateral of blendTokens for the user at the given index
@@ -272,6 +267,22 @@ impl User {
             amount,
         );
     }
+}
+
+/// The b_rate after a default of `defaulted` d-tokens: outstanding suppliers
+/// absorb the ceil-rounded underlying loss; with no supplier claims the
+/// existing rate is preserved without reaching the division.
+fn default_b_rate(math: &impl FixedMath, reserve: &ReserveData, defaulted: i128) -> i128 {
+    if reserve.b_supply > 0 {
+        let default_amount = reserve.to_asset_from_d_token(math, defaulted);
+        let b_rate_loss = math.ceil(default_amount, SCALAR_12, reserve.b_supply);
+        let new_rate = reserve.b_rate - b_rate_loss;
+        if new_rate < 0 {
+            return 0;
+        }
+        return new_rate;
+    }
+    reserve.b_rate
 }
 
 #[cfg(test)]
@@ -1235,3 +1246,4 @@ mod tests {
         });
     }
 }
+

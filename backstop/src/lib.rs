@@ -4,6 +4,8 @@
 extern crate std;
 
 mod backstop;
+#[path = "../../shared/backstop_threshold.rs"]
+mod backstop_threshold;
 mod constants;
 mod contract;
 mod dependencies;
@@ -16,4 +18,5 @@ mod testutils;
 pub use backstop::{PoolBackstopData, PoolBalance, UserBalance, Q4W};
 pub use contract::*;
 pub use errors::BackstopError;
+
 pub use storage::{BackstopDataKey, BackstopEmissionData, PoolUserKey, UserEmissionData};
