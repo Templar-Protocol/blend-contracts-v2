@@ -1607,9 +1607,8 @@ mod tests {
 mod verification {
     use super::*;
 
-    #[kani::proof]
-    fn prove_disable_only_transition() {
-        let current = ReserveConfig {
+    fn arbitrary_config() -> ReserveConfig {
+        ReserveConfig {
             index: kani::any(),
             decimals: kani::any(),
             c_factor: kani::any(),
@@ -1623,30 +1622,50 @@ mod verification {
             reactivity: kani::any(),
             supply_cap: kani::any(),
             enabled: kani::any(),
-        };
-        let mut candidate = current.clone();
-        assert!(!is_disable_only(&current, &candidate));
-        candidate.enabled = true;
-        assert!(!is_disable_only(&current, &candidate));
-        candidate.enabled = false;
-        assert_eq!(is_disable_only(&current, &candidate), current.enabled);
-
-        let field: u8 = kani::any();
-        kani::assume(field < 12);
-        match field {
-            0 => candidate.index ^= 1,
-            1 => candidate.decimals ^= 1,
-            2 => candidate.c_factor ^= 1,
-            3 => candidate.l_factor ^= 1,
-            4 => candidate.util ^= 1,
-            5 => candidate.max_util ^= 1,
-            6 => candidate.r_base ^= 1,
-            7 => candidate.r_one ^= 1,
-            8 => candidate.r_two ^= 1,
-            9 => candidate.r_three ^= 1,
-            10 => candidate.reactivity ^= 1,
-            _ => candidate.supply_cap ^= 1,
         }
-        assert!(!is_disable_only(&current, &candidate));
+    }
+
+    #[kani::proof]
+    fn prove_disable_only_transition() {
+        let current = arbitrary_config();
+        let candidate = arbitrary_config();
+        let permitted = current.enabled
+            && !candidate.enabled
+            && (
+                current.index,
+                current.decimals,
+                current.c_factor,
+                current.l_factor,
+                current.util,
+                current.max_util,
+                current.r_base,
+                current.r_one,
+                current.r_two,
+                current.r_three,
+                current.reactivity,
+                current.supply_cap,
+            ) == (
+                candidate.index,
+                candidate.decimals,
+                candidate.c_factor,
+                candidate.l_factor,
+                candidate.util,
+                candidate.max_util,
+                candidate.r_base,
+                candidate.r_one,
+                candidate.r_two,
+                candidate.r_three,
+                candidate.reactivity,
+                candidate.supply_cap,
+            );
+        assert_eq!(is_disable_only(&current, &candidate), permitted);
+
+        // Construct a permitted transition without assuming the predicate under proof.
+        let mut enabled = current.clone();
+        enabled.enabled = true;
+        let mut disabled = enabled.clone();
+        disabled.enabled = false;
+        assert!(is_disable_only(&enabled, &disabled));
+        assert!(!is_disable_only(&disabled, &enabled));
     }
 }

@@ -1,0 +1,37 @@
+{
+  "status": "PARAMETRIC_CALLER_COMPOSITION_CLOSED",
+  "obligation": "D2-1",
+  "kernel": "unchanged plan_withdraw",
+  "assertions": "all original prove_withdraw_plan_caps assertions",
+  "premises": {
+    "q_nonneg_y_nonneg": "real-helper proofs PASS30 each",
+    "q_le_C_implies_y_ge_A": "source-linked prove_b_round_trip_up_conservative (final-fast PASS49; domain amount u8, rate_h 1..255, same unit FixedMath, same methods)",
+    "encoding": "kani::assume(q > cur_b_tokens || y >= amount) \u2014 implication, not conjunction"
+  },
+  "parametric": {
+    "checks": 113,
+    "failed": 0,
+    "covers": "2/2 (capped and uncapped both reachable)",
+    "solver": "bundled Kissat; Z3 intblast not needed"
+  },
+  "real_helpers": [
+    {
+      "harness": "independent_probe_withdraw_floor_total",
+      "checks": 30,
+      "failed": 0
+    },
+    {
+      "harness": "independent_probe_withdraw_up_total",
+      "checks": 30,
+      "failed": 0
+    }
+  ],
+  "controls": {
+    "operand_mutation": "FAIL 1 of 101 \u2014 dropped min(q,C) cap operand detected",
+    "invalidated_runs": [
+      "recovery-withdraw-kissat (q>=A unsound conjunct)",
+      "recovery-withdraw-corrected (conjunction over-constrained; capped cover UNSATISFIABLE)"
+    ]
+  },
+  "claim": "uncapped payout exactness + capped whole-position burn + payout-never-exceeds-claim, for arbitrary stable results consistent with premises; NOT standalone numeric rounding proof"
+}

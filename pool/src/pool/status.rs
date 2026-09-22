@@ -1,4 +1,5 @@
 use crate::{
+    backstop_threshold::saturating_backstop_product,
     constants::SCALAR_7,
     dependencies::{BackstopClient, PoolBackstopData},
     storage, PoolError,
@@ -128,24 +129,59 @@ pub fn execute_set_pool_status(e: &Env, pool_status: u32) {
 ///         - 0_0000003 = ~5%
 ///         - 0_0000000 = ~0-4%
 pub fn calc_pool_backstop_threshold(pool_backstop_data: &PoolBackstopData) -> i128 {
-    // @dev: Calculation for pools product constant of underlying will often overflow i128
-    //       so saturating mul is used. This is safe because the threshold is below i128::MAX and the
-    //       protocol does not need to differentiate between pools over the threshold product constant.
-    //       The calculation is:
-    //        - Threshold % = (bal_blnd^4 * bal_usdc) / PC^5 such that PC is 100k
-    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+    threshold_from_product(saturating_backstop_product(
+        pool_backstop_data.blnd,
+        pool_backstop_data.usdc,
+    ))
+}
 
-    // floor balances to nearest full unit and calculate saturated pool product constant
-    // and scale to SCALAR_7 to get final division result in SCALAR_7 points
-    let bal_blnd = pool_backstop_data.blnd / SCALAR_7;
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7;
-    let saturating_pool_pc = bal_blnd
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_usdc)
-        .saturating_mul(SCALAR_7); // 10^7 * 10^7
-    saturating_pool_pc / threshold_pc
+fn threshold_from_product(product: i128) -> i128 {
+    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+                                                               // Scaling must still saturate before division; cancellation changes large results.
+    product.saturating_mul(SCALAR_7) / threshold_pc
+}
+
+// The existing dev-dependency supplies the backstop suffix consumed by the unchanged
+// scale-agreement theorem below.
+#[cfg(all(kani, test))]
+mod verification {
+    use super::*;
+
+    /// Safety of the one shared production prefix over the full nonnegative i128 raw-balance
+    /// domain: the single saturating product cannot panic on overflow or division and stays
+    /// nonnegative. Covers witness the zero-floor and saturation boundaries. Cross-crate prefix
+    /// identity rests on the shared source definition and literal caller forwarding, not on a
+    /// two-copy equality miter.
+    #[kani::proof]
+    fn prove_shared_threshold_prefix_safety() {
+        let blnd: i128 = kani::any();
+        let usdc: i128 = kani::any();
+        kani::assume(blnd >= 0 && usdc >= 0);
+        let product = saturating_backstop_product(blnd, usdc);
+        assert!(product >= 0);
+        // Zero boundary: sub-scalar raw balances floor to zero units and collapse the product.
+        kani::cover!(blnd < SCALAR_7 && product == 0);
+        kani::cover!(usdc < SCALAR_7 && product == 0);
+        // Unit boundary: the smallest raw balances yielding a nonzero product.
+        kani::cover!(blnd == SCALAR_7 && usdc == SCALAR_7 && product == 1);
+        // Saturation boundary: raw balances beyond representability pin the product at i128::MAX.
+        kani::cover!(blnd == i128::MAX && usdc == SCALAR_7 && product == i128::MAX);
+    }
+
+    #[kani::proof]
+    fn prove_threshold_scale_agreement() {
+        let product: i128 = kani::any();
+        assert_eq!(
+            threshold_from_product(product) >= SCALAR_7,
+            backstop::threshold_from_product(product)
+        );
+        kani::cover!(product == 0);
+        kani::cover!(product == 10_000_000_000_000_000_000_000_000i128 - 1);
+        kani::cover!(product == 10_000_000_000_000_000_000_000_000i128);
+        kani::cover!(product == i128::MAX);
+        kani::cover!(product == -1);
+        kani::cover!(product == i128::MIN);
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,31 @@
+{
+  "status": "COMPLETE",
+  "tree": "astra-integrated-ready (post-repair: c2_s0_d_forward_exact_u64 restored, enumerative inverse_partitions.rs restored)",
+  "when": "2026-09-15T17:45:50+00:00",
+  "inventory": "proof-packaging/inventory.json",
+  "inventory_sha256": "927473cc6ad2777ff21c87b018aa3311363264e49727aa74d4945fefc0fa0541",
+  "targets": 3197,
+  "passed": 3197,
+  "failed": 0,
+  "covers": "all expected_covers satisfied per target (runner covers_passed=True)",
+  "source_integrity": "source_unchanged=True on every record (rust+manifest digests before/after each harness)",
+  "execution": {
+    "solver": "kissat (Kani 0.67.0)",
+    "lanes": "8 parallel shards + retry lane, distinct target dirs, warm-seeded",
+    "default_harness_timeout": "120s",
+    "exceptions": [
+      {
+        "harness": "pool::reserve::verification::independent_probe_b_d_inverse_equivalence",
+        "timeout_budget": "3600s",
+        "elapsed_s": 915.0,
+        "note": "macro-compaction symex blow-up: 13.6s on source lane vs 914s integrated; PASS retained, compaction map retained for reversal"
+      }
+    ]
+  },
+  "gates": {
+    "native_workspace_tests": "495 passed (validate-integration.py, post-repair tree)",
+    "abi_equality": "pool/backstop/pool_factory equal to frozen final-candidate rebuild",
+    "differential": "exact, negative controls detected every mutation"
+  },
+  "receipts": "integrated-run/shard-{0..7}/results.json, integrated-run/retry/results.json, integrated-run/probe-long/results.json"
+}

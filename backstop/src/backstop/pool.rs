@@ -2,6 +2,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{contracttype, panic_with_error, unwrap::UnwrapOptimized, Address, Env};
 
 use crate::{
+    backstop_threshold::saturating_backstop_product,
     constants::SCALAR_7,
     dependencies::{CometClient, PoolFactoryClient},
     errors::BackstopError,
@@ -103,22 +104,15 @@ pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) {
 ///
 /// Returns true if the pool's backstop balance is above the threshold
 pub fn is_pool_above_threshold(pool_backstop_data: &PoolBackstopData) -> bool {
-    // @dev: Calculation for pools product constant of underlying will often overflow i128
-    //       so saturating mul is used. This is safe because the threshold is below i128::MAX and the
-    //       protocol does not need to differentiate between pools over the threshold product constant.
-    //       The calculation is:
-    //        - Threshold % = (bal_blnd^4 * bal_usdc) / PC^5 such that PC is 100k
-    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+    threshold_from_product(saturating_backstop_product(
+        pool_backstop_data.blnd,
+        pool_backstop_data.usdc,
+    ))
+}
 
-    // floor balances to nearest full unit and calculate saturated pool product constant
-    let bal_blnd = pool_backstop_data.blnd / SCALAR_7;
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7;
-    let saturating_pool_pc = bal_blnd
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_usdc);
-    saturating_pool_pc >= threshold_pc
+pub fn threshold_from_product(product: i128) -> bool {
+    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+    product >= threshold_pc
 }
 
 /// The pool's backstop balances
@@ -186,12 +180,19 @@ impl PoolBalance {
     /// * `tokens` - The amount of tokens to withdraw
     /// * `shares` - The amount of shares to withdraw
     pub fn withdraw(&mut self, e: &Env, tokens: i128, shares: i128) {
+        if let Err(error) = self.withdraw_balance(tokens, shares) {
+            panic_with_error!(e, error);
+        }
+    }
+
+    fn withdraw_balance(&mut self, tokens: i128, shares: i128) -> Result<(), BackstopError> {
         if tokens > self.tokens || shares > self.shares || shares > self.q4w {
-            panic_with_error!(e, BackstopError::InsufficientFunds);
+            return Err(BackstopError::InsufficientFunds);
         }
         self.tokens -= tokens;
         self.shares -= shares;
         self.q4w -= shares;
+        Ok(())
     }
 
     /// Queue withdraw for the pool
@@ -207,10 +208,17 @@ impl PoolBalance {
     /// ### Arguments
     /// * `shares` - The amount of shares to dequeue from q4w
     pub fn dequeue_q4w(&mut self, e: &Env, shares: i128) {
+        if let Err(error) = self.dequeue_balance(shares) {
+            panic_with_error!(e, error);
+        }
+    }
+
+    fn dequeue_balance(&mut self, shares: i128) -> Result<(), BackstopError> {
         if shares > self.q4w {
-            panic_with_error!(e, BackstopError::InsufficientFunds);
+            return Err(BackstopError::InsufficientFunds);
         }
         self.q4w -= shares;
+        Ok(())
     }
 }
 
@@ -704,5 +712,130 @@ mod tests {
         assert_eq!(pool_balance.shares, 75);
         assert_eq!(pool_balance.tokens, 150);
         assert_eq!(pool_balance.q4w, 0);
+    }
+}
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+    #[kani::proof]
+    fn prove_share_zero_and_full_redemption() {
+        let tokens: i128 = kani::any();
+        let shares: i128 = kani::any();
+        kani::assume(tokens >= 0 && shares > 0);
+        let balance = PoolBalance {
+            tokens,
+            shares,
+            q4w: 0,
+        };
+        assert_eq!(balance.convert_to_tokens(shares), tokens);
+        let empty = PoolBalance {
+            tokens: 0,
+            shares: 0,
+            q4w: 0,
+        };
+        assert_eq!(empty.convert_to_shares(tokens), tokens);
+        assert_eq!(empty.convert_to_tokens(shares), 0);
+        let depleted = PoolBalance {
+            tokens: 0,
+            shares,
+            q4w: 0,
+        };
+        assert_eq!(depleted.convert_to_shares(tokens), 0);
+    }
+
+    #[kani::proof]
+    fn prove_share_round_trip_and_available_tokens() {
+        // Deliberately bounded nonlinear domain, not protocol balance limits.
+        let tokens = kani::any::<u8>() as i128;
+        let shares = kani::any::<u8>() as i128;
+        let amount = kani::any::<u8>() as i128;
+        let queued = kani::any::<u8>() as i128;
+        kani::assume(tokens > 0 && shares > 0 && queued <= shares);
+        let balance = PoolBalance {
+            tokens,
+            shares,
+            q4w: queued,
+        };
+        let minted = balance.convert_to_shares(amount);
+        let redeemed = balance.convert_to_tokens(minted);
+        assert!(minted >= 0 && redeemed >= 0 && redeemed <= amount);
+        let available = balance.non_queued_tokens();
+        assert!(available >= 0 && available <= tokens);
+        if queued == 0 {
+            assert_eq!(available, tokens);
+        }
+        if queued == shares {
+            assert_eq!(available, 0);
+        }
+    }
+
+    #[kani::proof]
+    fn prove_deposit_and_queue_balances() {
+        let tokens: i128 = kani::any();
+        let shares: i128 = kani::any();
+        let queued: i128 = kani::any();
+        let added_tokens: i128 = kani::any();
+        let added_shares: i128 = kani::any();
+        kani::assume(tokens >= 0 && shares >= 0 && queued >= 0 && queued <= shares);
+        kani::assume(added_tokens >= 0 && added_tokens <= i128::MAX - tokens);
+        kani::assume(added_shares >= 0 && added_shares <= i128::MAX - shares);
+        let mut balance = PoolBalance {
+            tokens,
+            shares,
+            q4w: queued,
+        };
+        balance.deposit(added_tokens, added_shares);
+        balance.queue_for_withdraw(added_shares);
+        assert_eq!(balance.tokens - tokens, added_tokens);
+        assert_eq!(balance.shares - shares, added_shares);
+        assert_eq!(balance.q4w - queued, added_shares);
+        assert!(balance.q4w <= balance.shares);
+    }
+
+    #[kani::proof]
+    fn prove_withdraw_and_dequeue_balances() {
+        let tokens: i128 = kani::any();
+        let shares: i128 = kani::any();
+        let queued: i128 = kani::any();
+        let payout: i128 = kani::any();
+        let burn: i128 = kani::any();
+        kani::assume(tokens >= 0 && shares >= 0 && queued >= 0 && queued <= shares);
+        kani::assume(payout >= 0 && burn >= 0);
+        let mut balance = PoolBalance {
+            tokens,
+            shares,
+            q4w: queued,
+        };
+        let result = balance.withdraw_balance(payout, burn);
+        assert_eq!(result.is_ok(), payout <= tokens && burn <= queued);
+        if result.is_ok() {
+            assert_eq!(balance.tokens + payout, tokens);
+            assert_eq!(balance.shares + burn, shares);
+            assert_eq!(balance.q4w + burn, queued);
+            assert!(balance.tokens >= 0 && balance.q4w >= 0 && balance.q4w <= balance.shares);
+        } else {
+            assert_eq!(balance.tokens, tokens);
+            assert_eq!(balance.shares, shares);
+            assert_eq!(balance.q4w, queued);
+        }
+        let mut dequeue = PoolBalance {
+            tokens,
+            shares,
+            q4w: queued,
+        };
+        let result = dequeue.dequeue_balance(burn);
+        assert_eq!(result.is_ok(), burn <= queued);
+        assert_eq!(dequeue.tokens, tokens);
+        assert_eq!(dequeue.shares, shares);
+        if result.is_ok() {
+            assert_eq!(dequeue.q4w + burn, queued);
+            assert!(dequeue.q4w >= 0 && dequeue.q4w <= shares);
+        } else {
+            assert_eq!(dequeue.q4w, queued);
+        }
+        kani::cover!(payout == tokens && burn == queued && balance.q4w == 0);
+        kani::cover!(payout > tokens);
+        kani::cover!(burn > queued);
     }
 }

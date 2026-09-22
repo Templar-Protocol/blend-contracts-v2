@@ -1,0 +1,52 @@
+{
+  "generated": "2026-09-15",
+  "composition_closures": {
+    "D2-2_repay": {
+      "receipt": "repay-parametric PASS 144 checks 3/3 covers Kissat; helpers PASS; mutation FAIL 1/145",
+      "invalidated": null
+    },
+    "D2-1_withdraw": {
+      "receipt": "withdraw-closure.json; parametric PASS 113 checks 2/2 covers Kissat; helpers PASS 30 checks each; mutation FAIL 1 of 101",
+      "invalidated_runs": [
+        "recovery-withdraw-kissat (unsound q>=A conjunct)",
+        "recovery-withdraw-corrected (conjunction; capped cover UNSATISFIABLE)"
+      ]
+    }
+  },
+  "inverse_domain": {
+    "receipt": "inverse-closure.json; 255/255 rates, 65280 pairs"
+  },
+  "reviewer": {
+    "agent": "CompositionDomainReview",
+    "conditions_met": "implication-form premise exactly q<=C=>y>=A; operand checks asserted not assumed; no stub_verified on proof monomorphization",
+    "correction_history": "q>=A conjunct removed after reviewer STOP; superseded runs retained invalid"
+  },
+  "post_reopen_10k": "post-reopen-10k-classification.json (interrupted, not a verdict; canonical exact-local-candidate.json evidence intact)",
+  "portfolio": {
+    "tally": {
+      "closed": 32,
+      "total": 32,
+      "open": 0
+    },
+    "closed_this_campaign": {
+      "D1-3": "see inverse-closure.json / withdraw-closure.json / repay receipts",
+      "D1-4": "see inverse-closure.json / withdraw-closure.json / repay receipts",
+      "D2-2": "see inverse-closure.json / withdraw-closure.json / repay receipts",
+      "D2-1": "see inverse-closure.json / withdraw-closure.json / repay receipts",
+      "C1": "astra-setoff-closure.json (independently accepted source-linked parametric composition)",
+      "D3-1": "astra-utilization-closure.json (independently accepted two-stage output-parametric composition)",
+      "E1-boundaries": "astra-interest-closure.json",
+      "C2": "astra-loss-closure.json",
+      "E2-1": "astra-debt-closure.json (accepted source-linked two-stage output-parametric composition; monotonicity via full-domain astra_grow_debt_rate_monotonic PASS)",
+      "E2-2": "astra-accrue-closure.json (accepted source-linked finite-domain partition: full-symbolic zero/credit splits + complete b_supply 1..255 rate/accounting partitions)"
+    },
+    "open": [],
+    "method": "historical 1800s standalone timeouts retained; closures must use enumeration/partition/composition patterns with reviewer-approved seams",
+    "tally_correction": {
+      "was": 27,
+      "corrected": 26,
+      "reason": "handoff arithmetic slip; 22 initial passes + 4 closures; reviewer flagged 2026-09-15; bound to docs/kani.md remaining-obligations table and 22/32 baseline records"
+    },
+    "last_update": "2026-09-15T15:15:57+00:00"
+  }
+}

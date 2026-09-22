@@ -1,11 +1,11 @@
 use crate::{
     constants::SCALAR_7,
     errors::PoolError,
+    math::FixedMath,
     pool::{Pool, User},
     storage,
 };
 use cast::i128;
-use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{contracttype, map, panic_with_error, Address, Env, Map, Vec};
 
 use super::{
@@ -214,36 +214,20 @@ fn scale_auction(
     };
 
     // determine block based auction modifiers
-    let bid_modifier: i128;
-    let lot_modifier: i128;
-    let per_block_scalar: i128 = 0_0050000; // modifier moves 0.5% every block
     let block_dif = i128(e.ledger().sequence() - auction_data.block);
-    if block_dif > 200 {
-        // lot 100%, bid scaling down from 100% to 0%
-        lot_modifier = SCALAR_7;
-        if block_dif < 400 {
-            bid_modifier = SCALAR_7 - (block_dif - 200) * per_block_scalar;
-        } else {
-            bid_modifier = 0;
-        }
-    } else {
-        // lot scaling from 0% to 100%, bid 100%
-        lot_modifier = block_dif * per_block_scalar;
-        bid_modifier = SCALAR_7;
-    }
+    let (bid_modifier, lot_modifier) = auction_timing_modifiers(block_dif);
 
     // scale the auction
     let percent_filled_i128 = i128(percent_filled) * 1_00000; // scale to decimal form in 7 decimals from percentage
     for (asset, amount) in auction_data.bid.iter() {
         // apply percent scalar and store remainder to base auction
         // round up to avoid rounding exploits
-        let to_fill_base = amount.fixed_mul_ceil(e, &percent_filled_i128, &SCALAR_7);
-        let remaining_base = amount - to_fill_base;
+        let (to_fill_base, remaining_base) = partition_quote(e, true, amount, percent_filled_i128);
         if remaining_base > 0 {
             remaining_auction.bid.set(asset.clone(), remaining_base);
         }
         // apply block scalar to to_fill auction and don't store if 0
-        let to_fill_scaled = to_fill_base.fixed_mul_ceil(e, &bid_modifier, &SCALAR_7);
+        let to_fill_scaled = discount_quote(e, true, to_fill_base, bid_modifier);
         if to_fill_scaled > 0 {
             to_fill_auction.bid.set(asset, to_fill_scaled);
         }
@@ -251,13 +235,12 @@ fn scale_auction(
     for (asset, amount) in auction_data.lot.iter() {
         // apply percent scalar and store remainder to base auction
         // round down to avoid rounding exploits
-        let to_fill_base = amount.fixed_mul_floor(e, &percent_filled_i128, &SCALAR_7);
-        let remaining_base = amount - to_fill_base;
+        let (to_fill_base, remaining_base) = partition_quote(e, false, amount, percent_filled_i128);
         if remaining_base > 0 {
             remaining_auction.lot.set(asset.clone(), remaining_base);
         }
         // apply block scalar to to_fill auction and don't store if 0
-        let to_fill_scaled = to_fill_base.fixed_mul_floor(e, &lot_modifier, &SCALAR_7);
+        let to_fill_scaled = discount_quote(e, false, to_fill_base, lot_modifier);
         if to_fill_scaled > 0 {
             to_fill_auction.lot.set(asset, to_fill_scaled);
         }
@@ -267,6 +250,61 @@ fn scale_auction(
         (to_fill_auction, None)
     } else {
         (to_fill_auction, Some(remaining_auction))
+    }
+}
+
+/// Returns `(bid_modifier, lot_modifier)` in SCALAR_7 scale:
+/// - lot scales linearly from 0% to 100% over the first 200 blocks
+/// - bid stays at 100% for the first 200 blocks, then scales linearly down to
+///   0% over the next 200 blocks
+#[allow(clippy::zero_prefixed_literal)]
+fn auction_timing_modifiers(block_dif: i128) -> (i128, i128) {
+    let per_block_scalar: i128 = 0_0050000; // modifier moves 0.5% every block
+    if block_dif > 200 {
+        // lot 100%, bid scaling down from 100% to 0%
+        let lot_modifier = SCALAR_7;
+        if block_dif < 400 {
+            let bid_modifier = SCALAR_7 - (block_dif - 200) * per_block_scalar;
+            (bid_modifier, lot_modifier)
+        } else {
+            (0, lot_modifier)
+        }
+    } else {
+        // lot scaling from 0% to 100%, bid 100%
+        let lot_modifier = block_dif * per_block_scalar;
+        (SCALAR_7, lot_modifier)
+    }
+}
+
+/// Split one auction quote entry by the fill percentage into
+/// `(to_fill_base, remaining_base)`. The kernel owns the rounding direction:
+/// bids round up (conservative for the filler), lots round down.
+fn partition_quote(
+    math: &impl FixedMath,
+    round_up: bool,
+    amount: i128,
+    percent_filled: i128,
+) -> (i128, i128) {
+    let to_fill_base = if round_up {
+        math.ceil(amount, percent_filled, SCALAR_7)
+    } else {
+        math.floor(amount, percent_filled, SCALAR_7)
+    };
+    (to_fill_base, amount - to_fill_base)
+}
+
+/// Apply the block modifier to an already-partitioned fill amount. The kernel
+/// owns the rounding direction, matching the partition stage.
+fn discount_quote(
+    math: &impl FixedMath,
+    round_up: bool,
+    to_fill_base: i128,
+    modifier: i128,
+) -> i128 {
+    if round_up {
+        math.ceil(to_fill_base, modifier, SCALAR_7)
+    } else {
+        math.floor(to_fill_base, modifier, SCALAR_7)
     }
 }
 
@@ -281,6 +319,125 @@ fn require_unique_addresses(e: &Env, list: &Vec<Address>) {
             panic_with_error!(e, PoolError::BadRequest);
         }
         temp_map.set(address.clone(), true);
+    }
+}
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// Block timing modifiers stay in [0, SCALAR_7]: the lot never decreases
+    /// and the bid never increases as blocks elapse, with the exact phase and
+    /// maturity boundaries at 0/199/200/201/399/400 blocks and at u32::MAX.
+    ///
+    /// Elapsed counts cover the full u32 ledger-sequence difference production
+    /// can reach; `earlier <= later` chronology is a theorem input, not proved.
+    #[kani::proof]
+    fn prove_auction_timing_modifiers() {
+        let earlier: u32 = kani::any();
+        let later: u32 = kani::any();
+        kani::assume(earlier <= later);
+        let (bid_early, lot_early) = auction_timing_modifiers(i128::from(earlier));
+        let (bid_late, lot_late) = auction_timing_modifiers(i128::from(later));
+
+        assert!(bid_early >= 0 && bid_early <= SCALAR_7);
+        assert!(lot_early >= 0 && lot_early <= SCALAR_7);
+        assert!(bid_late >= 0 && bid_late <= SCALAR_7);
+        assert!(lot_late >= 0 && lot_late <= SCALAR_7);
+
+        assert!(lot_late >= lot_early);
+        assert!(bid_late <= bid_early);
+
+        // phase and maturity boundaries
+        assert_eq!(auction_timing_modifiers(0), (SCALAR_7, 0));
+        assert_eq!(auction_timing_modifiers(199), (SCALAR_7, 9_950_000));
+        assert_eq!(auction_timing_modifiers(200), (SCALAR_7, SCALAR_7));
+        assert_eq!(auction_timing_modifiers(201), (9_950_000, SCALAR_7));
+        assert_eq!(auction_timing_modifiers(399), (50_000, SCALAR_7));
+        assert_eq!(auction_timing_modifiers(400), (0, SCALAR_7));
+        assert_eq!(
+            auction_timing_modifiers(i128::from(u32::MAX)),
+            (0, SCALAR_7)
+        );
+    }
+
+    /// Undiscounted quote partition: fill plus remainder equals the original
+    /// amount in both rounding directions, with the exact scaled rounding
+    /// inequalities and the 100% identity. The kernel's own bid/lot direction
+    /// selection is exercised; the block-discounted amounts are separate
+    /// quantities proved in `prove_auction_discount_bounds`.
+    ///
+    /// Domain (deliberate solver restriction, NOT a protocol limit): amounts
+    /// 0..=255 (u8) and fill percent 1..=100 as enforced by scale_auction.
+    /// Largest product 255 * 10_000_000 fits i128, so the dependency fast
+    /// path is exercised.
+    #[kani::proof]
+    fn prove_auction_quote_partition() {
+        let amount_u8: u8 = kani::any();
+        let percent_u8: u8 = kani::any();
+        kani::assume(percent_u8 >= 1 && percent_u8 <= 100);
+        let amount = i128::from(amount_u8);
+        let percent_scalar = i128::from(percent_u8) * 1_00000; // same scaling as scale_auction
+
+        let (bid_fill, bid_remain) = partition_quote(&(), true, amount, percent_scalar);
+        let (lot_fill, lot_remain) = partition_quote(&(), false, amount, percent_scalar);
+
+        assert_eq!(bid_fill + bid_remain, amount);
+        assert_eq!(lot_fill + lot_remain, amount);
+        assert!(bid_fill >= 0 && bid_fill <= amount);
+        assert!(lot_fill >= 0 && lot_fill <= amount);
+        assert!(lot_fill <= bid_fill);
+
+        assert!(lot_fill * SCALAR_7 <= amount * percent_scalar);
+        assert!(amount * percent_scalar - lot_fill * SCALAR_7 < SCALAR_7);
+        assert!(bid_fill * SCALAR_7 >= amount * percent_scalar);
+        assert!(bid_fill * SCALAR_7 - amount * percent_scalar < SCALAR_7);
+
+        if percent_u8 == 100 {
+            assert_eq!(bid_fill, amount);
+            assert_eq!(lot_fill, amount);
+        }
+
+        // non-vacuity witnesses: 1 unit at 1% fills as a bid (rounds up) but
+        // not as a lot (rounds down)
+        assert_eq!(partition_quote(&(), true, 1, 1_00000), (1, 0));
+        assert_eq!(partition_quote(&(), false, 1, 1_00000).0, 0);
+    }
+
+    /// Time-discounted settlement bounds, separate from the partition above:
+    /// the discounted amount never exceeds the undiscounted fill and never
+    /// goes negative, in both rounding directions, with the modifier
+    /// boundary identities (100% modifier is exact, 0% modifier fills nothing).
+    ///
+    /// Domain (deliberate solver restriction, NOT a protocol limit): amounts
+    /// 0..=255 (u8), fill percent 1..=100, block modifier in [0, SCALAR_7].
+    #[kani::proof]
+    fn prove_auction_discount_bounds() {
+        let amount_u8: u8 = kani::any();
+        let percent_u8: u8 = kani::any();
+        let modifier: i128 = kani::any();
+        kani::assume(percent_u8 >= 1 && percent_u8 <= 100);
+        kani::assume(modifier >= 0 && modifier <= SCALAR_7);
+        let amount = i128::from(amount_u8);
+        let percent_scalar = i128::from(percent_u8) * 1_00000;
+
+        // compose the actual production kernels: partition first, then discount
+        let (bid_fill, _) = partition_quote(&(), true, amount, percent_scalar);
+        let (lot_fill, _) = partition_quote(&(), false, amount, percent_scalar);
+        let bid_scaled = discount_quote(&(), true, bid_fill, modifier);
+        let lot_scaled = discount_quote(&(), false, lot_fill, modifier);
+
+        assert!(bid_scaled >= 0 && bid_scaled <= bid_fill);
+        assert!(lot_scaled >= 0 && lot_scaled <= lot_fill);
+
+        if modifier == SCALAR_7 {
+            assert_eq!(bid_scaled, bid_fill);
+            assert_eq!(lot_scaled, lot_fill);
+        }
+        if modifier == 0 {
+            assert_eq!(bid_scaled, 0);
+            assert_eq!(lot_scaled, 0);
+        }
     }
 }
 
