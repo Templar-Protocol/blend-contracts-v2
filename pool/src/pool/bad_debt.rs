@@ -1530,5 +1530,5 @@ mod tests {
 }
 
 #[cfg(kani)]
-#[path = "bad_debt_verification.rs"]
+#[path = "../proofs/bad_debt.rs"]
 mod verification;

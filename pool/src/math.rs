@@ -22,7 +22,7 @@ impl FixedMath for Env {
 }
 
 #[cfg(kani)]
-#[path = "math_verification.rs"]
+#[path = "proofs/math.rs"]
 mod verification;
 
 #[cfg(test)]
