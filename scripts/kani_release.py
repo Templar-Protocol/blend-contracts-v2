@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import stat
 import tempfile
+import time
 
 
 SOURCE_FILES = {"Cargo.toml", "Cargo.lock", "rust-toolchain.toml"}
@@ -26,6 +27,10 @@ REQUIRED_PACKAGE_FILES = {
     "integrated-execution-receipt.json",
 }
 ALLOWED_SUPERSEDED_VERDICTS = {"TIMEOUT"}
+COMMAND_TIMEOUTS = {"git": 30 * 60, "tar": 30 * 60, "gh": 60 * 60}
+ARCHIVE_TAR_TIMEOUT = 60 * 60
+ARCHIVE_ZSTD_TIMEOUT = 2 * 60 * 60
+PROCESS_STOP_TIMEOUT = 5
 
 
 def unique_object(pairs):
@@ -61,7 +66,12 @@ def command(argv, *, cwd=None, capture=False, check=True):
             text=True,
             stdout=subprocess.PIPE if capture else None,
             stderr=subprocess.PIPE if capture else None,
+            timeout=COMMAND_TIMEOUTS.get(Path(argv[0]).name),
         )
+    except subprocess.TimeoutExpired as error:
+        raise ValueError(
+            f"command timed out after {error.timeout}s ({' '.join(argv)})"
+        ) from error
     except OSError as error:
         raise ValueError(f"cannot execute {argv[0]}: {error}") from error
     except subprocess.CalledProcessError as error:
@@ -243,7 +253,7 @@ def parse_log(record, log_bytes):
     ):
         verdict = "PASS"
     elif re.search(
-        r"failed to compile|could not compile|rustc .* exited with|error\\[E[0-9]+\\]",
+        r"failed to compile|could not compile|rustc .* exited with|error\[E[0-9]+\]",
         text,
         re.IGNORECASE,
     ):
@@ -466,38 +476,73 @@ def parse_member_manifest(root):
         raise ValueError("SHA256SUMS does not cover the exact archive payload")
 
 
-def build_archive(stage_parent, release_name, run_date, destination):
-    tar = subprocess.Popen(
-        [
-            "tar",
-            "--sort=name",
-            f"--mtime={run_date} 00:00:00Z",
-            "--owner=0",
-            "--group=0",
-            "--numeric-owner",
-            "--format=gnu",
-            "-cf",
-            "-",
-            release_name,
-        ],
-        cwd=stage_parent,
-        stdout=subprocess.PIPE,
-    )
+def stop_process(process):
+    if process is None or process.poll() is not None:
+        return
+    process.terminate()
     try:
-        zstd = subprocess.run(
+        process.wait(timeout=PROCESS_STOP_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def build_archive(stage_parent, release_name, run_date, destination):
+
+    tar = None
+    zstd = None
+    try:
+        tar = subprocess.Popen(
+            [
+                "tar",
+                "--sort=name",
+                f"--mtime={run_date} 00:00:00Z",
+                "--owner=0",
+                "--group=0",
+                "--numeric-owner",
+                "--mode=a=r,u+w,a+X",
+                "--format=gnu",
+                "-cf",
+                "-",
+                release_name,
+            ],
+            cwd=stage_parent,
+            stdout=subprocess.PIPE,
+        )
+        zstd = subprocess.Popen(
             ["zstd", "-19", "-T0", "-q", "-o", str(destination)],
             stdin=tar.stdout,
-            check=False,
         )
-    finally:
         if tar.stdout is not None:
             tar.stdout.close()
-    tar_status = tar.wait()
-    if tar_status != 0 or zstd.returncode != 0:
+        started = time.monotonic()
+        while True:
+            tar_status = tar.poll()
+            zstd_status = zstd.poll()
+            if tar_status is not None and zstd_status is not None:
+                break
+            elapsed = time.monotonic() - started
+            if tar_status is None and elapsed >= ARCHIVE_TAR_TIMEOUT:
+                raise subprocess.TimeoutExpired("tar", ARCHIVE_TAR_TIMEOUT)
+            if zstd_status is None and elapsed >= ARCHIVE_ZSTD_TIMEOUT:
+                raise subprocess.TimeoutExpired("zstd", ARCHIVE_ZSTD_TIMEOUT)
+            time.sleep(0.1)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        stop_process(zstd)
+        stop_process(tar)
         destination.unlink(missing_ok=True)
-        raise ValueError(
-            f"archive build failed: tar={tar_status}, zstd={zstd.returncode}"
-        )
+        if isinstance(error, subprocess.TimeoutExpired):
+            raise ValueError(
+                f"archive build timed out after {error.timeout}s"
+            ) from error
+        raise ValueError(f"cannot execute archive tool: {error}") from error
+    finally:
+        if tar is not None and tar.stdout is not None:
+            tar.stdout.close()
+
+    if tar_status != 0 or zstd_status != 0:
+        destination.unlink(missing_ok=True)
+        raise ValueError(f"archive build failed: tar={tar_status}, zstd={zstd_status}")
 
 
 def verify_archive(archive, release_name):
