@@ -1,11 +1,11 @@
 use crate::{
     constants::SCALAR_7,
     errors::PoolError,
+    math::FixedMath,
     pool::{Pool, User},
     storage,
 };
 use cast::i128;
-use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{contracttype, map, panic_with_error, Address, Env, Map, Vec};
 
 use super::{
@@ -214,36 +214,20 @@ fn scale_auction(
     };
 
     // determine block based auction modifiers
-    let bid_modifier: i128;
-    let lot_modifier: i128;
-    let per_block_scalar: i128 = 0_0050000; // modifier moves 0.5% every block
     let block_dif = i128(e.ledger().sequence() - auction_data.block);
-    if block_dif > 200 {
-        // lot 100%, bid scaling down from 100% to 0%
-        lot_modifier = SCALAR_7;
-        if block_dif < 400 {
-            bid_modifier = SCALAR_7 - (block_dif - 200) * per_block_scalar;
-        } else {
-            bid_modifier = 0;
-        }
-    } else {
-        // lot scaling from 0% to 100%, bid 100%
-        lot_modifier = block_dif * per_block_scalar;
-        bid_modifier = SCALAR_7;
-    }
+    let (bid_modifier, lot_modifier) = auction_timing_modifiers(block_dif);
 
     // scale the auction
     let percent_filled_i128 = i128(percent_filled) * 1_00000; // scale to decimal form in 7 decimals from percentage
     for (asset, amount) in auction_data.bid.iter() {
         // apply percent scalar and store remainder to base auction
         // round up to avoid rounding exploits
-        let to_fill_base = amount.fixed_mul_ceil(e, &percent_filled_i128, &SCALAR_7);
-        let remaining_base = amount - to_fill_base;
+        let (to_fill_base, remaining_base) = partition_quote(e, true, amount, percent_filled_i128);
         if remaining_base > 0 {
             remaining_auction.bid.set(asset.clone(), remaining_base);
         }
         // apply block scalar to to_fill auction and don't store if 0
-        let to_fill_scaled = to_fill_base.fixed_mul_ceil(e, &bid_modifier, &SCALAR_7);
+        let to_fill_scaled = discount_quote(e, true, to_fill_base, bid_modifier);
         if to_fill_scaled > 0 {
             to_fill_auction.bid.set(asset, to_fill_scaled);
         }
@@ -251,13 +235,12 @@ fn scale_auction(
     for (asset, amount) in auction_data.lot.iter() {
         // apply percent scalar and store remainder to base auction
         // round down to avoid rounding exploits
-        let to_fill_base = amount.fixed_mul_floor(e, &percent_filled_i128, &SCALAR_7);
-        let remaining_base = amount - to_fill_base;
+        let (to_fill_base, remaining_base) = partition_quote(e, false, amount, percent_filled_i128);
         if remaining_base > 0 {
             remaining_auction.lot.set(asset.clone(), remaining_base);
         }
         // apply block scalar to to_fill auction and don't store if 0
-        let to_fill_scaled = to_fill_base.fixed_mul_floor(e, &lot_modifier, &SCALAR_7);
+        let to_fill_scaled = discount_quote(e, false, to_fill_base, lot_modifier);
         if to_fill_scaled > 0 {
             to_fill_auction.lot.set(asset, to_fill_scaled);
         }
@@ -267,6 +250,61 @@ fn scale_auction(
         (to_fill_auction, None)
     } else {
         (to_fill_auction, Some(remaining_auction))
+    }
+}
+
+/// Returns `(bid_modifier, lot_modifier)` in SCALAR_7 scale:
+/// - lot scales linearly from 0% to 100% over the first 200 blocks
+/// - bid stays at 100% for the first 200 blocks, then scales linearly down to
+///   0% over the next 200 blocks
+#[allow(clippy::zero_prefixed_literal)]
+fn auction_timing_modifiers(block_dif: i128) -> (i128, i128) {
+    let per_block_scalar: i128 = 0_0050000; // modifier moves 0.5% every block
+    if block_dif > 200 {
+        // lot 100%, bid scaling down from 100% to 0%
+        let lot_modifier = SCALAR_7;
+        if block_dif < 400 {
+            let bid_modifier = SCALAR_7 - (block_dif - 200) * per_block_scalar;
+            (bid_modifier, lot_modifier)
+        } else {
+            (0, lot_modifier)
+        }
+    } else {
+        // lot scaling from 0% to 100%, bid 100%
+        let lot_modifier = block_dif * per_block_scalar;
+        (SCALAR_7, lot_modifier)
+    }
+}
+
+/// Split one auction quote entry by the fill percentage into
+/// `(to_fill_base, remaining_base)`. The kernel owns the rounding direction:
+/// bids round up (conservative for the filler), lots round down.
+fn partition_quote(
+    math: &impl FixedMath,
+    round_up: bool,
+    amount: i128,
+    percent_filled: i128,
+) -> (i128, i128) {
+    let to_fill_base = if round_up {
+        math.ceil(amount, percent_filled, SCALAR_7)
+    } else {
+        math.floor(amount, percent_filled, SCALAR_7)
+    };
+    (to_fill_base, amount - to_fill_base)
+}
+
+/// Apply the block modifier to an already-partitioned fill amount. The kernel
+/// owns the rounding direction, matching the partition stage.
+fn discount_quote(
+    math: &impl FixedMath,
+    round_up: bool,
+    to_fill_base: i128,
+    modifier: i128,
+) -> i128 {
+    if round_up {
+        math.ceil(to_fill_base, modifier, SCALAR_7)
+    } else {
+        math.floor(to_fill_base, modifier, SCALAR_7)
     }
 }
 
@@ -283,6 +321,7 @@ fn require_unique_addresses(e: &Env, list: &Vec<Address>) {
         temp_map.set(address.clone(), true);
     }
 }
+
 
 #[cfg(test)]
 mod tests {

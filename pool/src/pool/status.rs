@@ -1,4 +1,5 @@
 use crate::{
+    backstop_threshold::saturating_backstop_product,
     constants::SCALAR_7,
     dependencies::{BackstopClient, PoolBackstopData},
     storage, PoolError,
@@ -128,25 +129,20 @@ pub fn execute_set_pool_status(e: &Env, pool_status: u32) {
 ///         - 0_0000003 = ~5%
 ///         - 0_0000000 = ~0-4%
 pub fn calc_pool_backstop_threshold(pool_backstop_data: &PoolBackstopData) -> i128 {
-    // @dev: Calculation for pools product constant of underlying will often overflow i128
-    //       so saturating mul is used. This is safe because the threshold is below i128::MAX and the
-    //       protocol does not need to differentiate between pools over the threshold product constant.
-    //       The calculation is:
-    //        - Threshold % = (bal_blnd^4 * bal_usdc) / PC^5 such that PC is 100k
-    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
-
-    // floor balances to nearest full unit and calculate saturated pool product constant
-    // and scale to SCALAR_7 to get final division result in SCALAR_7 points
-    let bal_blnd = pool_backstop_data.blnd / SCALAR_7;
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7;
-    let saturating_pool_pc = bal_blnd
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_usdc)
-        .saturating_mul(SCALAR_7); // 10^7 * 10^7
-    saturating_pool_pc / threshold_pc
+    threshold_from_product(saturating_backstop_product(
+        pool_backstop_data.blnd,
+        pool_backstop_data.usdc,
+    ))
 }
+
+fn threshold_from_product(product: i128) -> i128 {
+    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+                                                               // Scaling must still saturate before division; cancellation changes large results.
+    product.saturating_mul(SCALAR_7) / threshold_pc
+}
+
+// The existing dev-dependency supplies the backstop suffix consumed by the unchanged
+// scale-agreement theorem below.
 
 #[cfg(test)]
 mod tests {

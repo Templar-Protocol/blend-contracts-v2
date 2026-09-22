@@ -1,12 +1,14 @@
 use soroban_sdk::Map;
 use soroban_sdk::{contracttype, panic_with_error, Address, Env, Vec};
 
-use crate::events::PoolEvents;
-use crate::AuctionType;
-use crate::{auctions, errors::PoolError, validator::require_nonnegative};
-
 use super::pool::Pool;
 use super::User;
+use crate::events::PoolEvents;
+use crate::AuctionType;
+use crate::{
+    auctions, errors::PoolError, math::FixedMath, storage::ReserveData,
+    validator::require_nonnegative,
+};
 
 /// A request a user makes against the pool
 #[derive(Clone)]
@@ -297,11 +299,37 @@ fn apply_supply(
     let b_tokens_minted = reserve.to_b_token_down(e, request.amount);
     user.add_supply(e, &mut reserve, b_tokens_minted);
     actions.add_for_spender_transfer(&reserve.asset, request.amount);
-    if reserve.total_supply(e) > reserve.config.supply_cap {
+    if !supply_within_cap(reserve.total_supply(e), reserve.config.supply_cap) {
         panic_with_error!(e, PoolError::ExceededSupplyCap);
     }
     pool.cache_reserve(reserve);
     b_tokens_minted
+}
+
+/// Cap a withdrawal at the user's b-token position.
+///
+/// Returns (tokens_out, to_burn) exactly as the withdraw request consumes
+/// them: uncapped requests pay out `amount`, capped requests pay out the
+/// asset claim of the entire position. Shared by supply and collateral
+/// withdrawals, which cap identically.
+fn plan_withdraw(
+    data: &ReserveData,
+    math: &impl FixedMath,
+    amount: i128,
+    cur_b_tokens: i128,
+) -> (i128, i128) {
+    let mut to_burn = data.to_b_token_up(math, amount);
+    let mut tokens_out = amount;
+    if to_burn > cur_b_tokens {
+        to_burn = cur_b_tokens;
+        tokens_out = data.to_asset_from_b_token(math, cur_b_tokens);
+    }
+    (tokens_out, to_burn)
+}
+
+/// Supply cap check: strict — a total supply exactly at the cap is allowed.
+fn supply_within_cap(total_supply: i128, supply_cap: i128) -> bool {
+    total_supply <= supply_cap
 }
 
 /// Apply a "withdraw" request to the pool
@@ -321,12 +349,7 @@ fn apply_withdraw(
     if user.get_liabilities(reserve.config.index) > 0 {
         actions.do_check_health();
     }
-    let mut to_burn = reserve.to_b_token_up(e, request.amount);
-    let mut tokens_out = request.amount;
-    if to_burn > cur_b_tokens {
-        to_burn = cur_b_tokens;
-        tokens_out = reserve.to_asset_from_b_token(e, cur_b_tokens);
-    }
+    let (tokens_out, to_burn) = plan_withdraw(&reserve.data, e, request.amount, cur_b_tokens);
     user.remove_supply(e, &mut reserve, to_burn);
     reserve.require_utilization_below_100(e);
     actions.add_for_pool_transfer(&reserve.asset, tokens_out);
@@ -351,7 +374,7 @@ fn apply_supply_collateral(
     let b_tokens_minted = reserve.to_b_token_down(e, request.amount);
     user.add_collateral(e, &mut reserve, b_tokens_minted);
     actions.add_for_spender_transfer(&reserve.asset, request.amount);
-    if reserve.total_supply(e) > reserve.config.supply_cap {
+    if !supply_within_cap(reserve.total_supply(e), reserve.config.supply_cap) {
         panic_with_error!(e, PoolError::ExceededSupplyCap);
     }
     pool.cache_reserve(reserve);
@@ -372,12 +395,7 @@ fn apply_withdraw_collateral(
 ) -> (i128, i128) {
     let mut reserve = pool.load_reserve(e, &request.address, true);
     let cur_b_tokens = user.get_collateral(reserve.config.index);
-    let mut to_burn = reserve.to_b_token_up(e, request.amount);
-    let mut tokens_out = request.amount;
-    if to_burn > cur_b_tokens {
-        to_burn = cur_b_tokens;
-        tokens_out = reserve.to_asset_from_b_token(e, cur_b_tokens);
-    }
+    let (tokens_out, to_burn) = plan_withdraw(&reserve.data, e, request.amount, cur_b_tokens);
     user.remove_collateral(e, &mut reserve, to_burn);
     reserve.require_utilization_below_100(e);
     actions.add_for_pool_transfer(&reserve.asset, tokens_out);
@@ -410,6 +428,32 @@ fn apply_borrow(
     d_tokens_minted
 }
 
+/// Split a repayment request into (tokens_in, d_tokens_burnt, refund, capped).
+///
+/// `capped` preserves the exact production branch: the computed burn
+/// strictly exceeds the position. The refund is zero on the uncapped branch
+/// and may be negative on the capped branch; production re-checks it is
+/// nonnegative before transferring.
+fn plan_repay(
+    data: &ReserveData,
+    math: &impl FixedMath,
+    amount: i128,
+    cur_d_tokens: i128,
+) -> (i128, i128, i128, bool) {
+    let d_tokens_burnt = data.to_d_token_down(math, amount);
+    if d_tokens_burnt > cur_d_tokens {
+        let cur_underlying_borrowed = data.to_asset_from_d_token(math, cur_d_tokens);
+        (
+            cur_underlying_borrowed,
+            cur_d_tokens,
+            amount - cur_underlying_borrowed,
+            true,
+        )
+    } else {
+        (amount, d_tokens_burnt, 0, false)
+    }
+}
+
 /// Apply a "repay" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -424,17 +468,15 @@ fn apply_repay(
 ) -> (i128, i128) {
     let mut reserve = pool.load_reserve(e, &request.address, true);
     let cur_d_tokens = user.get_liabilities(reserve.config.index);
-    let d_tokens_burnt = reserve.to_d_token_down(e, request.amount);
-    let repayment_amount = request.amount;
-    if d_tokens_burnt > cur_d_tokens {
-        let cur_underlying_borrowed = reserve.to_asset_from_d_token(e, cur_d_tokens);
-        let amount_to_refund = request.amount - cur_underlying_borrowed;
+    let (repayment_amount, d_tokens_burnt, amount_to_refund, capped) =
+        plan_repay(&reserve.data, e, request.amount, cur_d_tokens);
+    if capped {
         require_nonnegative(e, &amount_to_refund);
         actions.add_for_spender_transfer(&reserve.asset, request.amount);
         actions.add_for_pool_transfer(&reserve.asset, amount_to_refund);
         user.remove_liabilities(e, &mut reserve, cur_d_tokens);
         pool.cache_reserve(reserve);
-        (cur_underlying_borrowed, cur_d_tokens)
+        (repayment_amount, d_tokens_burnt)
     } else {
         actions.add_for_spender_transfer(&reserve.asset, request.amount);
         user.remove_liabilities(e, &mut reserve, d_tokens_burnt);
@@ -1872,3 +1914,4 @@ mod tests {
         });
     }
 }
+

@@ -1,9 +1,9 @@
 use cast::i128;
-use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{panic_with_error, Env};
 
 use crate::{
     constants::{SCALAR_12, SCALAR_7, SECONDS_PER_YEAR},
+    math::FixedMath,
     storage::ReserveConfig,
     PoolError,
 };
@@ -27,33 +27,8 @@ pub fn calc_accrual(
     ir_mod: i128,
     last_time: u64,
 ) -> (i128, i128) {
-    let cur_ir: i128;
-    let target_util: i128 = i128(config.util);
-    if cur_util <= target_util {
-        let util_scalar = cur_util.fixed_div_ceil(e, &target_util, &SCALAR_7);
-        let base_rate =
-            util_scalar.fixed_mul_ceil(e, &i128(config.r_one), &SCALAR_7) + i128(config.r_base);
-
-        cur_ir = base_rate.fixed_mul_ceil(e, &ir_mod, &SCALAR_7);
-    } else if cur_util <= 0_9500000 {
-        let util_scalar =
-            (cur_util - target_util).fixed_div_ceil(e, &(0_9500000 - target_util), &SCALAR_7);
-        let base_rate = util_scalar.fixed_mul_ceil(e, &i128(config.r_two), &SCALAR_7)
-            + i128(config.r_one)
-            + i128(config.r_base);
-
-        cur_ir = base_rate.fixed_mul_ceil(e, &ir_mod, &SCALAR_7);
-    } else {
-        let util_scalar = (cur_util - 0_9500000).fixed_div_ceil(e, &0_0500000, &SCALAR_7);
-        let extra_rate = util_scalar.fixed_mul_ceil(e, &i128(config.r_three), &SCALAR_7);
-
-        let intersection = ir_mod.fixed_mul_ceil(
-            e,
-            &i128(config.r_two + config.r_one + config.r_base),
-            &SCALAR_7,
-        );
-        cur_ir = extra_rate + intersection;
-    }
+    // Preserve the original arithmetic-before-timestamp-error ordering.
+    let cur_ir = current_interest(e, config, cur_util, ir_mod);
 
     // update rate_modifier
     let delta_time = i128(e.ledger().timestamp() - last_time);
@@ -61,13 +36,55 @@ pub fn calc_accrual(
     if delta_time < 1 {
         panic_with_error!(e, PoolError::InternalError);
     }
+    finish_accrual(e, config, cur_util, ir_mod, delta_time, cur_ir)
+}
+
+#[allow(clippy::zero_prefixed_literal)]
+fn current_interest(
+    math: &impl FixedMath,
+    config: &ReserveConfig,
+    cur_util: i128,
+    ir_mod: i128,
+) -> i128 {
+    let target_util = i128(config.util);
+    if cur_util <= target_util {
+        let util_scalar = math.ceil(cur_util, SCALAR_7, target_util);
+        let base_rate = math.ceil(util_scalar, i128(config.r_one), SCALAR_7) + i128(config.r_base);
+        math.ceil(base_rate, ir_mod, SCALAR_7)
+    } else if cur_util <= 0_9500000 {
+        let util_scalar = math.ceil(cur_util - target_util, SCALAR_7, 0_9500000 - target_util);
+        let base_rate = math.ceil(util_scalar, i128(config.r_two), SCALAR_7)
+            + i128(config.r_one)
+            + i128(config.r_base);
+        math.ceil(base_rate, ir_mod, SCALAR_7)
+    } else {
+        let util_scalar = math.ceil(cur_util - 0_9500000, SCALAR_7, 0_0500000);
+        let extra_rate = math.ceil(util_scalar, i128(config.r_three), SCALAR_7);
+        let intersection = math.ceil(
+            ir_mod,
+            i128(config.r_two + config.r_one + config.r_base),
+            SCALAR_7,
+        );
+        extra_rate + intersection
+    }
+}
+
+fn finish_accrual(
+    math: &impl FixedMath,
+    config: &ReserveConfig,
+    cur_util: i128,
+    ir_mod: i128,
+    delta_time: i128,
+    cur_ir: i128,
+) -> (i128, i128) {
+    let target_util = i128(config.util);
     // util dif 7 decimals
     let util_dif = cur_util - target_util;
     let new_ir_mod: i128;
     if util_dif >= 0 {
         // rate modifier increasing
         let util_error = delta_time * util_dif;
-        let rate_dif = util_error.fixed_mul_floor(e, &i128(config.reactivity), &SCALAR_7);
+        let rate_dif = math.floor(util_error, i128(config.reactivity), SCALAR_7);
         let next_ir_mod = ir_mod + rate_dif;
         let ir_mod_max = 10 * SCALAR_7;
         if next_ir_mod > ir_mod_max {
@@ -78,7 +95,7 @@ pub fn calc_accrual(
     } else {
         // rate modifier decreasing
         let util_error = delta_time * util_dif;
-        let rate_dif = util_error.fixed_mul_ceil(e, &i128(config.reactivity), &SCALAR_7);
+        let rate_dif = math.ceil(util_error, i128(config.reactivity), SCALAR_7);
         let next_ir_mod = ir_mod + rate_dif;
         let ir_mod_min = SCALAR_7 / 10;
         if next_ir_mod < ir_mod_min {
@@ -94,10 +111,28 @@ pub fn calc_accrual(
     let time_weight = delta_time_scaled / SECONDS_PER_YEAR;
     (
         // accrual scaled to 12 decimals
-        SCALAR_12 + time_weight.fixed_mul_ceil(e, &cur_ir, &SCALAR_7),
+        SCALAR_12 + math.ceil(time_weight, cur_ir, SCALAR_7),
         new_ir_mod,
     )
 }
+
+/// Metadata-valid reserve configuration from u8 symbolic seeds:
+/// - util = k * 100_000 for k in [0, 90]: <= 0_9000000, including the
+///   metadata-valid zero target (covered by prove_e1_divisors_clamps_unity;
+///   prove_e1_boundary_values pins k >= 1 because its cur_util == target
+///   boundary at k == 0 would need cur_util == 0, which the real caller
+///   never reaches)
+/// - harness seeds: cur_util = j * 100_000 for j in [1, 100],
+///   ir_mod = m * 1_000_000 for m in [1, 100], delta_time in [1, 255];
+///   a zero target routes cur_util > 0 to the middle branch, whose
+///   util_scalar stays <= SCALAR_7 because that branch requires
+///   cur_util <= 0_9500000 (cur_util == SCALAR_7 selects the high branch)
+/// - r_base in [1000, 1255]: inside [0_0001000, 1_0000000)
+/// - r_one <= r_two <= r_three (u8, ordered by caller assumption)
+/// - reactivity <= 255 <= 0_0001000
+/// The u32 rate sum r_two + r_one + r_base (<= 1765 here) cannot overflow on
+/// this domain; overflow-freedom over all metadata-valid u32 tuples is NOT
+/// claimed and stays a separately recorded representability premise.
 
 #[cfg(test)]
 mod tests {

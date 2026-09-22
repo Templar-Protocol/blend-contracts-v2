@@ -2,6 +2,7 @@ use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{contracttype, panic_with_error, unwrap::UnwrapOptimized, Address, Env};
 
 use crate::{
+    backstop_threshold::saturating_backstop_product,
     constants::SCALAR_7,
     dependencies::{CometClient, PoolFactoryClient},
     errors::BackstopError,
@@ -103,22 +104,15 @@ pub fn require_is_from_pool_factory(e: &Env, address: &Address, balance: i128) {
 ///
 /// Returns true if the pool's backstop balance is above the threshold
 pub fn is_pool_above_threshold(pool_backstop_data: &PoolBackstopData) -> bool {
-    // @dev: Calculation for pools product constant of underlying will often overflow i128
-    //       so saturating mul is used. This is safe because the threshold is below i128::MAX and the
-    //       protocol does not need to differentiate between pools over the threshold product constant.
-    //       The calculation is:
-    //        - Threshold % = (bal_blnd^4 * bal_usdc) / PC^5 such that PC is 100k
-    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+    threshold_from_product(saturating_backstop_product(
+        pool_backstop_data.blnd,
+        pool_backstop_data.usdc,
+    ))
+}
 
-    // floor balances to nearest full unit and calculate saturated pool product constant
-    let bal_blnd = pool_backstop_data.blnd / SCALAR_7;
-    let bal_usdc = pool_backstop_data.usdc / SCALAR_7;
-    let saturating_pool_pc = bal_blnd
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_blnd)
-        .saturating_mul(bal_usdc);
-    saturating_pool_pc >= threshold_pc
+pub fn threshold_from_product(product: i128) -> bool {
+    let threshold_pc = 10_000_000_000_000_000_000_000_000i128; // 1e25 (100k^5)
+    product >= threshold_pc
 }
 
 /// The pool's backstop balances
@@ -186,12 +180,19 @@ impl PoolBalance {
     /// * `tokens` - The amount of tokens to withdraw
     /// * `shares` - The amount of shares to withdraw
     pub fn withdraw(&mut self, e: &Env, tokens: i128, shares: i128) {
+        if let Err(error) = self.withdraw_balance(tokens, shares) {
+            panic_with_error!(e, error);
+        }
+    }
+
+    fn withdraw_balance(&mut self, tokens: i128, shares: i128) -> Result<(), BackstopError> {
         if tokens > self.tokens || shares > self.shares || shares > self.q4w {
-            panic_with_error!(e, BackstopError::InsufficientFunds);
+            return Err(BackstopError::InsufficientFunds);
         }
         self.tokens -= tokens;
         self.shares -= shares;
         self.q4w -= shares;
+        Ok(())
     }
 
     /// Queue withdraw for the pool
@@ -207,10 +208,17 @@ impl PoolBalance {
     /// ### Arguments
     /// * `shares` - The amount of shares to dequeue from q4w
     pub fn dequeue_q4w(&mut self, e: &Env, shares: i128) {
+        if let Err(error) = self.dequeue_balance(shares) {
+            panic_with_error!(e, error);
+        }
+    }
+
+    fn dequeue_balance(&mut self, shares: i128) -> Result<(), BackstopError> {
         if shares > self.q4w {
-            panic_with_error!(e, BackstopError::InsufficientFunds);
+            return Err(BackstopError::InsufficientFunds);
         }
         self.q4w -= shares;
+        Ok(())
     }
 }
 
@@ -706,3 +714,4 @@ mod tests {
         assert_eq!(pool_balance.q4w, 0);
     }
 }
+
