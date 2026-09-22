@@ -484,7 +484,10 @@ def stop_process(process):
         process.wait(timeout=PROCESS_STOP_TIMEOUT)
     except subprocess.TimeoutExpired:
         process.kill()
-        process.wait()
+        try:
+            process.wait(timeout=PROCESS_STOP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            pass
 
 
 def build_archive(stage_parent, release_name, run_date, destination):
