@@ -147,8 +147,12 @@ operator(s) involved are *lead* and Foundation coordinates.
 In a validator-internal P0, application protocols *will* react: pool
 admins may move pools to status 4 (admin frozen) defensively, curator
 sentinels may pause vaults, bridges may halt. That is expected and
-correct, and validators should help by giving those teams a clear
-estimate of stand-down timing.
+correct. Note that status 4 is absorbing: a defensively frozen pool is
+recovered via successor deployment / migration, not by un-freezing.
+Validators should help by giving those teams a clear estimate of
+network-restoration timing so they can make user-facing decisions
+(vault unpauses, bridge re-opens, successor-pool migration plans)
+accordingly.
 
 ### 7.1 Network upgrade coordination
 

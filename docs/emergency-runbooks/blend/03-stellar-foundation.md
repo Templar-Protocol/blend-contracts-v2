@@ -95,7 +95,10 @@ curator vault, Foundation's job is to coordinate, not to act on-chain.
    class has joined.
 2. **Confirm the smallest containment** has been taken. For Blend pool
    exploits: has `set_status(4)` been broadcast by the affected pool
-   admin? For curator vault exploits, two questions, since Templar's
+   admin? Status 4 is absorbing: recovery requires successor
+   deployment / migration, not unfreezing the pool, and withdrawals
+   remain subject to ordinary pool constraints. For curator vault
+   exploits, two questions, since Templar's
    governance contract has a direct `set_paused` entrypoint for the
    Sentinel (immediate, gated by `require_sentinel`) while `revoke`
    is available to Sentinel or Admin for a bounded set of proposal
@@ -184,8 +187,10 @@ maintain Foundation as a primary point-of-contact across protocols.
 ### 4.2 Recovery
 
 1. Provider publishes all-clear; Foundation verifies and re-broadcasts.
-2. Pool admins step status back per
+2. Pool admins coordinate recovery per
    [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) section 4.2.
+   A pool that reached status 4 cannot step back; it requires successor
+   deployment / migration even after the oracle is healthy.
 3. Foundation publishes a single ecosystem post-mortem for the oracle
    incident, naming each affected protocol and its containment timeline.
 
@@ -207,8 +212,9 @@ limits damage.
    signer of a multisig), the multisig itself may still be safe — verify
    with the admin's full signing roster.
 2. **Coordinate the cross-stack defence.** A captured admin can:
-   - Reconfigure reserves to drain liquidity.
-   - Move emissions.
+   - Disable an enabled reserve after the reserve-change delay. After
+     setup, this exact enabled→disabled change is the only permitted
+     reserve update; other live reserve metadata cannot be changed.
    - Hand the admin role to another address.
    The defences Foundation can broker:
    - Stablecoin issuers can freeze the captured admin's address(es) and

@@ -148,8 +148,11 @@ oracle-faulting risk.
 
 ## 5. Pool admin compromise
 
-A captured Blend pool admin can drain reserves on the affected pool. The
-bridge is one of the natural exit surfaces.
+A captured Blend pool admin cannot move pool funds: post-setup the admin
+entrypoints only allow pool status changes, the delayed enabled→disabled
+reserve transition, and an admin hand-off proposal. The bridge remains
+one of the natural exit surfaces — user withdrawals keep flowing through
+it during the compromise.
 
 ### 5.1 Containment
 
@@ -203,8 +206,11 @@ the rest of the Safe Chain participates as informational stakeholders.
 
 In a bridge-internal P0, expect Blend pool admins to step the affected
 pool to status 4 and curator vaults to pause/deallocate from any reserve
-denominated in the bridged asset. Coordinate the timing of stand-down
-across the war room.
+denominated in the bridged asset. Note that status 4 is absorbing: that
+pool is recovered only via successor deployment / migration, never by
+un-freezing, and its withdrawals remain subject to ordinary pool
+constraints in the meantime. Coordinate the timing of bridge-side
+stand-down across the war room.
 
 ---
 

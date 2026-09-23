@@ -24,6 +24,13 @@ a "Safe Chain" cross-role coordination model, and both address the
 same category set: protocol hacks, bad debt, faulty oracles,
 privileged-role compromise, and counterparty-layer compromise.
 
+The Blend collection follows this repository's fork semantics: admin-frozen
+status 4 is permanent, live reserve changes are disable-only, and residual
+user bad debt is borne directly by suppliers after same-reserve supply setoff.
+Status-4 recovery and post-setup reserve-parameter replacement use successor
+pools and migration; disabled backstop debt/interest auctions are never a
+recovery path.
+
 Incidents that cross both ecosystems — for example, a bridged-asset
 issue that touches both a NEAR Templar market and a Soroban Templar
 vault that supplies into a Blend pool — should route via both
