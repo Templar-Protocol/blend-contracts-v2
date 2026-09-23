@@ -219,9 +219,10 @@ stepped to status 4 is absorbing: it will never be un-frozen, even once
 your peg is restored and your reserve report is re-published — its
 recovery is a successor deployment / migration, and its withdrawals stay
 subject to ordinary pool constraints until users migrate. Pools held at
-status 2 may be stepped back down by their admins once your peg is
-restored and your reserve report is re-published. Coordinate timing with
-Foundation.
+status 2 may be stepped to status 0 by their admins only after the pool
+meets the minimum backstop threshold and `q4w_pct` is below 50%;
+restoring the peg and republishing the reserve report are not sufficient.
+Coordinate timing with Foundation.
 
 ---
 
