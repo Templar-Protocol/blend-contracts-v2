@@ -220,12 +220,16 @@ If the underlying Blend pool is what is exploited (not the vault itself):
 
 1. The pool admin will (per
    [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) section 2)
-   move the pool to status 4 (admin frozen). Status 4 still permits
+   move the pool to status 4 (admin frozen). Status 4 is absorbing —
+   the pool is recovered only by successor deployment / migration,
+   never by un-freezing — and still permits
    withdrawals (the Blend adapter's deallocation path submits
    `REQUEST_WITHDRAW` = action_type 1, which is not gated by status >
-   3 — see `pool/src/pool/pool.rs:77-80`), so your `RebalanceWithdraw`
-   against the affected reserve should still work in principle. Treat
-   it as blocked only if reserve-level liquidity, oracle staleness /
+   3 — see `pool/src/pool/pool.rs:143-146`), so your
+   `RebalanceWithdraw` against the affected reserve should still work
+   in principle. Withdrawals remain subject to ordinary pool
+   constraints: treat it as blocked only if
+   reserve-level liquidity, oracle staleness /
    safety, the vault's own pause / restrictions, or adapter-specific
    errors make the withdrawal unsafe or unprofitable.
 2. If you have **multiple Blend pools** in the vault, deallocate from
@@ -266,7 +270,7 @@ to the bad-debt-producing market.
 
 | Class | Signal |
 |-------|--------|
-| **High (P1)** | Backstop on the affected pool has `q4w_pct` approaching a transition threshold for the pool's current status (see the conditional table in [`../blend/02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0 — 60% only forces a freeze from the backstop-driven branch; a pool in admin-active (0) or admin-on-ice (2) has different thresholds). Bad-debt auctions are stalling. The vault has material allocation to the affected reserve. |
+| **High (P1)** | Backstop on the affected pool has `q4w_pct` approaching a transition threshold for the pool's current status (see the conditional table in [`../blend/02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0 — 60% only forces a freeze from the backstop-driven branch; a pool in admin-active (0) or admin-on-ice (2) has different thresholds). Bad-debt and backstop-interest auctions are non-operational (create and fill are rejected), so no auction-based relief is coming. The vault has material allocation to the affected reserve. |
 | **Medium (P2)** | A user the vault has visibility into has negative health that is not being liquidated. `q4w_pct` between 30% and 60%. |
 
 ### 3.2 Containment
@@ -282,11 +286,16 @@ to the bad-debt-producing market.
    will exit at a higher share price than allocated users until the loss
    propagates.
 4. **Force loss recognition.** Anyone (not just the curator) can call
-   `bad_debt(user)` on the Blend pool to push the user's residual
-   liabilities to the backstop. This is what triggers the pool's
-   accounting to reflect the loss. The vault's `SyncExternalAssets`
-   (allocator) then propagates the change to the vault's `total_assets`.
-5. **Decide whether to socialize or compensate.** If the loss exceeds the
+   `bad_debt(user)` on the Blend pool. It first sets off the user's
+   liability against the affected reserve's ordinary supply, then
+   socializes the residual liability directly onto that reserve's
+   suppliers; there is no backstop leg — `bad_debt(backstop)` is
+   rejected. This is what triggers the pool's accounting to reflect
+   the loss. The vault's `SyncExternalAssets` (allocator) then
+   propagates the change to the vault's `total_assets`.
+5. **Decide whether to compensate.** The residual loss is socialized
+   directly onto the affected reserve's suppliers by `bad_debt(user)`.
+   If the loss exceeds the
    curator's risk budget for that market and you have a treasury or
    insurance source, this is the moment to decide whether to top up.
    Either way, communicate the decision before users exit at the
@@ -344,8 +353,10 @@ let arbitrageurs extract value through deposit / atomic-withdraw cycles.
 
 Step back through the containment ladder in reverse only after the
 oracle provider has published all-clear and Blend pool admins have
-restored their pool's status. Stand-down requires Curator + Blend dev
-team sign-off (Safe Chain rule).
+stepped their pools' status back down where that is possible — a pool
+that reached status 4 is absorbing and is recovered only via successor
+deployment / migration, never by a status restore. Stand-down requires
+Curator + Blend dev team sign-off (Safe Chain rule).
 
 ---
 
@@ -502,8 +513,10 @@ operational rhythm and undermine the Curator's ability to ship policy.
 
 Your vault is a *user* of a Blend pool. If the pool admin is compromised
 ([`02-blend-pool-admins.md`](./02-blend-pool-admins.md) section 5), the
-captured admin can reconfigure reserves to drain liquidity, change
-emissions, or hand the admin role to another address.
+captured admin can disable an enabled reserve once the delayed
+enabled→disabled transition matures (after setup this is the only
+permitted reserve change; other live reserve metadata is immutable), or
+hand the admin role to another address.
 
 ### 8.1 Containment
 
@@ -514,10 +527,14 @@ emissions, or hand the admin role to another address.
 3. **Allocator: `RebalanceWithdraw`** as much as possible from the
    affected pool's reserves while the pool is still operational. If
    the captured admin has already moved the pool to status 4
-   (admin-frozen), withdrawals are still allowed; if they have
-   adversarially configured a reserve such that withdraw is unsafe
-   (e.g. price feed misconfiguration), do not withdraw — coordinate
-   with Foundation Safe Chain instead.
+   (admin-frozen — absorbing; recovery is successor deployment /
+   migration), withdrawals are still allowed subject to ordinary
+   pool constraints. Do not withdraw if the affected reserve has been
+   disabled (the only reserve change an admin can still force
+   post-setup, after its delay), the reserve's liquidity is gone, the
+   price feed was already faulty before the compromise, or the
+   vault's own pause / restrictions block it — coordinate with
+   Foundation Safe Chain instead.
 4. **Curator: `submit_set_cap(affected_market, 0)`** and
    `submit_remove_market(affected_market)` to remove the pool from
    the vault's strategy.

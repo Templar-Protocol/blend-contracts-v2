@@ -87,7 +87,7 @@ runbook section applies. Mapping used throughout these runbooks:
 |--------|----------------|-----------|
 | **Exploit / invariant break** | Pool `total_supply` < `total_borrowed`, share price drops > threshold, unexpected `gulp` callsite, reentrancy detection. | Protocol hack section. |
 | **Oracle anomaly** | Price deviation across feeds, staleness > `price_maximum_age_s`, confidence band collapse, EMA divergence. | Faulty oracle section. |
-| **Privileged-call anomaly** | `set_admin` / `accept_admin`, `set_status` to 4 (admin-frozen), `queue_set_reserve` with extreme params, vault `submit_set_curator` / `submit_set_sentinel` proposals. | Pool / curator / allocator / sentinel compromise sections. |
+| **Privileged-call anomaly** | `set_admin` / `accept_admin`, `set_status` to 4 (admin-frozen — final, never reversible), `queue_set_reserve` with extreme params on a setup-status pool (live pools accept only exact disable transitions), a sudden queued reserve disable, vault `submit_set_curator` / `submit_set_sentinel` proposals. | Pool / curator / allocator / sentinel compromise sections. |
 | **Liquidity / liquidation stress** | Backstop `q4w_pct` rising above thresholds (30% / 50% / 60% / 75%), liquidation queue stalls, utilisation rate near `max_util`. | Bad debt section. |
 | **Counterparty signal** | Bridge halt, peg deviation on a stablecoin, sanctioned-address interaction, validator misbehaviour. | Bridge / stablecoin / validator runbooks. |
 | **Operational** | Cron / bot failure, RPC outage, ledger TTL near expiration on critical contracts. | Pool admin / dev team runbooks. |
@@ -102,18 +102,17 @@ Chain" model is the convention these runbooks follow:
    war room, and pages the Stellar Foundation security contact and any
    counterparties whose surface is implicated (bridge, stablecoin, validator
    set, other curators sharing the affected pool / oracle / asset).
-2. **Use the smallest reversible mitigation first.** Each role has graduated
-   responses (e.g. for Blend pool admins: `set_status(2)` admin on-ice →
-   `set_status(4)` admin frozen). The runbooks document those step ladders
-   so responders do not jump straight to the most invasive action.
+2. **Use the smallest viable mitigation first.** For Blend pool admins,
+   `set_status(2)` admin on-ice can stop new borrowing; `set_status(4)`
+   admin frozen additionally stops supplies and is **irreversible**.
+   Once frozen, neither admin nor permissionless calls can leave status 4.
 3. **Containment before forensics.** Stop the bleed first; preserve evidence
    second; root-cause third. All public communication is funnelled through
    the lead role for that incident class.
-4. **Stand-down requires sign-off from at least two Safe Chain roles.** Even
-   if the on-chain action was taken by a single key (e.g. an admin-frozen
-   pool), unfreezing requires a second role to corroborate that the cause is
-   resolved (e.g. dev team confirms patched contract, or curator confirms
-   vault deallocation completed).
+4. **Stand-down requires sign-off from at least two Safe Chain roles.**
+   Sign-off authorizes recovery coordination, not an on-chain thaw. A
+   status-4 pool remains frozen; restored service requires a successor
+   deployment and user/vault migration.
 
 The Safe Chain is primarily a *coordination* layer, not a custody layer. Blend
 pool admin and dev-team roles do not give any Safe Chain role direct custody of
@@ -163,17 +162,24 @@ collaborative editor, or pinned chat thread). Do not rely on memory.
 
 ## Glossary
 
-- **Backstop** — Blend's per-pool insurance module; receives bad debt when a
-  user is liquidated to zero collateral. Defined in
+- **Backstop** — Blend's per-pool deposit module (`q4w_pct`, status
+  transitions). In this fork it does not absorb user bad debt:
+  `bad_debt(user)` sets off the borrower's same-reserve supply and
+  socializes the residual directly to that reserve's suppliers, and
+  `bad_debt(backstop)` is rejected. Defined in
   [`blend-contracts-v2/backstop`](../../../backstop).
 - **Pool status** — integer 0–6 that controls which user actions are allowed.
   Even numbers are admin-set, odd numbers are backstop-driven, and 4
-  (admin-frozen) supersedes everything else. See
+  (admin-frozen) supersedes everything else and is absorbing: no call,
+  admin or otherwise, can move a pool out of status 4. See
   [`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs).
 - **q4w_pct** — fraction of backstop deposits queued for withdrawal. Drives
   status transitions at 30% / 50% / 60% / 75%.
 - **Reserve config** — per-asset risk parameters (`c_factor`, `l_factor`,
-  `max_util`, etc.) on a pool. Queued via `queue_set_reserve`.
+  `max_util`, etc.) on a pool. Queued via `queue_set_reserve`. On a live
+  (non-setup) pool the only accepted change is the exact enabled→disabled
+  transition of an existing reserve, after the full one-week timelock;
+  risk parameters cannot be re-tightened in place.
 - **Curator vault** — an ERC-4626-style vault that supplies into one or more
   Blend pool reserves on behalf of depositors.
 - **Adapter** — chain- or pool-specific bridge between a vault and the venue

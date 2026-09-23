@@ -44,6 +44,12 @@ Before any incident, the dev team must keep the following in a known-good state:
   `collateral_orphaned` and `orphan_settled` are the only events that
   explain a `b_supply`/`d_supply` change inside a `bad_debt` or final
   liquidation fill; `bad_debt` and `update_pool` never fire there.
+  The auction surface is user-liquidation-only: `new_auction` and
+  `fill_auction` succeed only for type 0. Bad-debt (1) and
+  backstop-interest (2) auction create/fill are rejected outright; a
+  completed event on those paths is an impossible-path alert, not an
+  actionable signal. `get_auction` and `del_auction` remain generic
+  read / stale-entry cleanup.
 - A war room channel that can be joined within 5 minutes by:
   - Dev on-call (rotating).
   - Each pool admin on-call we publicly support.
@@ -142,15 +148,14 @@ migrating state.
    issue and the fix.
 2. Build reproducibly; publish artifact and source.
 3. Coordinate a new pool deployment via `pool-factory`.
-4. Coordinate user migration. Status 4 already permits withdrawals,
-   withdraw-collateral, repays, and auction fills (verified against
-   `pool/src/pool/pool.rs:77-80`), so users and curator vaults can exit
-   the frozen pool without thawing. Note that admin `set_status` accepts
-   only 0 / 2 / 3 / 4 — status 5 cannot be admin-set. If responders
-   intentionally need to re-enable supplies / supply-collateral during
-   migration, the admin can step to 2 (admin on-ice; requires
-   `q4w_pct` < 75%) or 3 (permissionless on-ice; same requirement). Do
-   not step to 0 / 1 without dev sign-off.
+4. Coordinate user migration. Status 4 is absorbing and already permits
+   withdrawals, withdraw-collateral, repays, and auction fills (verified
+   against `pool/src/pool/pool.rs:77-80`), so users and curator vaults can
+   exit the frozen pool without any thaw. There is no re-enable path:
+   `set_status` from status 4 accepts only 4, and any other value panics
+   with `StatusNotAllowed`; `update_status` panics too. Do not plan supply
+   re-enablement on the frozen pool — capacity needed during migration
+   belongs in the successor pool.
 5. Sunset the old pool. After all user funds are migrated, leave the old
    pool admin-frozen (status 4) and document the migration in a public
    post-mortem.
@@ -163,18 +168,19 @@ pool admin (Safe Chain rule).
 ## 3. Bad debt
 
 Bad debt arises when a borrower is liquidated to zero collateral while still
-owing liabilities. The `bad_debt` entrypoint
-([`pool/src/contract.rs`](../../../pool/src/contract.rs)) transfers the residual
-liabilities to the backstop. If the backstop has less than ~5% of its
-threshold, `check_and_handle_backstop_bad_debt`
-([`pool/src/pool/bad_debt.rs`](../../../pool/src/pool/bad_debt.rs)) defaults the
-debt — i.e. socializes the loss to suppliers in that reserve.
+owing liabilities. The `bad_debt(user)` entrypoint
+([`pool/src/pool/bad_debt.rs`](../../../pool/src/pool/bad_debt.rs)) first sets
+off each liability against the borrower's same-reserve ordinary supply, then
+defaults the residual — socializing the loss directly to suppliers in that
+reserve. Loss is never routed to the backstop: `bad_debt` on the backstop
+address is rejected with `BadRequest` (1200), as are bad-debt and
+backstop-interest auction creation and fills.
 
 ### 3.1 Detection
 
 | Class | Signal |
 |-------|--------|
-| **High (P1)** | Backstop `q4w_pct` is approaching a transition threshold for the *current* pool status (the next `update_status` outcome depends on the current status — see [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0 for the full conditional transition table). Bad-debt auctions stalling. |
+| **High (P1)** | Backstop `q4w_pct` is approaching a transition threshold for the *current* pool status (the next `update_status` outcome depends on the current status — see [`02-blend-pool-admins.md`](./02-blend-pool-admins.md) §0 for the full conditional transition table). Liquidation auctions stalling. Any *completed* bad-debt / backstop-interest auction create or fill is an impossible-path alert. |
 | **Medium (P2)** | Single user with negative health that cannot be liquidated due to oracle staleness or low liquidity. `q4w_pct` ≥ 30%. |
 | **Low (P3)** | Liquidation chain stalls, but health factors recover within minutes. |
 
@@ -187,15 +193,17 @@ to verify that the backstop / pool math is correct after each event.
 1. **Verify the chain of events.** Was a user liquidated? Did the liquidator
    fail to fully clear collateral? Is `bad_debt(user)` callable for that
    user (it panics with `BadRequest` if there is no bad debt to handle)?
-2. **Confirm backstop solvency.** Compute the current backstop product
-   constant (see `calc_pool_backstop_threshold` in
-   [`pool/src/pool/status.rs`](../../../pool/src/pool/status.rs)). If it
-   is below ~5% of threshold, the next `bad_debt(backstop)` call will
-   *default* (socialize) the residual on the backstop's positions
-   instead of leaving them on the backstop. Note: `bad_debt(user)` for
-   a non-backstop user still transfers the residual liabilities to the
-   backstop regardless of backstop health — defaulting only fires on
-   the backstop's own positions when threshold < 5%.
+2. **Confirm the loss-accounting path.** `bad_debt(user)` first sets off
+   each liability against the borrower's same-reserve ordinary supply
+   (`debt_setoff`), then defaults the residual (`defaulted_debt`)
+   directly onto that reserve's suppliers; defaulted residual collateral
+   moves to the pool contract as orphaned collateral
+   (`collateral_orphaned`, later `orphan_settled`). The backstop absorbs
+   no user loss: `bad_debt` called with the backstop address is rejected
+   with `BadRequest` (1200), and bad-debt (type 1) / backstop-interest
+   (type 2) auction `new_auction` / `fill_auction` calls are rejected
+   outright. A *successful* event on any of those paths is an
+   impossible-path alert — escalate it, never operate it.
 3. **Coordinate with the pool admin** before defaulting socializes more than
    the admin expects. The admin may want to call `set_status(2)` (on-ice) to
    stop new borrowing while the bad debt is being worked through.
@@ -205,14 +213,23 @@ to verify that the backstop / pool math is correct after each event.
 
 ### 3.3 Recovery
 
-If the bad debt is the result of a one-off market move and the backstop
-absorbed it, no contract change is needed. If it is the result of a
-parameter mistake (`c_factor` / `l_factor` / `max_util` set too aggressively),
-the dev team should work with the pool admin to:
+If the bad debt is a one-off market move, the loss is already borne:
+same-reserve ordinary supply was set off against the borrower's
+liabilities and the residual was socialized directly to that reserve's
+suppliers. No contract change is needed. If it is the result of a
+parameter mistake (`c_factor` / `l_factor` / `max_util` set too
+aggressively), the dev team should work with the pool admin to:
 
-1. Queue a tighter reserve config via `queue_set_reserve`.
-2. Communicate the change publicly before `set_reserve` executes it.
-3. Update audit notes and recommended-parameter guidance.
+1. Queue the reserve's disable transition via `queue_set_reserve`. On
+   a live pool only the exact enabled→disabled transition of an existing
+   reserve is accepted, and it must pay the full one-week timelock.
+   Risk parameters cannot be re-tightened in place; corrected
+   `c_factor` / `l_factor` / `max_util` exist only in a successor pool's
+   reserves.
+2. Communicate the disable plus successor plan publicly before the
+   permissionless `set_reserve` execution applies the disable.
+3. Update audit notes and recommended-parameter guidance for the
+   successor deployment.
 
 ---
 
@@ -259,8 +276,10 @@ age). Faults include:
 
 1. Wait for the oracle to recover, or for the oracle provider to publish
    guidance on which prices are safe.
-2. Once safe prices are confirmed, work with the pool admin to step status
-   back: 4 → 2 → 0/1. Do not skip steps.
+2. There is no thaw path for status 4. Once the pool is admin-frozen,
+   recovery is a successor-pool deployment plus user migration; safe
+   oracle prices then matter for exits, liquidations, and migration
+   pricing, not for returning the frozen pool to service.
 3. For wiring faults (wrong decimals / wrong feed id), the only fix is a
    new pool with corrected configuration, since reserve configs cannot
    be edited freely after `set_reserve` executes for non-config fields.
@@ -276,8 +295,8 @@ pool's `admin` slot is suspected to be controlled by an attacker.
 
 | Class | Signal |
 |-------|--------|
-| **Critical (P0)** | `propose_admin(<unknown_address>)` invocation from the admin (no event is emitted; this is function-call monitoring), followed by an `accept_admin` invocation from that address that fires the `set_admin` event with the unknown address as `new_admin`; or a `set_status` event setting status 0 immediately after a freeze you did not authorize. |
-| **High (P1)** | `queue_set_reserve` with extreme parameters (e.g. `max_util` near 100%, `c_factor` raised); `set_emissions_config` to drain emissions; `update_pool` with a 0 `min_collateral`. |
+| **Critical (P0)** | `propose_admin(<unknown_address>)` invocation from the admin (no event is emitted; this is function-call monitoring), followed by an `accept_admin` invocation from that address that fires the `set_admin` event with the unknown address as `new_admin`; or a `set_status` event setting status 0 immediately after an admin on-ice freeze you did not authorize (a status-4 freeze can never be lifted — treat any claim of "reopening a frozen pool" as a red flag). |
+| **High (P1)** | `queue_set_reserve` with extreme parameters on a setup-status pool (e.g. `max_util` near 100%, `c_factor` raised; a live pool rejects everything except an exact disable transition), or a sudden queued disable of a healthy live reserve; `set_emissions_config` to drain emissions; `update_pool` with a 0 `min_collateral`. |
 | **Medium (P2)** | Admin signing key rotates without prior comms. |
 
 ### 5.2 Dev team response
@@ -351,8 +370,8 @@ Before declaring an incident resolved, the dev on-call lead must confirm:
 - [ ] Root cause identified and reproduced in a test.
 - [ ] Patch (if any) audited or peer-reviewed by at least one engineer not
       on the on-call rotation.
-- [ ] All affected pools have either been migrated or their status path back
-      to normal has been verified.
+- [ ] Every pool that reached status 4 has a verified successor and migration
+      path. Pools that never reached status 4 have a signed-off in-place recovery.
 - [ ] All affected vault curators have stepped down to normal posture.
 - [ ] Stellar Foundation contact has been told the incident is closed.
 - [ ] Public post-mortem drafted and queued.

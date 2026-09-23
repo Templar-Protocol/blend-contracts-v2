@@ -46,6 +46,12 @@ state:
   thresholds (30 / 50 / 60 / 75%). On the ADR-0008 fork the last three
   events are the only explanation for supply/debt totals moving inside
   `bad_debt` or a final liquidation fill.
+- Auction surface is user-liquidation-only: `new_auction` /
+  `fill_auction` succeed only for type 0; bad-debt (1) and
+  backstop-interest (2) auction create/fill are rejected, so a completed
+  event on those paths is an impossible-path alert to escalate, not a
+  route to operate. `get_auction` and `del_auction` remain generic
+  read / stale-entry cleanup.
 - Direct contact with: the Blend dev on-call (see
   [`01-blend-protocol-dev-team.md`](./01-blend-protocol-dev-team.md)),
   every curator vault that holds a material share of your pool, and the
@@ -68,11 +74,15 @@ The status code controls every user action on the pool. From
 | 5 | backstop `update_status` | backstop frozen | **no** | **no** | yes | yes | **no** |
 | 6 | (setup only) | not user-callable | n/a | n/a | n/a | n/a | n/a |
 
-Status 4 (admin frozen) is the only state that *only the admin* can move out
-of (`update_status` panics with `StatusNotAllowed` if status is 4 or 6).
-Status 0 / 2 / 3 / 4 are admin-settable via `set_status` (`execute_set_pool_status`
-has an explicit arm for status 3 letting the admin set "permissionless
-on-ice"); status 1 and 5 are backstop-only outcomes of `update_status`.
+Status 4 (admin frozen) is **absorbing**. `update_status` panics with
+`StatusNotAllowed` while the status is 4 or 6, and `set_status` from
+status 4 accepts only 4 — any other value panics with `StatusNotAllowed`.
+Once set, there is no on-chain path out of status 4 for anyone, admin
+included; recovery means a successor pool and user migration. Statuses
+0 / 2 / 3 / 4 are admin-settable *while not frozen*
+(`execute_set_pool_status` has an explicit arm for status 3 letting the
+admin set "permissionless on-ice"); status 1 and 5 are backstop-only
+outcomes of `update_status`.
 
 `update_status` is permissionless. The transition it produces depends on
 the *current* status (see `execute_update_pool_status` in
@@ -80,7 +90,7 @@ the *current* status (see `execute_update_pool_status` in
 
 | Current status | Behaviour of `update_status` |
 |----------------|------------------------------|
-| 4 (admin frozen) | Panics with `StatusNotAllowed`. Only admin `set_status` can move out. |
+| 4 (admin frozen) | Panics with `StatusNotAllowed`. Nothing moves out of 4 — the status is absorbing. |
 | 6 (setup) | Panics with `StatusNotAllowed`. |
 | 2 (admin on-ice) | Stays at 2 unless `q4w_pct` ≥ 75%, in which case → 5. |
 | 0 (admin active) | Stays at 0 unless `q4w_pct` ≥ 50% or backstop threshold not met, in which case → 3. |
@@ -123,7 +133,7 @@ The pool admin is not the dev team. Your job during a protocol hack is to
 | Step | Action | Effect | Reversible? |
 |------|--------|--------|-------------|
 | A | `set_status(2)` admin on-ice | Blocks new borrows and liquidation cancels. Supplies and withdrawals continue. | Yes (admin can `set_status(0)` if backstop is healthy). |
-| B | `set_status(4)` admin frozen | Blocks borrows, supplies, liquidation cancels. Withdrawals and liquidations continue. Permissionless `update_status` is disabled while in 4. | Yes, but only the admin can move out. |
+| B | `set_status(4)` admin frozen | Blocks borrows, supplies, liquidation cancels. Withdrawals and liquidations continue. Permissionless `update_status` panics while in 4. | **No — status 4 is absorbing.** Once set, nothing (not even the admin) can leave it; recovery is successor-pool deployment and migration. |
 | C | Extend ledger TTL on every relevant entry — Soroban TTL is per ledger entry, not per contract. The pool / backstop / oracle code uses instance storage, persistent storage (reserves, user positions, queued reserves, queued admin proposals), and temporary storage (auctions and other short-lived state); each tier has its own TTL extension path. Inventory and bump every entry the incident depends on. | Prevents incident-relevant ledger entries from expiring during a long incident. | Yes (TTL is monotonic). |
 
 Use A if the suspected exploit needs new borrowing to extract value (most
@@ -144,10 +154,12 @@ allocator deallocation).
 - **Do not call `set_emissions_config` to "rescue" emissions** unless the
   dev team has confirmed it is safe. It can interact with cached state in
   unexpected ways.
-- **Do not call `queue_set_reserve` with rushed parameters** to "patch" a
-  bad reserve. `queue_set_reserve` only takes effect on the next
-  `set_reserve` (which is permissionless), and the queue can be
-  front-run. Use `cancel_set_reserve` if you need to back out.
+- **Do not rush a reserve change to "patch" a bad reserve.** On a live
+  pool the only accepted `queue_set_reserve` transition is the exact
+  enabled→disabled change of an existing reserve; it executes only after
+  the full one-week timelock via the permissionless `set_reserve`, and
+  the queue can be front-run. Risk parameters cannot be re-tightened in
+  place. Use `cancel_set_reserve` if you need to back out.
 - **Do not call `propose_admin` to a "safe" address** under time pressure.
   Admin transfer requires `accept_admin` from the new address; if the new
   address cannot complete that flow, you may strand the pool.
@@ -162,11 +174,10 @@ Recovery from a protocol hack is dev-team-led
    second Safe Chain role sign off. Status 4 already permits withdrawals
    and liquidations, so users can migrate while supplies and new borrows
    are blocked.
-2. If during migration you need to allow new supplies (e.g. backfill a
-   reserve to support orderly liquidations), step `set_status(2)` admin
-   on-ice (requires `q4w_pct` < 75%). Borrows and liquidation
-   cancellations remain blocked. Do *not* step to 0 — admin active —
-   until the dev team has signed off on the patched contract.
+2. There is no re-enable path out of status 4: `set_status` from 4 accepts
+   only 4, and any other value panics with `StatusNotAllowed`. Do not plan
+   supply backfills on the frozen pool — any capacity needed for orderly
+   migration belongs in the successor pool.
 3. Once user funds are migrated, leave the old pool at status 4 forever.
 
 ---
@@ -174,17 +185,19 @@ Recovery from a protocol hack is dev-team-led
 ## 3. Bad debt
 
 Bad debt is contained to the affected reserve in the affected pool — Blend
-isolates losses per pool. The pool admin's job is to make sure the loss is
-*recognised* (transferred to the backstop) rather than left to grow, and to
-prevent the same parameter mistake from continuing.
+isolates losses per pool. It never routes to the backstop: `bad_debt(user)`
+sets off the borrower's same-reserve ordinary supply first, then
+socializes the residual directly onto that reserve's suppliers. The pool
+admin's job is to make sure the loss is recognised, the reserve is
+retired, and the same parameter mistake cannot continue.
 
 ### 3.1 Detection
 
 | Class | Signal |
 |-------|--------|
 | **Critical (P0)** | Backstop `q4w_pct` ≥ 75% AND the pool is in status 2 (admin on-ice) or in the backstop-driven branch (1 / 3 / 5) — the next `update_status` will move the pool to 5 frozen. From status 0 (admin-active), `update_status` never moves to 5; the transition is only to 3 at `q4w_pct` ≥ 50%. From status 4 (admin frozen), `update_status` panics. See the conditional table in §0. |
-| **High (P1)** | `q4w_pct` between 60 and 75%; multiple bad-debt auctions stalled (`del_auction` only callable after 500 blocks of staleness). |
-| **Medium (P2)** | Single user with negative health that liquidators cannot clear; backstop has < 5% of threshold. |
+| **High (P1)** | `q4w_pct` between 60 and 75%; liquidation auctions stalling (`del_auction` only callable after 500 blocks of staleness). Attempts to create or fill bad-debt / backstop-interest auctions are rejected by design; a completed event on those paths is an impossible-path alert. |
+| **Medium (P2)** | Single user with negative health that liquidators cannot clear; backstop approaching its minimum threshold (below it, `update_status` in the backstop-driven branch forces 3 / 5). |
 
 ### 3.2 Containment
 
@@ -192,12 +205,16 @@ prevent the same parameter mistake from continuing.
    while existing positions are being worked through. Supplies and
    withdrawals continue.
 2. **Trigger `bad_debt(user)`** for any user with liabilities and no
-   collateral (anyone can call this; it is not admin-only). This passes
-   the residual debt to the backstop.
-3. **Check backstop solvency.** If the backstop is below ~5% of threshold,
-   the next `bad_debt` call against the backstop itself will *default*
-   the loss — i.e. socialize it across suppliers in that reserve. Confirm
-   with the dev team that this is the intended outcome.
+   collateral (anyone can call this; it is not admin-only). It first sets
+   off each liability against that borrower's same-reserve ordinary
+   supply, then socializes the residual directly onto that reserve's
+   suppliers.
+3. **Do not route loss through the backstop.** There is no supported
+   path that moves user bad debt into the backstop: `bad_debt(backstop)`
+   is rejected with `BadRequest` (1200), and bad-debt / backstop-interest
+   auction create and fill calls are rejected. If monitoring shows any of
+   these paths *succeeding*, treat it as an impossible-path alert and
+   escalate to the dev team immediately — it is never an action to take.
 4. **Coordinate with vault curators** so they can deallocate from the
    affected reserve before more depositors share the loss.
 
@@ -206,13 +223,17 @@ prevent the same parameter mistake from continuing.
 1. Once liabilities have been processed and `q4w_pct` recovers below
    thresholds, you can step status 2 → 0 (or let the backstop drive
    1 / 3).
-2. **Tighten the reserve config** if the bad debt was caused by aggressive
-   parameters. `queue_set_reserve` with reduced `c_factor` /
-   `l_factor` / `max_util`, then publicly announce the change before the
-   permissionless `set_reserve` execution applies it. Use
-   `cancel_set_reserve` if you need to revise.
-3. Communicate the loss size, who bore it, and the parameter delta in a
-   public post-mortem.
+2. **Retire the reserve** if the bad debt was caused by aggressive
+   parameters. On a live pool, `queue_set_reserve` accepts only the
+   exact enabled→disabled transition of an existing reserve, and it must
+   pay the full one-week timelock before the permissionless
+   `set_reserve` execution applies it. `c_factor` / `l_factor` /
+   `max_util` cannot be re-tightened in place — corrected parameters
+   exist only in a successor pool. Use `cancel_set_reserve` if you need
+   to revise the queued transition before it unlocks.
+3. Communicate the loss size, who bore it (same-reserve suppliers after
+   setoff), the reserve retirement, and the successor-pool parameter
+   changes in a public post-mortem.
 
 ---
 
@@ -238,7 +259,10 @@ the pool side.
 ### 4.2 Recovery
 
 1. Wait for the oracle provider's all-clear.
-2. Step status 4 → 2 → 0, never skipping.
+2. There is no stepping out of status 4. If the all-clear comes quickly,
+   exits and liquidations simply complete against the still-frozen pool;
+   returning the asset to service means deploying a successor pool and
+   migrating users and vaults.
 3. **Wiring faults split into two cases**:
    - **Immutable pool / reserve fields** — the reserve's
      `decimals`, the `oracle` contract address baked into the pool
@@ -249,10 +273,10 @@ the pool side.
      replaceable layer (e.g. wrong `price_id`, wrong `max_age` /
      freshness filter, wrong source selection in a Templar
      [proxy-oracle](https://github.com/Templar-Protocol/contracts/tree/dev/contract/proxy-oracle)
-     aggregator), it can be fixed via the proxy's own governance
-     while the pool is held at status 4. Coordinate with the proxy-
-     oracle operator and verify the corrected feed end-to-end before
-     stepping the pool out of status 4.
+     aggregator), it can be fixed via the proxy's own governance.
+     Coordinate with the proxy-oracle operator and verify the corrected
+     feed end-to-end — it informs the successor pool's configuration and
+     safe exit pricing; the frozen pool itself never thaws.
 
 ---
 
@@ -294,10 +318,12 @@ the single most valuable minute you will spend.
 1. Forensic review: how did the key leak?
 2. Replace signing infrastructure end-to-end. Do not reuse compromised
    hardware or compromised people-in-the-loop processes.
-3. If you control a recovered admin, step status 4 → 2 → 0 only after the
-   dev team has reviewed all admin-level state on the pool
+3. Status 4 is absorbing — a recovered admin cannot unfreeze the pool.
+   Have the dev team review all admin-level state on the pool
    (`get_config()`, reserve list, queued reserves via
-   `cancel_set_reserve` checks, emissions config).
+   `cancel_set_reserve` checks, emissions config) to bound what the
+   attacker could have changed and to inform the successor pool's
+   configuration review.
 4. Publish a post-mortem.
 
 ---
@@ -360,8 +386,9 @@ attacker identity or attribution.
 
 ## 8. Stand-down checklist
 
-- [ ] Pool status path back to operational (4 → 2 → 0) verified by the dev
-      on-call lead.
+- [ ] For every pool that reached status 4, the successor and migration path
+      are verified by the dev on-call lead; the old pool never thaws. Pools
+      that never reached status 4 follow the signed-off in-place recovery.
 - [ ] Backstop `q4w_pct` is below 30%.
 - [ ] No queued reserve config changes are pending unintentionally.
 - [ ] All affected curator vaults have stepped down.

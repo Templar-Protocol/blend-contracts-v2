@@ -174,9 +174,13 @@ Per Foundation Safe Chain stand-down.
 
 ## 5. Pool admin compromise
 
-A captured Blend pool admin may attempt to drain pool reserves into your
-stablecoin and bridge it out. Your role is identical to the protocol-hack
-case: precise per-address freezes are the right tool, with full pause as
+A captured Blend pool admin cannot move pool funds directly: post-setup
+their entrypoints cover only pool status changes, the delayed
+enabled→disabled reserve transition, and an admin hand-off proposal.
+Value still exits via user-side paths — withdrawals keep flowing, and an
+attacker acting as a user can withdraw reserves in your stablecoin and
+bridge them out. Your role is identical to the protocol-hack case:
+precise per-address freezes are the right tool, with full pause as
 fallback.
 
 1. **Per-address freeze** of the captured admin's address(es), and any
@@ -210,9 +214,14 @@ as informational stakeholders.
 | **High (P1)** | Single-source reserve report missing; large unexplained mint / redeem flow; peg deviation < N% but trending. | Investigate; brief Foundation; pre-warn pool admins and curators to be ready to act. |
 | **Medium (P2)** | Single-monitor failure; reserve report late; routine signer hardware refresh. | Document; no external comms unless escalation required. |
 
-In a stablecoin-internal P0, expect a long stand-down: pool admins will
-not lift status 4 until your peg is restored and your reserve report is
-re-published. Coordinate timing with Foundation.
+In a stablecoin-internal P0, expect a long stand-down. A pool that was
+stepped to status 4 is absorbing: it will never be un-frozen, even once
+your peg is restored and your reserve report is re-published — its
+recovery is a successor deployment / migration, and its withdrawals stay
+subject to ordinary pool constraints until users migrate. Pools held at
+status 2 may be stepped back down by their admins once your peg is
+restored and your reserve report is re-published. Coordinate timing with
+Foundation.
 
 ---
 
