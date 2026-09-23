@@ -1,4 +1,4 @@
-use soroban_sdk::{map, panic_with_error, unwrap::UnwrapOptimized, vec, Address, Env, Map, Vec};
+use soroban_sdk::{map, panic_with_error, vec, Address, Env, Map, Vec};
 
 use sep_40_oracle::{Asset, PriceFeedClient};
 
@@ -122,7 +122,9 @@ impl Pool {
         }
         let oracle_client = PriceFeedClient::new(e, &self.config.oracle);
         let oracle_asset = Asset::Stellar(asset.clone());
-        let price_data = oracle_client.lastprice(&oracle_asset).unwrap_optimized();
+        let price_data = oracle_client
+            .lastprice(&oracle_asset)
+            .unwrap_or_else(|| panic_with_error!(e, PoolError::InvalidPrice));
         let now = e.ledger().timestamp();
         if price_data.timestamp > now
             || now - price_data.timestamp > 86_400
@@ -656,6 +658,42 @@ mod tests {
             oracle_client.set_price_stable(&vec![&e, 789, 101112]);
             let price = pool.load_price(&e, &asset_0);
             assert_eq!(price, 123);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1210)")]
+    fn test_load_price_panics_if_no_latest_price() {
+        let e = Env::default();
+        e.mock_all_auths_allowing_non_root_auth();
+
+        let bombadil = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+        let asset = Address::generate(&e);
+        let (oracle, oracle_client) = testutils::create_mock_oracle(&e);
+
+        // The asset is supported and the feed reports valid 7 decimals, but no price was
+        // ever published, so `lastprice` returns None.
+        oracle_client.set_data(
+            &bombadil,
+            &Asset::Other(Symbol::new(&e, "USD")),
+            &vec![&e, Asset::Stellar(asset.clone())],
+            &7,
+            &300,
+        );
+
+        let pool_config = PoolConfig {
+            oracle,
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+
+            pool.load_price(&e, &asset);
         });
     }
 

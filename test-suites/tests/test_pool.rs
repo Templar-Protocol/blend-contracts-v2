@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use pool::{Request, RequestType, ReserveEmissionMetadata};
+use sep_40_oracle::testutils::Asset;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
     testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Events},
@@ -11,6 +12,7 @@ use soroban_sdk::{
 use test_suites::{
     assertions::assert_approx_eq_abs,
     create_fixture_with_data,
+    oracle::create_mock_oracle,
     pool::default_reserve_metadata,
     test_fixture::{TestFixture, TokenIndex, SCALAR_12, SCALAR_7},
 };
@@ -780,6 +782,181 @@ fn setup_cannot_plant_an_immediate_reserve_disable() {
                 ScErrorCode::InvalidAction
             ))),
             "wasm={wasm}"
+        );
+    }
+}
+
+/// Re-point a pool at a fresh SEP-40 oracle that supports its reserves at a valid 7
+/// decimals but has never published a price, so `lastprice` returns `None` for every
+/// supported asset.
+fn repoint_at_priceless_oracle(fixture: &TestFixture<'_>, pool_index: usize) {
+    let (oracle, oracle_client) = create_mock_oracle(&fixture.env);
+    oracle_client.set_data(
+        &fixture.bombadil,
+        &Asset::Other(Symbol::new(&fixture.env, "USD")),
+        &vec![
+            &fixture.env,
+            Asset::Stellar(fixture.tokens[TokenIndex::STABLE].address.clone()),
+            Asset::Stellar(fixture.tokens[TokenIndex::XLM].address.clone()),
+            Asset::Stellar(fixture.tokens[TokenIndex::WETH].address.clone()),
+        ],
+        &7,
+        &300,
+    );
+
+    let mut config = fixture.read_pool_config(pool_index);
+    config.oracle = oracle;
+    let pool_address = fixture.pools[pool_index].pool.address.clone();
+    fixture.env.as_contract(&pool_address, || {
+        fixture
+            .env
+            .storage()
+            .instance()
+            .set(&Symbol::new(&fixture.env, "Config"), &config);
+    });
+}
+
+/// A rolled-back call can leave failed-call diagnostic copies of the events it emitted,
+/// but it must never commit one.
+fn assert_no_committed_events(fixture: &TestFixture<'_>, pre_len: usize, context: &str) {
+    let events = fixture.env.to_snapshot().events;
+    assert!(
+        events.0[pre_len..].iter().all(|event| {
+            event.failed_call || event.event.type_ != soroban_sdk::xdr::ContractEventType::Contract
+        }),
+        "{context}"
+    );
+}
+
+/// The pool's existing #1210 InvalidPrice path must cover a health-dependent `submit`
+/// whose feed has no latest price, instead of the response unwrap trapping in the host.
+#[test]
+fn submit_fails_with_invalid_price_when_a_supported_asset_has_no_latest_price() {
+    for wasm in [false, true] {
+        let fixture = create_fixture_with_data(wasm);
+        let pool_fixture = &fixture.pools[0];
+        let frodo = &fixture.users[0];
+        let stable = &fixture.tokens[TokenIndex::STABLE];
+        // Supply and borrow the same asset with a negative net: a successful submit
+        // pulls exactly the difference from the spender allowance via transfer_from.
+        let supply = 10 * 10i128.pow(6);
+        let borrow = 10i128.pow(6);
+        let net = supply - borrow;
+        let requests = vec![
+            &fixture.env,
+            Request {
+                request_type: RequestType::Supply as u32,
+                address: stable.address.clone(),
+                amount: supply,
+            },
+            Request {
+                request_type: RequestType::Borrow as u32,
+                address: stable.address.clone(),
+                amount: borrow,
+            },
+        ];
+
+        // Control: while the feed is priced, this exact request set clears auth, status,
+        // position and utilization gates and commits.
+        stable.approve(
+            frodo,
+            &pool_fixture.pool.address,
+            &net,
+            &fixture.env.ledger().sequence(),
+        );
+        pool_fixture
+            .pool
+            .submit_with_allowance(frodo, frodo, frodo, &requests);
+        assert_eq!(
+            stable.allowance(frodo, &pool_fixture.pool.address),
+            0,
+            "wasm={wasm}: control did not consume the allowance"
+        );
+
+        repoint_at_priceless_oracle(&fixture, 0);
+        stable.approve(
+            frodo,
+            &pool_fixture.pool.address,
+            &net,
+            &fixture.env.ledger().sequence(),
+        );
+
+        let before = fixture.env.to_ledger_snapshot();
+        let pre_events = fixture.env.to_snapshot().events.0.len();
+        assert_eq!(
+            pool_fixture
+                .pool
+                .try_submit_with_allowance(frodo, frodo, frodo, &requests)
+                .err(),
+            Some(Ok(Error::from_contract_error(1210))),
+            "wasm={wasm}"
+        );
+        assert_eq!(
+            fixture.env.to_ledger_snapshot(),
+            before,
+            "wasm={wasm}: missing price rejection changed ledger, TTL, token or allowance state"
+        );
+        assert_no_committed_events(
+            &fixture,
+            pre_events,
+            "missing price submit committed events",
+        );
+        assert_eq!(
+            stable.allowance(frodo, &pool_fixture.pool.address),
+            net,
+            "wasm={wasm}: rejected submit spent the spender allowance"
+        );
+    }
+}
+
+/// A type-0 liquidation auction must reach the pool's existing #1210 InvalidPrice path
+/// when the feed has no latest price. The identical auction is rejected #1211 while the
+/// feed is priced, so the #1210 assertion cannot be an auction-shape rejection.
+#[test]
+fn new_user_liquidation_auction_fails_with_invalid_price_without_a_latest_price() {
+    for wasm in [false, true] {
+        let fixture = create_fixture_with_data(wasm);
+        let pool_fixture = &fixture.pools[0];
+        let user = &fixture.users[0];
+        let bid = vec![
+            &fixture.env,
+            fixture.tokens[TokenIndex::STABLE].address.clone(),
+        ];
+        let lot = vec![
+            &fixture.env,
+            fixture.tokens[TokenIndex::WETH].address.clone(),
+        ];
+
+        assert_eq!(
+            pool_fixture
+                .pool
+                .try_new_auction(&0, user, &bid, &lot, &45)
+                .err(),
+            Some(Ok(Error::from_contract_error(1211))),
+            "wasm={wasm}"
+        );
+
+        repoint_at_priceless_oracle(&fixture, 0);
+
+        let before = fixture.env.to_ledger_snapshot();
+        let pre_events = fixture.env.to_snapshot().events.0.len();
+        assert_eq!(
+            pool_fixture
+                .pool
+                .try_new_auction(&0, user, &bid, &lot, &45)
+                .err(),
+            Some(Ok(Error::from_contract_error(1210))),
+            "wasm={wasm}"
+        );
+        assert_eq!(
+            fixture.env.to_ledger_snapshot(),
+            before,
+            "wasm={wasm}: missing price auction creation changed ledger or TTL"
+        );
+        assert_no_committed_events(
+            &fixture,
+            pre_events,
+            "missing price auction creation committed events",
         );
     }
 }
