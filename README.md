@@ -7,6 +7,7 @@ This repository contains the smart contacts for an implementation of the Blend P
 To learn more about the Blend Protocol, visit the docs:
 
 - [Blend Docs](https://docs.blend.capital/)
+- [Fuzz verification](docs/fuzz-verification.md)
 
 ## Audits
 

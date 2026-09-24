@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "fuzz": [
+    {
+      "target": "fuzz_pool_general",
+      "contracts": ["pool"],
+      "entrypoints": ["submit", "submit_with_allowance", "claim", "get_config", "get_reserve_list", "get_reserve", "get_positions"]
+    },
+    {
+      "target": "fuzz_pool_admin",
+      "contracts": ["pool"],
+      "entrypoints": ["propose_admin", "accept_admin", "update_pool", "queue_set_reserve", "cancel_set_reserve", "set_reserve", "update_status", "set_status", "get_admin", "get_config", "get_reserve_list", "get_reserve"]
+    },
+    {
+      "target": "fuzz_pool_auctions",
+      "contracts": ["pool"],
+      "entrypoints": ["new_auction", "get_auction", "del_auction", "bad_debt", "get_positions"]
+    },
+    {
+      "target": "fuzz_pool_flash_loan",
+      "contracts": ["pool"],
+      "entrypoints": ["flash_loan"]
+    },
+    {
+      "target": "fuzz_backstop_balances",
+      "contracts": ["backstop"],
+      "entrypoints": ["deposit", "queue_withdrawal", "dequeue_withdrawal", "withdraw", "draw", "donate", "user_balance", "pool_data", "backstop_token"]
+    },
+    {
+      "target": "fuzz_emissions",
+      "contracts": ["pool", "backstop"],
+      "entrypoints": ["gulp_emissions", "set_emissions_config", "claim", "get_reserve_emissions", "get_user_emissions", "distribute", "add_reward", "remove_reward", "reward_zone", "drop"]
+    },
+    {
+      "target": "fuzz_pool_factory",
+      "contracts": ["pool-factory", "pool"],
+      "entrypoints": ["__constructor", "deploy", "is_pool", "get_config"]
+    }
+  ]
+}
