@@ -115,7 +115,8 @@ impl Pool {
     /// * asset - The address of the underlying asset
     ///
     /// ### Panics
-    /// If the price is future-dated, over a day old, or less than or equal to 0
+    /// If no latest price is available, or the price is future-dated, over a day old,
+    /// or less than or equal to 0.
     pub fn load_price(&mut self, e: &Env, asset: &Address) -> i128 {
         if let Some(price) = self.prices.get(asset.clone()) {
             return price;

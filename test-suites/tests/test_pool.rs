@@ -960,3 +960,81 @@ fn new_user_liquidation_auction_fails_with_invalid_price_without_a_latest_price(
         );
     }
 }
+
+#[test]
+fn missing_price_rolls_back_user_liquidation_auction_deletion() {
+    for wasm in [false, true] {
+        let fixture = create_fixture_with_data(wasm);
+        let pool = &fixture.pools[0].pool;
+        let borrower = Address::generate(&fixture.env);
+        let stable = &fixture.tokens[TokenIndex::STABLE];
+        let xlm = &fixture.tokens[TokenIndex::XLM];
+        stable.mint(&borrower, &(1000 * 10i128.pow(6)));
+        pool.submit(
+            &borrower,
+            &borrower,
+            &borrower,
+            &vec![
+                &fixture.env,
+                Request {
+                    request_type: RequestType::SupplyCollateral as u32,
+                    address: stable.address.clone(),
+                    amount: 1000 * 10i128.pow(6),
+                },
+                Request {
+                    request_type: RequestType::Borrow as u32,
+                    address: xlm.address.clone(),
+                    amount: 6075 * SCALAR_7,
+                },
+            ],
+        );
+        fixture.oracle.set_price_stable(&vec![
+            &fixture.env,
+            2000_0000000,
+            1_0000000,
+            0_1200000,
+            1_0000000,
+        ]);
+        pool.new_auction(
+            &0,
+            &borrower,
+            &vec![&fixture.env, xlm.address.clone()],
+            &vec![&fixture.env, stable.address.clone()],
+            &50,
+        );
+        assert!(pool.try_get_auction(&0, &borrower).is_ok(), "wasm={wasm}");
+        repoint_at_priceless_oracle(&fixture, 0);
+
+        // Deletion and its event precede the health check that needs the missing price.
+        let requests = vec![
+            &fixture.env,
+            Request {
+                request_type: RequestType::DeleteLiquidationAuction as u32,
+                address: borrower.clone(),
+                amount: 0,
+            },
+        ];
+        let before = fixture.env.to_ledger_snapshot();
+        let pre_events = fixture.env.to_snapshot().events.0.len();
+        assert_eq!(
+            pool.try_submit(&borrower, &borrower, &borrower, &requests)
+                .err(),
+            Some(Ok(Error::from_contract_error(1210))),
+            "wasm={wasm}"
+        );
+        assert_eq!(
+            fixture.env.to_ledger_snapshot(),
+            before,
+            "wasm={wasm}: missing price auction deletion changed ledger or TTL"
+        );
+        assert_no_committed_events(
+            &fixture,
+            pre_events,
+            &format!("wasm={wasm}: missing price auction deletion committed events"),
+        );
+        assert!(
+            pool.try_get_auction(&0, &borrower).is_ok(),
+            "wasm={wasm}: rejected submit deleted the liquidation auction"
+        );
+    }
+}
