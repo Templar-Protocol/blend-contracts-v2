@@ -1,0 +1,7 @@
+{
+	"rules": {
+		"verify_update_status_other_a": "SUCCESS",
+		"verify_update_status_other_b": "SUCCESS",
+		"verify_update_status_other_c": "SUCCESS"
+	}
+}

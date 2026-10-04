@@ -66,16 +66,23 @@ under `verification/certora/`.
 | `user_rules.conf` | `1b57051dc7054db7a57e271ed98d6b13` | 12 | all SUCCESS |
 | `pool_status1.conf` | `638ceeac7cf54f02bdd247c4afd5edc7` | 3 | all SUCCESS |
 | `pool_status2.conf` | not run | 2 | |
-| `pool_status3.conf` | not run | 3 | |
+| `pool_status3.conf` | `32f65ab6816849ccb720500e915c9f7e` | 3 | all SUCCESS |
 | `pool_status4.conf` | not run | 1 | |
 | `health.conf` | not run | 5 | |
 
-15 of the 26 rules the June 2025 report records as Verified have been
-reproduced. `pool_status1` covers `verify_update_status_{2,4,6}`;
-`verify_update_status_4` is the first inherited rule to exercise an ADR 0008
-change, since that commit hoisted the status-4 guard above the backstop read
-and out of the `match`. The rule holds, confirming the guard preserves the
-observable contract.
+18 of the 26 rules the June 2025 report records as Verified have been
+reproduced, leaving `health.conf` (5), `pool_status2.conf` (2), and
+`pool_status4.conf` (1).
+
+Two of these results bear on ADR 0008, which hoisted the status-4 guard above
+the backstop read and out of the `match` in `execute_update_pool_status`:
+
+- `verify_update_status_4` (pool_status1) holds, so the hoisted guard
+  preserves the observable "status 4 always panics" contract.
+- `verify_update_status_other_{a,b,c}` (pool_status3) hold. The `_` arm they
+  describe now covers statuses {1, 3, 5} rather than {1, 3, 4, 5}, because
+  status 4 no longer reaches the match at all. Each rule is conditioned on
+  the status not being 0, 2, 4, or 6, so the narrowing leaves them intact.
 
 Per-rule verdicts come from `output/<userId>/<jobId>/output.json`.
 `jobData?attr=rules` and the other detail attributes return `{}` even after a
@@ -87,7 +94,7 @@ passed.
 Monitoring a submitted job needs the `anonymousKey` that the CLI strips from
 the URL it prints; it is recoverable from `pool/.certora_internal/`, and
 `jobStatus`/`jobData` return 403 without it. Observed states:
-QUEUED, RUNNABLE, SUCCEEDED.
+QUEUED, RUNNABLE, RUNNING, SUCCEEDED.
 
 ## Production impact
 
