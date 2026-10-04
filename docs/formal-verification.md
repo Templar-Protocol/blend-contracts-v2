@@ -57,74 +57,37 @@ invalid key is correctly rejected.
 
 ### Results on this fork
 
-`user_rules.conf` — job `4040469/1b57051dc7054db7a57e271ed98d6b13`, 2026-10-04,
-prover_version `master`, status SUCCEEDED. All 12 user-integrity rules
-verified:
+Verified on this fork's `main` with `prover_version: master`, rather than on
+`996e09e` with the 2025 prover. Raw `output.json` for each job is retained
+under `verification/certora/`.
 
-```
-add_collateral_increases_b_supply                SUCCESS
-add_collateral_increases_position_collateral     SUCCESS
-add_liabilities_increases_dsupply                SUCCESS
-add_liabilities_increases_liabilities            SUCCESS
-add_supply_increases_b_supply                    SUCCESS
-add_supply_increases_position_supply             SUCCESS
-remove_collateral_decreases_b_supply             SUCCESS
-remove_collateral_decreases_position_collateral  SUCCESS
-remove_liabilities_decreases_dsupply             SUCCESS
-remove_liabilities_decreases_position_collateral SUCCESS
-remove_liabilities_decreases_liabilities         SUCCESS
-remove_supply_decreases_b_supply                 SUCCESS
-```
+| Conf | Job | Rules | Result |
+|---|---|---|---|
+| `user_rules.conf` | `1b57051dc7054db7a57e271ed98d6b13` | 12 | all SUCCESS |
+| `pool_status1.conf` | `638ceeac7cf54f02bdd247c4afd5edc7` | 3 | all SUCCESS |
+| `pool_status2.conf` | not run | 2 | |
+| `pool_status3.conf` | not run | 3 | |
+| `pool_status4.conf` | not run | 1 | |
+| `health.conf` | not run | 5 | |
 
-This reproduces the auditor's twelve Verified results against this fork's
-`main` rather than against `996e09e`, on a current prover.
+15 of the 26 rules the June 2025 report records as Verified have been
+reproduced. `pool_status1` covers `verify_update_status_{2,4,6}`;
+`verify_update_status_4` is the first inherited rule to exercise an ADR 0008
+change, since that commit hoisted the status-4 guard above the backstop read
+and out of the `match`. The rule holds, confirming the guard preserves the
+observable contract.
 
-The remaining five confs have not been run. Per-rule verdicts come from
-`output/<userId>/<jobId>/output.json`; `jobData?attr=rules` stays empty, and
-the `rule_sanity` sub-results appear only in the web report's tree view, so a
-job reporting SUCCESS does not by itself confirm the basic sanity checks
+Per-rule verdicts come from `output/<userId>/<jobId>/output.json`.
+`jobData?attr=rules` and the other detail attributes return `{}` even after a
+job succeeds. A job reporting SUCCEEDED means it ran to completion, not that
+its rules passed, and the `rule_sanity` sub-results appear only in the web
+report's tree view, so neither job above confirms the basic sanity checks
 passed.
 
-`confs/health.conf` carries `"server": "prover"` where the other five use
-`"server": "production"`. The CLI accepts both, so it is left as the auditor
-had it; whether the backend honours `prover` is untested. If a run rejects it,
-`production` is the value the rest of the suite uses.
-
-To check the harness compiles without a key:
-
-```sh
-cargo check -p pool --features certora
-cd pool && just build
-```
-
-## Rules
-
-31 rules, of which the 26 below are the ones the June 2025 report records as
-Verified. All 31 are present in the built wasm.
-
-**User health** (`spec/health_rules.rs`, `confs/health.conf`) — after
-`execute_submit` and `execute_submit_with_flash_loan`, either the health check
-ran or the user's positions moved in a provably safe direction, skolemized over
-the reserve index. With soundness rules for the `build_actions_from_request`,
-`handle_transfers`, and `handle_transfer_with_allowance` summaries.
-
-**Pool status** (`spec/pool_status_rules.rs`, `confs/pool_status{1..4}.conf`) —
-the nine state-machine rules: status 6 and 4 always panic; 2 goes to 5 at
-q4w >= 75%; 0 goes to 3 when the threshold is unmet or q4w >= 50% and stays at
-0 otherwise; other statuses go to 5 at q4w >= 60%, to 3 at q4w >= 30% or unmet
-threshold, else to 1; and the result is always in {0,1,2,3,5}.
-
-**User integrity** (`spec/user_rules.rs`, `confs/user_rules.conf`) — twelve
-rules over `User::{add,remove}_{liabilities,collateral,supply}`, each checking
-both the position delta and that the paired supply moves while the other is
-untouched.
-
-**Beyond the report** — four `cvlr_satisfy!` vacuity rules, plus
-`target_util_should_be_less_than_0_9500000`, which the auditor wrote as a
-counter-example demonstration: `calc_accrual` takes the wrong branch when
-`config.util > 0.95`. On this fork `require_valid_reserve_metadata` bounds
-`util > 0_9000000`, so it is unreachable through validated config and the rule
-stands as a regression guard. Every conf also sets `rule_sanity: "basic"`.
+Monitoring a submitted job needs the `anonymousKey` that the CLI strips from
+the URL it prints; it is recoverable from `pool/.certora_internal/`, and
+`jobStatus`/`jobData` return 403 without it. Observed states:
+QUEUED, RUNNABLE, SUCCEEDED.
 
 ## Production impact
 
