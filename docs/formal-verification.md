@@ -68,7 +68,7 @@ under `verification/certora/`.
 | `pool_status2.conf` | not run | 2 | |
 | `pool_status3.conf` | `32f65ab6816849ccb720500e915c9f7e` | 3 | all SUCCESS |
 | `pool_status4.conf` | not run | 1 | |
-| `health.conf` | not run | 5 | |
+| `health.conf` | `a1fa23b84bc24924a6e33a92a57f4a77` | 5 | CANCELED after ~75 min |
 
 18 of the 26 rules the June 2025 report records as Verified have been
 reproduced, leaving `health.conf` (5), `pool_status2.conf` (2), and
@@ -94,7 +94,36 @@ passed.
 Monitoring a submitted job needs the `anonymousKey` that the CLI strips from
 the URL it prints; it is recoverable from `pool/.certora_internal/`, and
 `jobStatus`/`jobData` return 403 without it. Observed states:
-QUEUED, RUNNABLE, RUNNING, SUCCEEDED.
+QUEUED, RUNNABLE, RUNNING, SUCCEEDED, CANCELED (one L).
+
+### health.conf solver cost
+
+The first `health.conf` attempt ran 75 minutes without producing partial
+results and was cancelled. The cloud enforces its own global timeout, which
+the CLI refuses to let a user set (`validate_cloud_global_timeout` always
+raises); Certora documents that ceiling as 7200s, and billing is per
+verification-minute, so an unbounded attempt costs the full cap for nothing.
+
+The likely cause is specific to this fork. `validate_submit` runs inside both
+health rules' call graph and does work the auditor's tree never had:
+`require_under_max` over the positions, a `has_auction` storage read, and a
+loop over `check_max_util` calling `load_reserve` and
+`require_utilization_below_max`. The auditor's `Actions` carried no
+`check_max_util` field at all, so that loop is new verified surface, unrolled
+twice under `loop_iter: 2`, and utilization is a division. That the auditor
+gave `smt_timeout` and `-splitParallel` to `pool_status2` and `pool_status4`
+but not to `health.conf` suggests health was cheap on his tree.
+
+Mitigations applied:
+
+- The `check_max_util` loop is skipped under `certora`. It touches neither the
+  positions nor the health check, so it cannot affect the property, and
+  dropping its early panic only admits more executions into the assertion.
+- `health.conf` gained `global_timeout: 1800`, `smt_timeout: 1200`, and the
+  same `prover_args` splitting the auditor used for his two expensive configs.
+
+Setting `global_timeout` on the remaining confs is worthwhile regardless: it
+converts an unbounded charge into a bounded one.
 
 ## Production impact
 

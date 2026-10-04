@@ -198,6 +198,11 @@ fn validate_submit(
     }
 
     // Verify all requested reserve's end utilization is below the max utilization
+    // Skipped under `certora`: utilization division over an unrolled loop is the
+    // dominant solver cost here and touches neither positions nor the health
+    // check, so dropping its early panic only admits more paths into the
+    // assertion below.
+    #[cfg(not(feature = "certora"))]
     for address in check_max_util {
         // these will all be cached already
         let reserve = pool.load_reserve(e, &address, false);
