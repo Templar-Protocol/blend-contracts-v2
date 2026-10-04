@@ -122,8 +122,13 @@ Mitigations applied:
 - `health.conf` gained `global_timeout: 1800`, `smt_timeout: 1200`, and the
   same `prover_args` splitting the auditor used for his two expensive configs.
 
-Setting `global_timeout` on the remaining confs is worthwhile regardless: it
-converts an unbounded charge into a bounded one.
+`pool_status2.conf` and `pool_status4.conf` also carry `global_timeout: 1800`
+as a cost guard. Their `smt_timeout` is left at the auditor's 7200, which the
+1800 global now makes unreachable; the value is kept so raising the global
+restores his configuration exactly. Note he chose 7200 for precisely these two
+configs, so 1800 may well not be enough to verify them. Treat the first run of
+each as a cheap probe: a timeout costs 30 minutes instead of 120 and tells us
+they need the longer budget.
 
 ## Production impact
 
