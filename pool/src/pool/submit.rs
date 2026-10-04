@@ -1,5 +1,8 @@
 use moderc3156::FlashLoanClient;
+#[cfg(not(feature = "certora"))]
 use sep_41_token::TokenClient;
+#[cfg(feature = "certora")]
+use crate::spec::token::TokenClient;
 use soroban_sdk::{panic_with_error, Address, Env, Map, Vec};
 
 use crate::{events::PoolEvents, storage, AuctionType, PoolError};
@@ -10,6 +13,14 @@ use super::{
     pool::Pool,
     FlashLoan, Positions, RequestType, User,
 };
+
+#[cfg(feature = "certora")]
+use crate::spec::summaries::submit as summaries;
+#[cfg(feature = "certora")]
+use cvlr_soroban_macros::apply_summary;
+#[cfg(not(feature = "certora"))]
+use crate::apply_summary;
+use crate::nondet_expr;
 
 /// Execute a set of updates for a user against the pool.
 ///
@@ -85,8 +96,8 @@ pub fn execute_submit_with_flash_loan(
     // requests.
     {
         pool.require_action_allowed(e, RequestType::Borrow as u32);
-        let mut reserve = pool.load_reserve(e, &flash_loan.asset, true);
-        let d_tokens_minted = reserve.to_d_token_up(e, flash_loan.amount);
+        let mut reserve = nondet_expr!(pool.load_reserve(e, &flash_loan.asset, true));
+        let d_tokens_minted = nondet_expr!(reserve.to_d_token_up(e, flash_loan.amount));
         from_state.add_liabilities(e, &mut reserve, d_tokens_minted);
         reserve.require_action_allowed(e, RequestType::Borrow as u32);
         reserve.require_utilization_below_100(e);
@@ -103,7 +114,13 @@ pub fn execute_submit_with_flash_loan(
         );
     }
 
-    let mut actions = build_actions_from_request(e, &mut pool, &mut from_state, requests);
+    let mut actions: Actions =
+        // Irrelevant to the user-health property, and it also writes hidden
+        // fields of `pool` that are not modelled here.
+        nondet_expr!(
+            from_state.positions;
+            build_actions_from_request(e, &mut pool, &mut from_state, requests)
+        );
 
     // require flash loaned asset is added to check_max_util
     if !actions.check_max_util.contains(&flash_loan.asset) {
@@ -122,12 +139,16 @@ pub fn execute_submit_with_flash_loan(
 
     // we deal with the flashloan transfer before the others to allow the flash
     // loan to yield the repaid or supplied amount in the transfers.
+    // Both calls return unit, so the prover simply skips them rather than
+    // modelling the token and receiver contracts.
+    #[cfg(not(feature = "certora"))]
     TokenClient::new(e, &flash_loan.asset).transfer(
         &e.current_contract_address(),
         &flash_loan.contract,
         &flash_loan.amount,
     );
     // calls the receiver contract with "from" as the caller
+    #[cfg(not(feature = "certora"))]
     FlashLoanClient::new(&e, &flash_loan.contract).exec_op(
         &from,
         &flash_loan.asset,
@@ -185,16 +206,30 @@ fn validate_submit(
 
     // panics if the new positions set does not meet the health factor requirement
     // min is 1.0000100 to prevent rounding errors
-    if check_health && from_state.has_liabilities() {
-        let position_data = PositionData::calculate_from_positions(e, pool, &from_state.positions);
-        if position_data.is_hf_under(e, 1_0000100) {
-            panic_with_error!(e, PoolError::InvalidHf);
-        } else if position_data.collateral_base < pool.config.min_collateral {
-            panic_with_error!(e, PoolError::MinCollateralNotMet);
-        }
+    if check_health && from_state.has_liabilities() && positions_hf_under(e, pool, &from_state.positions, 1_0000100) {
+        panic_with_error!(e, PoolError::InvalidHf);
     }
 }
 
+apply_summary!(
+    summaries::positions_hf_under,
+    /// Returns true when the positions fail the health floor. Also panics with
+    /// `MinCollateralNotMet` for a healthy set below the pool's collateral
+    /// minimum, so both rejections stay on this one path.
+    fn positions_hf_under(e: &Env, pool: &mut Pool, positions: &Positions, hf: i128) -> bool {
+        let position_data = PositionData::calculate_from_positions(e, pool, positions);
+        if position_data.is_hf_under(e, hf) {
+            return true;
+        }
+        if position_data.collateral_base < pool.config.min_collateral {
+            panic_with_error!(e, PoolError::MinCollateralNotMet);
+        }
+        false
+    }
+);
+
+apply_summary!(
+summaries::handle_transfer_with_allowance,
 fn handle_transfer_with_allowance(e: &Env, actions: &Actions, spender: &Address, to: &Address) {
     // map of token -> amount
     // amount can be negative:
@@ -230,8 +265,10 @@ fn handle_transfer_with_allowance(e: &Env, actions: &Actions, spender: &Address,
             token.transfer(&e.current_contract_address(), to, &amount);
         }
     }
-}
+});
 
+apply_summary!(
+summaries::handle_transfers,
 fn handle_transfers(e: &Env, actions: &Actions, spender: &Address, to: &Address) {
     // transfer tokens from sender to pool
     for (address, amount) in actions.spender_transfer.iter() {
@@ -242,7 +279,7 @@ fn handle_transfers(e: &Env, actions: &Actions, spender: &Address, to: &Address)
     for (address, amount) in actions.pool_transfer.iter() {
         TokenClient::new(e, &address).transfer(&e.current_contract_address(), to, &amount);
     }
-}
+});
 
 #[cfg(test)]
 mod tests {

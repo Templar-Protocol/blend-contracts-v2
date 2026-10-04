@@ -15,6 +15,17 @@ pub struct Positions {
     pub supply: Map<u32, i128>,      // Map of Reserve Index to non-collateral supply share balance
 }
 
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for Positions {
+    fn nondet() -> Self {
+        Self {
+            liabilities: cvlr_soroban::nondet_map(),
+            collateral: cvlr_soroban::nondet_map(),
+            supply: cvlr_soroban::nondet_map(),
+        }
+    }
+}
+
 impl Positions {
     /// Create an empty Positions object in the environment
     pub fn env_default(e: &Env) -> Self {
@@ -39,6 +50,16 @@ impl Positions {
 pub struct User {
     pub address: Address,
     pub positions: Positions,
+}
+
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for User {
+    fn nondet() -> Self {
+        Self {
+            address: cvlr_soroban::nondet_address(),
+            positions: cvlr::nondet(),
+        }
+    }
 }
 
 impl User {
@@ -247,6 +268,16 @@ impl User {
     }
 
     fn update_d_emissions(&self, e: &Env, reserve: &Reserve, amount: i128) {
+        #[cfg(feature = "certora")]
+        crate::spec::summaries::emissions::update_emissions_summary(
+            e,
+            reserve.config.index * 2,
+            reserve.data.d_supply,
+            reserve.scalar,
+            &self.address,
+            amount,
+        );
+        #[cfg(not(feature = "certora"))]
         emissions::update_emissions(
             e,
             reserve.config.index * 2,
@@ -258,6 +289,16 @@ impl User {
     }
 
     fn update_b_emissions(&self, e: &Env, reserve: &Reserve, amount: i128) {
+        #[cfg(feature = "certora")]
+        crate::spec::summaries::emissions::update_emissions_summary(
+            e,
+            reserve.config.index * 2 + 1,
+            reserve.data.b_supply,
+            reserve.scalar,
+            &self.address,
+            amount,
+        );
+        #[cfg(not(feature = "certora"))]
         emissions::update_emissions(
             e,
             reserve.config.index * 2 + 1,

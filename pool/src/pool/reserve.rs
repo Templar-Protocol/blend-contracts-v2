@@ -21,6 +21,18 @@ pub struct Reserve {
     pub scalar: i128,
 }
 
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for Reserve {
+    fn nondet() -> Self {
+        Self {
+            asset: cvlr_soroban::nondet_address(),
+            config: cvlr::nondet(),
+            data: cvlr::nondet(),
+            scalar: cvlr::nondet(),
+        }
+    }
+}
+
 impl Reserve {
     /// Load a Reserve from the ledger and update to the current ledger timestamp.
     ///
