@@ -53,8 +53,37 @@ The confs were adjusted for certora-cli 8.x, verified against 8.19.2:
   `prover_args`; all six are now strict JSON.
 
 Each conf has been run locally to the point of job submission, where an
-invalid key is correctly rejected. That exercises conf parsing, the build
-script, and the wasm handoff, but no rule has been verified.
+invalid key is correctly rejected.
+
+### Results on this fork
+
+`user_rules.conf` — job `4040469/1b57051dc7054db7a57e271ed98d6b13`, 2026-10-04,
+prover_version `master`, status SUCCEEDED. All 12 user-integrity rules
+verified:
+
+```
+add_collateral_increases_b_supply                SUCCESS
+add_collateral_increases_position_collateral     SUCCESS
+add_liabilities_increases_dsupply                SUCCESS
+add_liabilities_increases_liabilities            SUCCESS
+add_supply_increases_b_supply                    SUCCESS
+add_supply_increases_position_supply             SUCCESS
+remove_collateral_decreases_b_supply             SUCCESS
+remove_collateral_decreases_position_collateral  SUCCESS
+remove_liabilities_decreases_dsupply             SUCCESS
+remove_liabilities_decreases_position_collateral SUCCESS
+remove_liabilities_decreases_liabilities         SUCCESS
+remove_supply_decreases_b_supply                 SUCCESS
+```
+
+This reproduces the auditor's twelve Verified results against this fork's
+`main` rather than against `996e09e`, on a current prover.
+
+The remaining five confs have not been run. Per-rule verdicts come from
+`output/<userId>/<jobId>/output.json`; `jobData?attr=rules` stays empty, and
+the `rule_sanity` sub-results appear only in the web report's tree view, so a
+job reporting SUCCESS does not by itself confirm the basic sanity checks
+passed.
 
 `confs/health.conf` carries `"server": "prover"` where the other five use
 `"server": "production"`. The CLI accepts both, so it is left as the auditor

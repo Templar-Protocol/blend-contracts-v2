@@ -1,0 +1,16 @@
+{
+	"rules": {
+		"add_collateral_increases_b_supply": "SUCCESS",
+		"add_collateral_increases_position_collateral": "SUCCESS",
+		"add_liabilities_increases_dsupply": "SUCCESS",
+		"add_liabilities_increases_liabilities": "SUCCESS",
+		"add_supply_increases_b_supply": "SUCCESS",
+		"add_supply_increases_position_supply": "SUCCESS",
+		"remove_collateral_decreases_b_supply": "SUCCESS",
+		"remove_collateral_decreases_position_collateral": "SUCCESS",
+		"remove_liabilities_decreases_dsupply": "SUCCESS",
+		"remove_liabilities_decreases_liabilities": "SUCCESS",
+		"remove_supply_decreases_b_supply": "SUCCESS",
+		"remove_supply_decreases_position_collateral": "SUCCESS"
+	}
+}
