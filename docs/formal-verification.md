@@ -28,20 +28,38 @@ workspace does not use.
 Requires a Certora account and `CERTORAKEY`; Sunbeam has no local mode.
 
 ```sh
+pip3 install certora-cli
 export CERTORAKEY=<personal access key>
-cd pool
-certoraSorobanProver confs/health.conf
-certoraSorobanProver confs/pool_status1.conf   # ... through pool_status4.conf
+cd pool                                        # confs resolve relative to here
 certoraSorobanProver confs/user_rules.conf
+certoraSorobanProver confs/pool_status1.conf   # ... through pool_status4.conf
+certoraSorobanProver confs/health.conf
 ```
 
 Each conf invokes `pool/certora_build.py`, which runs `just build` (building
 pool-factory, backstop, and pool for `wasm32-unknown-unknown` with
-`--features certora`) and reports the wasm path to the prover.
+`--features certora`) and reports the wasm path to the prover. The working
+directory must be `pool/`: `build_script` is resolved with `shutil.which`
+against the current directory, not against the conf's own directory.
+
+The confs were adjusted for certora-cli 8.x, verified against 8.19.2:
+
+- `"process": "emv"` removed from all six. It is still a known attribute for
+  EVM targets but is absent from `SorobanProverAttributes`, so the auditor's
+  value now aborts conf parsing. It was the only invalid key; the other ten
+  attributes in use are all still valid.
+- `build_script` changed from `../certora_build.py` to `./certora_build.py`.
+- `pool_status2.conf` and `pool_status4.conf` had trailing commas in
+  `prover_args`; all six are now strict JSON.
+
+Each conf has been run locally to the point of job submission, where an
+invalid key is correctly rejected. That exercises conf parsing, the build
+script, and the wasm handoff, but no rule has been verified.
 
 `confs/health.conf` carries `"server": "prover"` where the other five use
-`"server": "production"`. That is the auditor's value, left unchanged; if the
-first run rejects it, `production` is the value the rest of the suite uses.
+`"server": "production"`. The CLI accepts both, so it is left as the auditor
+had it; whether the backend honours `prover` is untested. If a run rejects it,
+`production` is the value the rest of the suite uses.
 
 To check the harness compiles without a key:
 
