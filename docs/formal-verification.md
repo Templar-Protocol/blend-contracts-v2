@@ -68,11 +68,39 @@ under `verification/certora/`.
 | `pool_status2.conf` | not run | 2 | |
 | `pool_status3.conf` | `32f65ab6816849ccb720500e915c9f7e` | 3 | all SUCCESS |
 | `pool_status4.conf` | not run | 1 | |
-| `health.conf` | `a1fa23b84bc24924a6e33a92a57f4a77` | 5 | CANCELED after ~75 min |
+| `health.conf` | `184c39409e0a4924936e4e985f89e142` | 5 | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
 
-18 of the 26 rules the June 2025 report records as Verified have been
-reproduced, leaving `health.conf` (5), `pool_status2.conf` (2), and
-`pool_status4.conf` (1).
+21 of the 26 rules the June 2025 report records as Verified have been
+reproduced. `health.conf` resolved three of its five:
+
+```
+SUCCESS   user_health_execute_submit
+SUCCESS   handle_transfers_summary_ok
+SUCCESS   handle_transfer_with_allowance_summary_ok
+TIMEOUT   user_health_execute_submit_with_flash_loan
+UNKNOWN   build_actions_from_request
+```
+
+**`user_health_execute_submit` is weaker here than in the report.** It holds
+only modulo the `build_actions_from_request` summary, and that summary's
+soundness rule returned UNKNOWN rather than the report's Verified. The
+auditor's chain had both links; ours has the property but not the link it
+rests on. Do not quote the health property for this fork without that
+caveat.
+
+`user_health_execute_submit_with_flash_loan` reached SMT and exceeded the
+1800s budget (it has `statsdata.json` timings; `build_actions_from_request`
+has none, so that one did not finish analysis). More summarization is not the
+fix for the flash-loan rule: its prologue calls
+`from_state.add_liabilities`, and `should_check` is defined on exactly that
+liability increase, so havocking it would make the rule vacuous. Both
+unresolved rules need a larger budget, which is what
+`confs/health_unresolved.conf` provides -- the same two rules at
+`global_timeout` and `smt_timeout` 7200 with splitting, so the three
+already-verified rules are not paid for twice.
+
+Remaining: those two, plus `pool_status2.conf` (2) and `pool_status4.conf`
+(1).
 
 Two of these results bear on ADR 0008, which hoisted the status-4 guard above
 the backstop read and out of the `match` in `execute_update_pool_status`:
@@ -95,6 +123,9 @@ Monitoring a submitted job needs the `anonymousKey` that the CLI strips from
 the URL it prints; it is recoverable from `pool/.certora_internal/`, and
 `jobStatus`/`jobData` return 403 without it. Observed states:
 QUEUED, RUNNABLE, RUNNING, SUCCEEDED, CANCELED (one L).
+Per-rule verdicts seen: SUCCESS, TIMEOUT, UNKNOWN. A job whose status is
+SUCCEEDED can still contain TIMEOUT and UNKNOWN rules, so the job status
+is never a substitute for reading output.json.
 
 ### health.conf solver cost
 
