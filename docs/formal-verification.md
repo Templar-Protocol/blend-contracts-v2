@@ -65,12 +65,12 @@ under `verification/certora/`.
 |---|---|---|---|
 | `user_rules.conf` | `1b57051dc7054db7a57e271ed98d6b13` | 12 | all SUCCESS |
 | `pool_status1.conf` | `638ceeac7cf54f02bdd247c4afd5edc7` | 3 | all SUCCESS |
-| `pool_status2.conf` | not run | 2 | |
+| `pool_status2.conf` | `bf0cc6db0e6d4d4dadc69870bba77438` | 2 | all SUCCESS |
 | `pool_status3.conf` | `32f65ab6816849ccb720500e915c9f7e` | 3 | all SUCCESS |
-| `pool_status4.conf` | not run | 1 | |
+| `pool_status4.conf` | `b51c0b2d5b5646788b07af28e0e4f76c` | 1 | all SUCCESS |
 | `health.conf` | `184c39409e0a4924936e4e985f89e142` | 5 | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
 
-21 of the 26 rules the June 2025 report records as Verified have been
+24 of the 26 rules the June 2025 report records as Verified have been
 reproduced. `health.conf` resolved three of its five:
 
 ```
@@ -99,8 +99,15 @@ unresolved rules need a larger budget, which is what
 `global_timeout` and `smt_timeout` 7200 with splitting, so the three
 already-verified rules are not paid for twice.
 
-Remaining: those two, plus `pool_status2.conf` (2) and `pool_status4.conf`
-(1).
+`pool_status2` and `pool_status4` both verified, completing all nine
+pool-status rules: the state machine in the Blend documentation holds on this
+fork. Both finished inside the 1800s guard despite the auditor budgeting them
+`smt_timeout: 7200`, so the current prover handles them more cheaply than his
+configuration assumed.
+
+Remaining: `user_health_execute_submit_with_flash_loan` and
+`build_actions_from_request`, retried together via
+`confs/health_unresolved.conf`.
 
 Two of these results bear on ADR 0008, which hoisted the status-4 guard above
 the backstop read and out of the `match` in `execute_update_pool_status`:
@@ -122,7 +129,7 @@ passed.
 Monitoring a submitted job needs the `anonymousKey` that the CLI strips from
 the URL it prints; it is recoverable from `pool/.certora_internal/`, and
 `jobStatus`/`jobData` return 403 without it. Observed states:
-QUEUED, RUNNABLE, RUNNING, SUCCEEDED, CANCELED (one L).
+QUEUED, STARTING, RUNNABLE, RUNNING, SUCCEEDED, CANCELED (one L).
 Per-rule verdicts seen: SUCCESS, TIMEOUT, UNKNOWN. A job whose status is
 SUCCEEDED can still contain TIMEOUT and UNKNOWN rules, so the job status
 is never a substitute for reading output.json.
