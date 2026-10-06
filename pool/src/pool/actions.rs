@@ -325,6 +325,8 @@ pub fn build_actions_from_request(
     actions
 });
 
+apply_summary!(
+summaries::apply_supply,
 /// Apply a "supply" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -347,7 +349,7 @@ fn apply_supply(
     }
     pool.cache_reserve(reserve);
     b_tokens_minted
-}
+});
 
 /// Cap a withdrawal at the user's b-token position.
 ///
@@ -375,6 +377,8 @@ fn supply_within_cap(total_supply: i128, supply_cap: i128) -> bool {
     total_supply <= supply_cap
 }
 
+apply_summary!(
+summaries::apply_withdraw,
 /// Apply a "withdraw" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -398,8 +402,10 @@ fn apply_withdraw(
     actions.add_for_pool_transfer(&reserve.asset, tokens_out);
     pool.cache_reserve(reserve);
     (tokens_out, to_burn)
-}
+});
 
+apply_summary!(
+summaries::apply_supply_collateral,
 /// Apply a "supply_collateral" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -422,8 +428,10 @@ fn apply_supply_collateral(
     }
     pool.cache_reserve(reserve);
     b_tokens_minted
-}
+});
 
+apply_summary!(
+summaries::apply_withdraw_collateral,
 /// Apply a "withdraw_collateral" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -445,8 +453,10 @@ fn apply_withdraw_collateral(
     actions.do_check_health();
     pool.cache_reserve(reserve);
     (tokens_out, to_burn)
-}
+});
 
+apply_summary!(
+summaries::apply_borrow,
 /// Apply a "borrow" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -469,7 +479,7 @@ fn apply_borrow(
     actions.do_check_health();
     pool.cache_reserve(reserve);
     d_tokens_minted
-}
+});
 
 /// Split a repayment request into (tokens_in, d_tokens_burnt, refund, capped).
 ///
@@ -497,6 +507,8 @@ fn plan_repay(
     }
 }
 
+apply_summary!(
+summaries::apply_repay,
 /// Apply a "repay" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -526,7 +538,7 @@ fn apply_repay(
         pool.cache_reserve(reserve);
         (repayment_amount, d_tokens_burnt)
     }
-}
+});
 
 #[cfg(test)]
 mod tests {

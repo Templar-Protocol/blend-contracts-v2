@@ -88,26 +88,26 @@ auditor's chain had both links; ours has the property but not the link it
 rests on. Do not quote the health property for this fork without that
 caveat.
 
-`user_health_execute_submit_with_flash_loan` reached SMT and exceeded the
-1800s budget (it has `statsdata.json` timings; `build_actions_from_request`
-has none, so that one did not finish analysis). More summarization is not the
-fix for the flash-loan rule: its prologue calls
-`from_state.add_liabilities`, and `should_check` is defined on exactly that
-liability increase, so havocking it would make the rule vacuous. Both
-unresolved rules need a larger budget, which is what
-`confs/health_unresolved.conf` provides -- the same two rules at
-`global_timeout` and `smt_timeout` 7200 with splitting, so the three
-already-verified rules are not paid for twice.
+Both unresolved rules were retried at `global_timeout` and `smt_timeout`
+7200 with splitting (`confs/health_unresolved.conf`, job
+`c5934d7bf4dc4d9fbfec5ec59c7613bc`) and both returned UNKNOWN after about
+100 minutes. The flash-loan rule moved from TIMEOUT at 1800s to UNKNOWN at
+7200s, so additional budget converts a clock-out into an inconclusive
+result rather than a proof: this is not a timeout to be tuned away.
 
-`pool_status2` and `pool_status4` both verified, completing all nine
-pool-status rules: the state machine in the Blend documentation holds on this
-fork. Both finished inside the 1800s guard despite the auditor budgeting them
-`smt_timeout: 7200`, so the current prover handles them more cheaply than his
-configuration assumed.
+The cause was a gap in this port, not solver capacity. The auditor wraps
+**seven** functions in `actions.rs` with summaries -- `build_actions_from_request`
+plus `apply_supply`, `apply_withdraw`, `apply_supply_collateral`,
+`apply_withdraw_collateral`, `apply_borrow` and `apply_repay`. This port
+initially wrapped only `build_actions_from_request`, although
+`spec/summaries/actions.rs` is byte-identical to the auditor's and defines all
+six `apply_*` summaries (as `pub(crate) fn`). The soundness rule therefore ran
+the real `build_actions_from_request` with the real `apply_*` bodies inlined,
+a far larger problem than the auditor ever posed. All seven are now wrapped.
 
 Remaining: `user_health_execute_submit_with_flash_loan` and
-`build_actions_from_request`, retried together via
-`confs/health_unresolved.conf`.
+`build_actions_from_request`, to be retried now that all six `apply_*`
+summaries are wired in.
 
 Two of these results bear on ADR 0008, which hoisted the status-4 guard above
 the backstop read and out of the `match` in `execute_update_pool_status`:
