@@ -88,26 +88,43 @@ auditor's chain had both links; ours has the property but not the link it
 rests on. Do not quote the health property for this fork without that
 caveat.
 
-Both unresolved rules were retried at `global_timeout` and `smt_timeout`
-7200 with splitting (`confs/health_unresolved.conf`, job
-`c5934d7bf4dc4d9fbfec5ec59c7613bc`) and both returned UNKNOWN after about
-100 minutes. The flash-loan rule moved from TIMEOUT at 1800s to UNKNOWN at
-7200s, so additional budget converts a clock-out into an inconclusive
-result rather than a proof: this is not a timeout to be tuned away.
+### The two unresolved health rules
 
-The cause was a gap in this port, not solver capacity. The auditor wraps
-**seven** functions in `actions.rs` with summaries -- `build_actions_from_request`
-plus `apply_supply`, `apply_withdraw`, `apply_supply_collateral`,
-`apply_withdraw_collateral`, `apply_borrow` and `apply_repay`. This port
-initially wrapped only `build_actions_from_request`, although
-`spec/summaries/actions.rs` is byte-identical to the auditor's and defines all
-six `apply_*` summaries (as `pub(crate) fn`). The soundness rule therefore ran
-the real `build_actions_from_request` with the real `apply_*` bodies inlined,
-a far larger problem than the auditor ever posed. All seven are now wrapped.
+`user_health_execute_submit_with_flash_loan` and `build_actions_from_request`
+are **not reproduced on this fork**. Three attempts:
 
-Remaining: `user_health_execute_submit_with_flash_loan` and
-`build_actions_from_request`, to be retried now that all six `apply_*`
-summaries are wired in.
+| Attempt | Budget | `apply_*` summaries wired | Result | Elapsed |
+|---|---|---|---|---|
+| `184c3940` | 1800s | no | TIMEOUT, UNKNOWN | ~20 min |
+| `c5934d7b` | 7200s | no | UNKNOWN, UNKNOWN | ~100 min |
+| `68449b7e` | 7200s | yes (all six) | UNKNOWN, UNKNOWN | ~22 min |
+
+Wiring the six `apply_*` summaries the auditor also hooks was a real fix to
+this port -- it cut the time to verdict roughly fivefold -- but it did not
+change the verdict. Raising the budget fourfold converted TIMEOUT into
+UNKNOWN rather than into SUCCESS. Reaching UNKNOWN *faster* with more
+summarization points at a wall the solver cannot get past on these two rules,
+not at resource exhaustion, so more prover time is not the remedy.
+
+UNKNOWN is not a violation: no counter-example was produced, and nothing here
+says the properties are false. They are undecided on main's code with the
+auditor's summary boundary.
+
+**Consequence for `user_health_execute_submit`.** It is SUCCESS, but only
+modulo the `build_actions_from_request` summary, whose soundness rule is one
+of the two UNKNOWN results. The auditor's report has both links Verified;
+this fork has the property without the link it rests on. Any statement of the
+user-health property for this fork must carry that caveat.
+
+Untried, in rough order of cost, if this is picked up again: split the two
+rules into separate jobs so they stop competing for one job's resources; try
+`loop_iter: 1` to test whether the difficulty is loop-driven; try a different
+solver via `prover_args`; and failing those, treat main's larger
+`build_actions_from_request` as having outgrown the auditor's postcondition
+and strengthen or re-abstract the summary. The last is spec work, not
+configuration.
+
+
 
 Two of these results bear on ADR 0008, which hoisted the status-4 guard above
 the backstop read and out of the `match` in `execute_update_pool_status`:
