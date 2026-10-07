@@ -1,6 +1,6 @@
 #![no_std]
 
-// CI test: no-op comment to trigger PR scanners (Almanax, depthfirst).
+// CI test 2: no-op comment to trigger PR scanners (Almanax, depthfirst).
 
 #[cfg(any(test, feature = "testutils"))]
 extern crate std;
