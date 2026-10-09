@@ -19,6 +19,10 @@ pub(crate) mod user_rules;
 pub(crate) mod interest_rules;
 #[cfg(feature = "certora")]
 pub(crate) mod pool_status_rules;
+#[cfg(feature = "certora")]
+pub(crate) mod oracle;
+#[cfg(feature = "certora")]
+pub(crate) mod oracle_rules;
 
 /// Replace an expression the prover cannot reason about with an unconstrained
 /// value, optionally havocking the places it would have written.
