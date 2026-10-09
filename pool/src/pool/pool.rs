@@ -100,8 +100,10 @@ impl Pool {
         if let Some(decimals) = self.price_decimals {
             return decimals;
         }
-        let oracle_client = PriceFeedClient::new(e, &self.config.oracle);
-        let decimals = oracle_client.decimals();
+        #[cfg(not(feature = "certora"))]
+        let decimals = PriceFeedClient::new(e, &self.config.oracle).decimals();
+        #[cfg(feature = "certora")]
+        let decimals = crate::spec::oracle::decimals_summary();
         if decimals != 7 {
             panic_with_error!(e, PoolError::InvalidPrice);
         }
@@ -121,11 +123,14 @@ impl Pool {
         if let Some(price) = self.prices.get(asset.clone()) {
             return price;
         }
-        let oracle_client = PriceFeedClient::new(e, &self.config.oracle);
-        let oracle_asset = Asset::Stellar(asset.clone());
-        let price_data = oracle_client
-            .lastprice(&oracle_asset)
-            .unwrap_or_else(|| panic_with_error!(e, PoolError::InvalidPrice));
+        #[cfg(not(feature = "certora"))]
+        let reported = PriceFeedClient::new(e, &self.config.oracle)
+            .lastprice(&Asset::Stellar(asset.clone()));
+        #[cfg(feature = "certora")]
+        let reported = crate::spec::oracle::lastprice_summary();
+
+        let price_data =
+            reported.unwrap_or_else(|| panic_with_error!(e, PoolError::InvalidPrice));
         let now = e.ledger().timestamp();
         if price_data.timestamp > now
             || now - price_data.timestamp > 86_400
