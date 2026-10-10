@@ -40,7 +40,7 @@
 use cvlr::asserts::{cvlr_assert, cvlr_assume, cvlr_satisfy};
 use cvlr_soroban::nondet_address;
 use cvlr_soroban_derive::rule;
-use soroban_sdk::Env;
+use soroban_sdk::{Address, Env};
 
 use crate::constants::{SCALAR_12, SCALAR_7};
 use crate::pool::{Pool, Request, Reserve, User};
@@ -66,6 +66,33 @@ fn bounded_reserve() -> Reserve {
     reserve
 }
 
+/// Seed storage with a bounded reserve for `asset`, so `Pool::load_reserve`
+/// returns rates and supplies inside the domain `bounded_reserve` describes
+/// rather than whatever unconstrained values symbolic storage holds.
+///
+/// Without this the supply-cap rules hand the solver the same unbounded
+/// `mul_div` chain that crashed the utilization job: `apply_supply` calls
+/// `to_b_token_down` and `total_supply`, both of which multiply a supply by a
+/// rate.
+fn seed_bounded_reserve(e: &Env, asset: &Address) {
+    let mut config: crate::storage::ReserveConfig = cvlr::nondet();
+    let mut data: crate::storage::ReserveData = cvlr::nondet();
+
+    cvlr_assume!(data.b_supply >= 0 && data.b_supply <= MAX_SUPPLY);
+    cvlr_assume!(data.d_supply >= 0 && data.d_supply <= MAX_SUPPLY);
+    cvlr_assume!(data.b_rate >= SCALAR_12 && data.b_rate <= MAX_RATE);
+    cvlr_assume!(data.d_rate >= SCALAR_12 && data.d_rate <= MAX_RATE);
+    cvlr_assume!(data.backstop_credit >= 0 && data.backstop_credit <= MAX_SUPPLY);
+    cvlr_assume!(config.supply_cap >= 0 && config.supply_cap <= MAX_SUPPLY);
+    cvlr_assume!(config.decimals <= 18);
+    cvlr_assume!(config.enabled);
+    config.index = 0;
+    data.last_time = 0;
+
+    storage::set_res_config(e, asset, &config);
+    storage::set_res_data(e, asset, &data);
+}
+
 // ---------------------------------------------------------------- supply cap
 
 /// `apply_supply` cannot leave a reserve's total supply above its cap.
@@ -76,10 +103,13 @@ pub fn supply_cap_enforced_on_supply(e: Env) {
     let pool_config: PoolConfig = cvlr::nondet();
     storage::set_pool_config(&e, &pool_config);
 
+    let request: Request = cvlr::nondet();
+    cvlr_assume!(request.amount > 0 && request.amount <= MAX_SUPPLY);
+    seed_bounded_reserve(&e, &request.address);
+
     let mut pool = Pool::load(&e);
     let mut user: User = cvlr::nondet();
     let mut actions = crate::pool::actions::Actions::new(&e);
-    let request: Request = cvlr::nondet();
 
     original::apply_supply(&e, &mut actions, &mut pool, &mut user, &request);
 
@@ -96,10 +126,13 @@ pub fn supply_cap_enforced_on_supply_collateral(e: Env) {
     let pool_config: PoolConfig = cvlr::nondet();
     storage::set_pool_config(&e, &pool_config);
 
+    let request: Request = cvlr::nondet();
+    cvlr_assume!(request.amount > 0 && request.amount <= MAX_SUPPLY);
+    seed_bounded_reserve(&e, &request.address);
+
     let mut pool = Pool::load(&e);
     let mut user: User = cvlr::nondet();
     let mut actions = crate::pool::actions::Actions::new(&e);
-    let request: Request = cvlr::nondet();
 
     original::apply_supply_collateral(&e, &mut actions, &mut pool, &mut user, &request);
 
@@ -180,10 +213,13 @@ pub fn sanity_supply_can_succeed(e: Env) {
     let pool_config: PoolConfig = cvlr::nondet();
     storage::set_pool_config(&e, &pool_config);
 
+    let request: Request = cvlr::nondet();
+    cvlr_assume!(request.amount > 0 && request.amount <= MAX_SUPPLY);
+    seed_bounded_reserve(&e, &request.address);
+
     let mut pool = Pool::load(&e);
     let mut user: User = cvlr::nondet();
     let mut actions = crate::pool::actions::Actions::new(&e);
-    let request: Request = cvlr::nondet();
 
     let minted = original::apply_supply(&e, &mut actions, &mut pool, &mut user, &request);
 
@@ -197,10 +233,13 @@ pub fn sanity_supply_collateral_can_succeed(e: Env) {
     let pool_config: PoolConfig = cvlr::nondet();
     storage::set_pool_config(&e, &pool_config);
 
+    let request: Request = cvlr::nondet();
+    cvlr_assume!(request.amount > 0 && request.amount <= MAX_SUPPLY);
+    seed_bounded_reserve(&e, &request.address);
+
     let mut pool = Pool::load(&e);
     let mut user: User = cvlr::nondet();
     let mut actions = crate::pool::actions::Actions::new(&e);
-    let request: Request = cvlr::nondet();
 
     let minted = original::apply_supply_collateral(&e, &mut actions, &mut pool, &mut user, &request);
 
