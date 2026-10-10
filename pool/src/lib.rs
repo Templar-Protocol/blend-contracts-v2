@@ -17,6 +17,7 @@ mod errors;
 mod events;
 mod math;
 mod pool;
+mod spec;
 mod storage;
 mod testutils;
 mod validator;

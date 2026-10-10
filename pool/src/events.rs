@@ -1,9 +1,12 @@
+#[cfg(not(feature = "certora"))]
 use soroban_sdk::{Address, Env, Symbol, Vec};
 
+#[cfg(not(feature = "certora"))]
 use crate::{AuctionData, ReserveConfig};
 
 pub struct PoolEvents {}
 
+#[cfg(not(feature = "certora"))]
 impl PoolEvents {
     /// Emitted when a new admin is set for a pool
     ///

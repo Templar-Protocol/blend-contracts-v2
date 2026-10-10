@@ -220,7 +220,7 @@ fn update_user_emissions(
     }
 }
 
-fn set_user_emissions(
+pub fn set_user_emissions(
     e: &Env,
     user: &Address,
     res_token_id: u32,

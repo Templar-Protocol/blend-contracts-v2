@@ -6,6 +6,9 @@ use crate::{
 };
 use soroban_sdk::{panic_with_error, Env};
 
+#[cfg(feature = "certora")]
+use crate::spec::{summaries::backstop_pooldata::pool_data_summary, GHOST_MET_THRESHOLD};
+
 /// Update the pool status based on the backstop module
 #[allow(clippy::zero_prefixed_literal)]
 #[allow(clippy::inconsistent_digit_grouping)]
@@ -16,15 +19,25 @@ pub fn execute_update_pool_status(e: &Env) -> u32 {
     }
 
     // check the pool has met minimum backstop deposits
-    let backstop_id = storage::get_backstop(e);
-    let backstop_client = BackstopClient::new(e, &backstop_id);
+    #[cfg(not(feature = "certora"))]
+    let pool_backstop_data = {
+        let backstop_id = storage::get_backstop(e);
+        let backstop_client = BackstopClient::new(e, &backstop_id);
+        backstop_client.pool_data(&e.current_contract_address())
+    };
+    #[cfg(feature = "certora")]
+    let pool_backstop_data = pool_data_summary();
 
-    let pool_backstop_data = backstop_client.pool_data(&e.current_contract_address());
     let threshold = calc_pool_backstop_threshold(&pool_backstop_data);
     let mut met_threshold = true;
     if threshold < SCALAR_7 {
         met_threshold = false;
     }
+
+    #[cfg(feature = "certora")]
+    unsafe {
+        GHOST_MET_THRESHOLD = met_threshold
+    };
 
     match pool_config.status {
         // Setup

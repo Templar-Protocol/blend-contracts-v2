@@ -31,6 +31,19 @@ pub struct PoolConfig {
     pub max_positions: u32, // the maximum number of effective positions a single user can hold, and the max assets an auction can contain
 }
 
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for PoolConfig {
+    fn nondet() -> Self {
+        Self {
+            oracle: cvlr_soroban::nondet_address(),
+            min_collateral: cvlr::nondet(),
+            bstop_rate: cvlr::nondet(),
+            status: cvlr::nondet(),
+            max_positions: cvlr::nondet(),
+        }
+    }
+}
+
 /// The pool's emission config
 #[derive(Clone)]
 #[contracttype]
@@ -58,6 +71,27 @@ pub struct ReserveConfig {
     pub enabled: bool,    // the enabled flag of the reserve
 }
 
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for ReserveConfig {
+    fn nondet() -> Self {
+        Self {
+            index: cvlr::nondet(),
+            decimals: cvlr::nondet(),
+            c_factor: cvlr::nondet(),
+            l_factor: cvlr::nondet(),
+            util: cvlr::nondet(),
+            max_util: cvlr::nondet(),
+            r_base: cvlr::nondet(),
+            r_one: cvlr::nondet(),
+            r_two: cvlr::nondet(),
+            r_three: cvlr::nondet(),
+            reactivity: cvlr::nondet(),
+            supply_cap: cvlr::nondet(),
+            enabled: cvlr::nondet(),
+        }
+    }
+}
+
 #[derive(Clone)]
 #[contracttype]
 pub struct QueuedReserveInit {
@@ -78,6 +112,21 @@ pub struct ReserveData {
     pub last_time: u64, // the last block the data was updated
 }
 
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for ReserveData {
+    fn nondet() -> Self {
+        Self {
+            d_rate: cvlr::nondet(),
+            b_rate: cvlr::nondet(),
+            ir_mod: cvlr::nondet(),
+            b_supply: cvlr::nondet(),
+            d_supply: cvlr::nondet(),
+            backstop_credit: cvlr::nondet(),
+            last_time: cvlr::nondet(),
+        }
+    }
+}
+
 /// The emission data for the reserve b or d token
 #[derive(Clone)]
 #[contracttype]
@@ -86,6 +135,18 @@ pub struct ReserveEmissionData {
     pub eps: u64,
     pub index: i128,
     pub last_time: u64,
+}
+
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for ReserveEmissionData {
+    fn nondet() -> Self {
+        Self {
+            expiration: cvlr::nondet(),
+            eps: cvlr::nondet(),
+            index: cvlr::nondet(),
+            last_time: cvlr::nondet(),
+        }
+    }
 }
 
 /// The user emission data for the reserve b or d token

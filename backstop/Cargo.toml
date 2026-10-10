@@ -14,6 +14,8 @@ doctest = false
 testutils = [
     "soroban-sdk/testutils",
 ]
+# Present so `--features certora` resolves workspace-wide; this crate has no rules.
+certora = []
 
 [dependencies]
 soroban-sdk = { workspace = true }

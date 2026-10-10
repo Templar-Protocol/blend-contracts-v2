@@ -14,6 +14,13 @@ use super::{
     user_liquidation_auction::{create_user_liq_auction_data, fill_user_liq_auction},
 };
 
+#[cfg(feature = "certora")]
+use crate::spec::summaries::auction as summaries;
+#[cfg(feature = "certora")]
+use cvlr_soroban_macros::apply_summary;
+#[cfg(not(feature = "certora"))]
+use crate::apply_summary;
+
 #[derive(Clone, PartialEq)]
 #[repr(u32)]
 pub enum AuctionType {
@@ -55,6 +62,17 @@ pub struct AuctionData {
     /// The block the auction begins on. This is used to determine how the auction
     /// should be scaled based on the number of blocks that have passed since the auction began.
     pub block: u32,
+}
+
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for AuctionData {
+    fn nondet() -> Self {
+        Self {
+            bid: cvlr_soroban::nondet_map(),
+            lot: cvlr_soroban::nondet_map(),
+            block: cvlr::nondet(),
+        }
+    }
 }
 
 /// Create a new auction. Stores the resulting auction to the ledger to begin on the next block.
