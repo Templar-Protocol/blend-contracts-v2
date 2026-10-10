@@ -270,3 +270,55 @@ no rules yet:
 - `execute_set_pool_status(4)` taking an early return that bypasses the
   backstop read, and the hoisted status-4 guard in `execute_update_pool_status`.
 - The ADR 0011 bad-debt set-off and backstop trap paths.
+
+## Rules beyond the auditor's set
+
+These are ours, not inherited. They carry no auditor provenance and stand on
+their own; each is paired with vacuity checks, because the inherited set left
+vacuity unconfirmed.
+
+### Oracle circuit breaker — 13/13 SUCCESS
+
+Job `816e5763b27f42b583bdc4578915ee18`, `confs/oracle.conf`, 2026-10-10,
+`prover_version: master`. Evidence in
+[`verification/certora/oracle-816e5763.json`](../verification/certora/oracle-816e5763.json).
+
+`Pool::load_price` must reject a quote that is absent, non-positive,
+future-dated or older than 86400 seconds, and `load_price_decimals` must
+reject a feed whose decimals are not 7.
+
+```
+SUCCESS  price_accepted_implies_quote_acceptable
+SUCCESS  missing_price_panics
+SUCCESS  non_positive_price_panics
+SUCCESS  future_dated_price_panics
+SUCCESS  stale_price_panics
+SUCCESS  wrong_decimals_panics
+```
+
+`price_accepted_implies_quote_acceptable` states the breaker as a
+postcondition: if `load_price` returns, the quote it used was present,
+positive, not future-dated and inside the window, and the value returned is
+the one the feed reported. The five `*_panics` rules take each rejection case
+and assert the code after the call is unreachable, the shape
+`verify_update_status_6` uses.
+
+All seven accompanying vacuity rules also passed, which is what makes the
+above meaningful: every `*_panics` rule asserts `false` and so would pass
+vacuously if its assumptions were unsatisfiable.
+
+```
+SUCCESS  sanity_acceptable_quote_reachable
+SUCCESS  sanity_missing_price_reachable
+SUCCESS  sanity_non_positive_price_reachable
+SUCCESS  sanity_future_dated_reachable
+SUCCESS  sanity_stale_price_reachable
+SUCCESS  sanity_wrong_decimals_reachable
+SUCCESS  sanity_price_load_can_succeed
+```
+
+**Scope.** The feed is modelled at the call site through ghost state, so these
+rules establish the guard is correct given what the feed reports. They do not
+model the real `PriceFeedClient` and say nothing about an oracle returning
+inconsistent values across calls within one transaction. Nothing here bounds
+price *accuracy*; the breaker is a freshness and sign check.
