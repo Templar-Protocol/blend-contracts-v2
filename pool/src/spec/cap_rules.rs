@@ -15,15 +15,56 @@
 //! and `ceil(liabilities * SCALAR_7 / supply)` only on the branch where
 //! liabilities are strictly below supply. The range property below rests on
 //! that structure rather than on reasoning about the quotient.
+//!
+//! # Domain
+//!
+//! `utilization` performs `ceil(d_supply, d_rate, SCALAR_12)`,
+//! `floor(b_supply, b_rate, SCALAR_12)` and then
+//! `ceil(liabilities, SCALAR_7, supply)`, the last with a symbolic
+//! denominator. Over fully unconstrained `i128` fields that is two 128-bit
+//! multiplications and a division by an unconstrained 128-bit value, and the
+//! prover exhausted its heap on it (job `ed0b99fc`, FAILED with no output).
+//!
+//! The rules therefore run over `bounded_reserve`, which restricts the
+//! reserve to the representable, economically meaningful region:
+//! non-negative supplies up to `MAX_SUPPLY`, rates from `SCALAR_12` (the
+//! value a reserve is initialized with) up to `MAX_RATE`, and a
+//! metadata-valid `max_util`. The largest product is then
+//! `MAX_SUPPLY * MAX_RATE = 1e33`, inside `i128`.
+//!
+//! This is a premise, not a theorem. Outside it the products overflow, and
+//! production — built with `overflow-checks = true` — panics rather than
+//! returning a wrong utilization. What these rules do not cover is whether
+//! the reserve fields can leave this region in the first place.
 
 use cvlr::asserts::{cvlr_assert, cvlr_assume, cvlr_satisfy};
 use cvlr_soroban::nondet_address;
 use cvlr_soroban_derive::rule;
 use soroban_sdk::Env;
 
-use crate::constants::SCALAR_7;
+use crate::constants::{SCALAR_12, SCALAR_7};
 use crate::pool::{Pool, Request, Reserve, User};
 use crate::storage::{self, PoolConfig};
+
+/// Largest supply either side of a reserve may hold: 1e11 tokens at 7
+/// decimals.
+const MAX_SUPPLY: i128 = 1_000_000_000_000_000_000;
+
+/// Largest b_rate or d_rate: a thousand times the initial `SCALAR_12`.
+const MAX_RATE: i128 = 1_000_000_000_000_000;
+
+/// A reserve inside the representable, economically meaningful region. See
+/// the module documentation: this is a premise of every rule below.
+fn bounded_reserve() -> Reserve {
+    let reserve: Reserve = cvlr::nondet();
+    cvlr_assume!(reserve.data.b_supply >= 0 && reserve.data.b_supply <= MAX_SUPPLY);
+    cvlr_assume!(reserve.data.d_supply >= 0 && reserve.data.d_supply <= MAX_SUPPLY);
+    cvlr_assume!(reserve.data.b_rate >= SCALAR_12 && reserve.data.b_rate <= MAX_RATE);
+    cvlr_assume!(reserve.data.d_rate >= SCALAR_12 && reserve.data.d_rate <= MAX_RATE);
+    // Metadata validation keeps max_util strictly below 100%.
+    cvlr_assume!(i128::from(reserve.config.max_util) < SCALAR_7);
+    reserve
+}
 
 // ---------------------------------------------------------------- supply cap
 
@@ -72,7 +113,7 @@ pub fn supply_cap_enforced_on_supply_collateral(e: Env) {
 /// for any reserve state.
 #[rule]
 pub fn utilization_in_range(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
 
     let utilization = reserve.utilization(&e);
 
@@ -85,7 +126,7 @@ pub fn utilization_in_range(e: Env) {
 /// A reserve over its maximum utilization is always rejected.
 #[rule]
 pub fn utilization_above_max_panics(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     cvlr_assume!(reserve.utilization(&e) > i128::from(reserve.config.max_util));
 
     reserve.require_utilization_below_max(&e);
@@ -96,7 +137,7 @@ pub fn utilization_above_max_panics(e: Env) {
 /// Surviving the maximum-utilization guard implies being at or below it.
 #[rule]
 pub fn utilization_below_max_accepted_implies_within(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
 
     reserve.require_utilization_below_max(&e);
 
@@ -108,7 +149,7 @@ pub fn utilization_below_max_accepted_implies_within(e: Env) {
 /// A reserve at or above full utilization is always rejected.
 #[rule]
 pub fn utilization_at_100_panics(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     cvlr_assume!(reserve.utilization(&e) >= SCALAR_7);
 
     reserve.require_utilization_below_100(&e);
@@ -119,7 +160,7 @@ pub fn utilization_at_100_panics(e: Env) {
 /// Surviving the full-utilization guard implies being strictly below it.
 #[rule]
 pub fn utilization_below_100_accepted_implies_below(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
 
     reserve.require_utilization_below_100(&e);
 
@@ -168,26 +209,26 @@ pub fn sanity_supply_collateral_can_succeed(e: Env) {
 
 #[rule]
 pub fn sanity_utilization_above_max_reachable(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     cvlr_satisfy!(reserve.utilization(&e) > i128::from(reserve.config.max_util));
 }
 
 #[rule]
 pub fn sanity_utilization_at_100_reachable(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     cvlr_satisfy!(reserve.utilization(&e) >= SCALAR_7);
 }
 
 #[rule]
 pub fn sanity_utilization_below_max_reachable(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     reserve.require_utilization_below_max(&e);
     cvlr_satisfy!(true);
 }
 
 #[rule]
 pub fn sanity_utilization_below_100_reachable(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     reserve.require_utilization_below_100(&e);
     cvlr_satisfy!(true);
 }
@@ -196,7 +237,7 @@ pub fn sanity_utilization_below_100_reachable(e: Env) {
 /// range is reachable, so the range rule is not trivially about `0` alone.
 #[rule]
 pub fn sanity_utilization_strictly_between(e: Env) {
-    let reserve: Reserve = cvlr::nondet();
+    let reserve = bounded_reserve();
     let utilization = reserve.utilization(&e);
     let _ = nondet_address();
     cvlr_satisfy!(utilization > 0 && utilization < SCALAR_7);
