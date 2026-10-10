@@ -1,0 +1,17 @@
+{
+	"rules": {
+		"future_dated_price_panics": "SUCCESS",
+		"missing_price_panics": "SUCCESS",
+		"non_positive_price_panics": "SUCCESS",
+		"price_accepted_implies_quote_acceptable": "SUCCESS",
+		"sanity_acceptable_quote_reachable": "SUCCESS",
+		"sanity_future_dated_reachable": "SUCCESS",
+		"sanity_missing_price_reachable": "SUCCESS",
+		"sanity_non_positive_price_reachable": "SUCCESS",
+		"sanity_price_load_can_succeed": "SUCCESS",
+		"sanity_stale_price_reachable": "SUCCESS",
+		"sanity_wrong_decimals_reachable": "SUCCESS",
+		"stale_price_panics": "SUCCESS",
+		"wrong_decimals_panics": "SUCCESS"
+	}
+}
