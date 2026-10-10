@@ -1,0 +1,14 @@
+{
+	"rules": {
+		"sanity_utilization_above_max_reachable": "SUCCESS",
+		"sanity_utilization_at_100_reachable": "SUCCESS",
+		"sanity_utilization_below_100_reachable": "SUCCESS",
+		"sanity_utilization_below_max_reachable": "SUCCESS",
+		"sanity_utilization_strictly_between": "SUCCESS",
+		"utilization_above_max_panics": "SUCCESS",
+		"utilization_at_100_panics": "SUCCESS",
+		"utilization_below_100_accepted_implies_below": "SUCCESS",
+		"utilization_below_max_accepted_implies_within": "SUCCESS",
+		"utilization_in_range": "TIMEOUT"
+	}
+}
