@@ -2,6 +2,42 @@
 
 This PR keeps the code that is reviewed and merged: production arithmetic seams and their `#[cfg(kani)]` proofs. Campaign inventories, runners, receipts, and generated closure data are published as release evidence instead of living in the merge diff.
 
+## Toolchain
+
+**Kani 0.67.0 is required.** Not a preference — the suite does not build under
+0.68.0.
+
+| | ethnum 1.5.0 | ethnum 1.5.3 |
+|---|---|---|
+| Kani 0.67.0 | **builds** | — |
+| Kani 0.68.0 | `E0512` in `ethnum` | builds |
+| Production on Rust 1.81 | builds | `from_str_radix` not const-stable |
+
+`ethnum` reaches the build through `soroban-env-common` →
+`soroban-sdk-macros`. Kani 0.68.0 bundles a newer rustc that rejects
+`ethnum` 1.5.0's `mem::transmute(())` with `E0512`, so every harness fails
+before compiling. Bumping to `ethnum` 1.5.3 fixes that but needs a const
+`from_str_radix`, which is not stable on the `rust-toolchain.toml` pin of
+1.81, so it breaks the production build instead. There is no version of
+`ethnum` that satisfies both, and `devenv.nix` already records the same
+`E0512` problem for building `stellar-cli`.
+
+Pinning Kani to 0.67.0 resolves it without touching the lockfile or the
+production toolchain, and it is the version the published campaign ran under
+(`integrated-execution-receipt.json`: "kissat (Kani 0.67.0)").
+
+```sh
+# Run from OUTSIDE this repository, or with a newer cargo: kani-verifier
+# requires edition2024, which the repo's pinned cargo 1.81 cannot parse.
+cd /tmp && cargo install --locked kani-verifier --version 0.67.0 --force
+cargo-kani setup   # only if ~/.kani/kani-0.67.0 is absent
+
+cargo kani --version   # expect cargo-kani 0.67.0
+```
+
+Verified on this tree: `cargo kani -p pool --lib` compiles the crate,
+`ethnum` included, in about 28 seconds.
+
 ## Tracked proof surface
 
 - Runtime code remains in the ordinary `pool/src` and `backstop/src` modules.
