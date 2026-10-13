@@ -126,9 +126,62 @@ Publishing atomically creates the `kani-run-*` tag at the full commit SHA before
 
 This is a custody/integrity tool for a trusted operator with `gh` publication authority, not a cryptographic execution attestation. Run it with exclusive authority over `kani-run-*` tags, or protect that tag pattern against force updates; a concurrent writer can otherwise move any ordinary Git ref. Use an external signed attestation if proof authenticity must survive a malicious publishing operator.
 
+## Property-mapped reruns on this checkout
+
+Kani 0.67.0, `--solver kissat`, against this tree rather than the published
+campaign commit. These harnesses discharge the arithmetic obligations behind the
+audit property list; they are a scoped subset, not the full inventory.
+
+Select harnesses with `--exact` and the fully qualified name
+(`pool::reserve::verification::<harness>`). A bare `--harness <name>` is a
+substring filter: `astra_grow_debt_nonnegative_delta` alone matches 258
+harnesses because of the `proof_case!` fixed-supply families, so a run reports
+many verdicts and the first one does not necessarily belong to the named
+harness. Prefer `--harness-timeout` over an external `timeout`, which yields a
+signal rather than a verdict.
+
+| Property | Harness | Verdict | Time (s) |
+| --- | --- | --- | --- |
+| No-free-money | `prove_b_token_forward_floor` | SUCCESSFUL | 2.18 |
+| No-free-money | `prove_d_token_forward_ceil` | SUCCESSFUL | 6.14 |
+| No-free-money | `prove_b_token_inverse_rounding` | SUCCESSFUL | 261.00 |
+| No-free-money | `prove_d_token_inverse_rounding` | SUCCESSFUL | 247.58 |
+| No-free-money | `prove_b_round_trip_down_conservative` | SUCCESSFUL | 42.07 |
+| No-free-money | `prove_b_round_trip_up_conservative` | SUCCESSFUL | 59.01 |
+| No-free-money | `prove_d_round_trip_down_conservative` | SUCCESSFUL | 6.23 |
+| No-free-money | `prove_d_round_trip_up_conservative` | SUCCESSFUL | 44.50 |
+| Supply cap | `prove_supply_cap_strictness` | SUCCESSFUL | 0.06 |
+| Utilization | `prove_utilization_and_action_predicates` | SUCCESSFUL | 0.18 |
+| Utilization | `prove_utilization_range_and_branches` | SUCCESSFUL | 768.12 |
+| Accrual safety | `astra_grow_debt_rate_monotonic` | SUCCESSFUL | 14.44 |
+| Accrual safety | `astra_grow_debt_nonnegative_delta` | SUCCESSFUL | 76.34 |
+| Accrual safety | `prove_accrue_split_and_zero_take_rate` | SUCCESSFUL | 747.55 |
+| Accrual safety | `astra_grow_debt_exact_delta_composed` | SUCCESSFUL | 529.08 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_000` | SUCCESSFUL | 0.95 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_001` | SUCCESSFUL | 1.88 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_255` | SUCCESSFUL | 211.03 |
+| Accrual safety | `astra_grow_debt_exact_delta` | TIMEOUT | >3500 |
+| Accrual safety | `prove_grow_debt_nonnegative_interest` | TIMEOUT | >3500 |
+
+Three results need reading together. `prove_grow_debt_nonnegative_interest`
+conjoins rate monotonicity, the exact accrued-interest delta, and delta
+nonnegativity, and times out. Monotonicity and nonnegativity each verify
+standalone. The exact delta verifies over symbolic supply against the
+instrumented `AstraDebtDeltaMath` seam, and against the production `()` seam
+only at supplies 0, 1 and 255; fully symbolic over `()` it times out past
+3500 s. Cost grows steeply with supply magnitude (0.95 s, 1.9 s, 211 s), so the
+symbolic case is intractable here rather than merely slow. Exact-delta
+accounting over the whole symbolic domain on the production seam is therefore
+not established; the accrual safety properties are.
+
+`prove_utilization_range_and_branches` establishes `0 <= util <= SCALAR_7` plus
+the zero-liability, cap and interior branch equalities. The same property is
+configured as `utilization_in_range` in the Certora Sunbeam suite, where it
+times out; Kani discharges it at the kernel level.
+
 ## Claim boundary
 
-The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the scoped moved-module Kani reruns recorded on PR #4.
+The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the property-mapped reruns recorded above.
 
 - Do not weaken a proof obligation, expected cover count, or production behavior to obtain a green verdict.
 - Do not substitute a different contract, tolerance, or historical waiver.
