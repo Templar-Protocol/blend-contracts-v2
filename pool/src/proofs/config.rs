@@ -14,6 +14,7 @@ fn arbitrary_config() -> ReserveConfig {
         r_three: kani::any(),
         reactivity: kani::any(),
         supply_cap: kani::any(),
+        min_position: kani::any(),
         enabled: kani::any(),
     }
 }
@@ -37,6 +38,7 @@ fn prove_disable_only_transition() {
             current.r_three,
             current.reactivity,
             current.supply_cap,
+            current.min_position,
         ) == (
             candidate.index,
             candidate.decimals,
@@ -50,6 +52,7 @@ fn prove_disable_only_transition() {
             candidate.r_three,
             candidate.reactivity,
             candidate.supply_cap,
+            candidate.min_position,
         );
     assert_eq!(is_disable_only(&current, &candidate), permitted);
 
