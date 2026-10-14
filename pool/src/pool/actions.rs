@@ -318,6 +318,13 @@ fn plan_withdraw(
     amount: i128,
     cur_b_tokens: i128,
 ) -> (i128, i128) {
+    // Compare against the position value before converting to b-tokens, so an
+    // oversized request (e.g. i128::MAX to close a position) cannot overflow
+    // `to_b_token_up` once defaults have pushed b_rate below 1e12.
+    let position_value = data.to_asset_from_b_token(math, cur_b_tokens);
+    if data.b_rate > 0 && amount > position_value {
+        return (position_value, cur_b_tokens);
+    }
     let mut to_burn = data.to_b_token_up(math, amount);
     let mut tokens_out = amount;
     if to_burn > cur_b_tokens {
@@ -446,8 +453,9 @@ fn apply_borrow(
 ///
 /// `capped` preserves the exact production branch: the computed burn
 /// strictly exceeds the position. The refund is zero on the uncapped branch
-/// and may be negative on the capped branch; production re-checks it is
-/// nonnegative before transferring.
+/// and always positive on the capped branch (the request exceeds the full
+/// liability by at least one base unit); the nonnegative check before the
+/// transfer stays as defense in depth.
 fn plan_repay(
     data: &ReserveData,
     math: &impl FixedMath,
@@ -733,6 +741,78 @@ mod tests {
             assert_eq!(positions.supply.len(), 0);
 
             let reserve = pool.load_reserve(&e, &underlying.clone(), false);
+            assert_eq!(reserve.data.b_supply, reserve_data.b_supply - 20_0000000);
+        });
+    }
+
+    /// After defaults push `b_rate` below 1e12, closing a position with `i128::MAX`
+    /// must pay out the whole position instead of overflowing in `to_b_token_up`.
+    #[test]
+    fn test_withdraw_max_after_default_closes_position() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let bombadil = Address::generate(&e);
+        let samwise = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (reserve_config, mut reserve_data) = testutils::default_reserve_meta();
+        reserve_data.b_rate = 0_900_000_000_000;
+        // keep utilization below 100% after the full exit at the reduced b_rate
+        reserve_data.d_supply = 40_0000000;
+        reserve_data.last_time = 600;
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        e.ledger().set(LedgerInfo {
+            timestamp: 600,
+            protocol_version: 22,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0,
+            status: 0,
+            max_positions: 2,
+        };
+        let user_positions = Positions {
+            liabilities: map![&e],
+            collateral: map![&e],
+            supply: map![&e, (0, 20_0000000)],
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            storage::set_user_positions(&e, &samwise, &user_positions);
+
+            let mut pool = Pool::load(&e);
+            let expected_out = pool
+                .load_reserve(&e, &underlying, false)
+                .to_asset_from_b_token(&e, 20_0000000);
+            assert_eq!(expected_out, 18_0000000);
+
+            let requests = vec![
+                &e,
+                Request {
+                    request_type: RequestType::Withdraw as u32,
+                    address: underlying.clone(),
+                    amount: i128::MAX,
+                },
+            ];
+            let mut user = User::load(&e, &samwise);
+            let actions = build_actions_from_request(&e, &mut pool, &mut user, requests);
+
+            assert_eq!(
+                actions.pool_transfer.get_unchecked(underlying.clone()),
+                expected_out
+            );
+            assert_eq!(user.positions.supply.len(), 0);
+            let reserve = pool.load_reserve(&e, &underlying, false);
             assert_eq!(reserve.data.b_supply, reserve_data.b_supply - 20_0000000);
         });
     }

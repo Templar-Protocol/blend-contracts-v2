@@ -43,12 +43,12 @@ pub struct PoolEmissionConfig {
 #[derive(Clone, Debug)]
 #[contracttype]
 pub struct ReserveConfig {
-    pub index: u32,       // the index of the reserve in the list
-    pub decimals: u32,    // the decimals used in both the bToken and underlying contract
-    pub c_factor: u32,    // the collateral factor for the reserve scaled expressed in 7 decimals
-    pub l_factor: u32,    // the liability factor for the reserve scaled expressed in 7 decimals
-    pub util: u32,        // the target utilization rate scaled expressed in 7 decimals
-    pub max_util: u32,    // the maximum allowed utilization rate scaled expressed in 7 decimals
+    pub index: u32,         // the index of the reserve in the list
+    pub decimals: u32,      // the decimals used in both the bToken and underlying contract
+    pub c_factor: u32,      // the collateral factor for the reserve scaled expressed in 7 decimals
+    pub l_factor: u32,      // the liability factor for the reserve scaled expressed in 7 decimals
+    pub util: u32,          // the target utilization rate scaled expressed in 7 decimals
+    pub max_util: u32,      // the maximum allowed utilization rate scaled expressed in 7 decimals
     pub r_base: u32, // the R0 value (base rate) in the interest rate formula scaled expressed in 7 decimals
     pub r_one: u32,  // the R1 value in the interest rate formula scaled expressed in 7 decimals
     pub r_two: u32,  // the R2 value in the interest rate formula scaled expressed in 7 decimals
@@ -56,7 +56,7 @@ pub struct ReserveConfig {
     pub reactivity: u32, // the reactivity constant for the reserve scaled expressed in 7 decimals
     pub supply_cap: i128, // the total amount of underlying tokens that can be supplied to the reserve
     pub min_position: i128, // minimum underlying amount a nonzero collateral position in this reserve must hold; 0 disables
-    pub enabled: bool,    // the enabled flag of the reserve
+    pub enabled: bool,      // the enabled flag of the reserve
 }
 
 #[derive(Clone)]
@@ -225,22 +225,31 @@ pub fn set_admin(e: &Env, new_admin: &Address) {
 
 /// Fetch the current proposed admin Address
 ///
-/// ### Panics
-/// If the admin does not exist
+/// A proposal expires 10 days after it is made. The expiry is stored with the
+/// address, since the TTL of a temporary entry can be extended by anyone. An
+/// expired proposal is treated as if it does not exist.
 pub fn get_proposed_admin(e: &Env) -> Option<Address> {
-    e.storage()
+    let (proposed_admin, expiry_ledger): (Address, u32) = e
+        .storage()
         .temporary()
-        .get(&Symbol::new(e, PROPOSED_ADMIN_KEY))
+        .get(&Symbol::new(e, PROPOSED_ADMIN_KEY))?;
+    if e.ledger().sequence() > expiry_ledger {
+        None
+    } else {
+        Some(proposed_admin)
+    }
 }
 
-/// Set a new proposed admin
+/// Set a new proposed admin. The proposal expires 10 days after it is made.
 ///
 /// ### Arguments
 /// * `proposed_admin` - The Address for the proposed admin
 pub fn set_proposed_admin(e: &Env, proposed_admin: &Address) {
-    e.storage()
-        .temporary()
-        .set::<Symbol, Address>(&Symbol::new(e, PROPOSED_ADMIN_KEY), proposed_admin);
+    let expiry_ledger = e.ledger().sequence() + 10 * ONE_DAY_LEDGERS;
+    e.storage().temporary().set::<Symbol, (Address, u32)>(
+        &Symbol::new(e, PROPOSED_ADMIN_KEY),
+        &(proposed_admin.clone(), expiry_ledger),
+    );
     e.storage().temporary().extend_ttl(
         &Symbol::new(e, PROPOSED_ADMIN_KEY),
         10 * ONE_DAY_LEDGERS,

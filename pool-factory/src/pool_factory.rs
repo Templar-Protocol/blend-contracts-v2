@@ -8,8 +8,6 @@ use soroban_sdk::{
     String,
 };
 
-const SCALAR_7: u32 = 1_0000000;
-
 #[contract]
 pub struct PoolFactoryContract;
 
@@ -22,7 +20,7 @@ pub trait PoolFactory {
     /// * `name` - The name of the pool
     /// * `salt` - The salt for the pool address
     /// * `oracle` - The oracle address for the pool
-    /// * `backstop_take_rate` - The backstop take rate for the pool (7 decimals)
+    /// * `backstop_take_rate` - The backstop take rate for the pool (7 decimals). Must be 0; the pool only accepts a zero rate
     /// * `max_positions` - The maximum user positions supported by the pool
     /// * `min_collateral` - The minimum collateral required for a borrow position (oracle decimals)
     fn deploy(
@@ -72,8 +70,8 @@ impl PoolFactory for PoolFactoryContract {
         storage::extend_instance(&e);
         let pool_init_meta = storage::get_pool_init_meta(&e);
 
-        // verify backstop take rate is within [0,1) with 7 decimals
-        if backstop_take_rate >= SCALAR_7 {
+        // the pool only accepts a zero backstop take rate
+        if backstop_take_rate != 0 {
             panic_with_error!(&e, PoolFactoryError::InvalidPoolInitArgs);
         }
 
@@ -83,8 +81,7 @@ impl PoolFactory for PoolFactoryContract {
             panic_with_error!(&e, PoolFactoryError::InvalidPoolInitArgs);
         }
 
-        // verify max positions is at least 2 and less than 64
-        // pools have a max of 50 reserves, so 100 is the max number of positions
+        // verify min collateral is non-negative
         if min_collateral < 0 {
             panic_with_error!(&e, PoolFactoryError::InvalidPoolInitArgs);
         }

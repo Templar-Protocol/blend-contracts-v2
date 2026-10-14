@@ -19,7 +19,8 @@ pub struct PoolContract;
 #[contractclient(name = "PoolClient")]
 pub trait Pool {
     /// (Admin only) Set a new address to become the admin of the pool. This
-    /// must be accepted by the new admin w/ `accept_admin` to take effect.
+    /// must be accepted by the new admin w/ `accept_admin` within 10 days to
+    /// take effect. The proposal expires 10 days after it is made.
     ///
     /// ### Arguments
     /// * `new_admin` - The new admin address
@@ -31,8 +32,11 @@ pub trait Pool {
     /// (Proposed admin only) Accept the admin role. Ensures the new admin
     /// can safely submit transactions before taking over the pool admin role.
     ///
+    /// The proposal expires 10 days after it is made, and `accept_admin`
+    /// reverts after that.
+    ///
     /// ### Panics
-    /// If the caller is not the proposed admin
+    /// If the caller is not the proposed admin, or if the proposal has expired
     fn accept_admin(e: Env);
 
     /// (Admin only) Update the pool
@@ -302,9 +306,9 @@ pub trait Pool {
     /// If the auction does not exist
     fn get_auction(e: Env, auction_type: u32, user: Address) -> AuctionData;
 
-    /// Delete a stale auction. A stale auction is one that has been running for 500 blocks
-    /// without being filled. This likely means something went wrong with the auction creation,
-    /// and it should be re-created.
+    /// Delete a stale auction. A stale auction is one that started at least 500 blocks ago,
+    /// whether or not it has been partially filled. The remainder of a partially filled auction
+    /// can be deleted; the liquidation must then be re-created.
     ///
     /// ### Arguments
     /// * `auction_type` - The type of auction. Only 0 (UserLiquidation) is supported; types 1 (bad debt) and 2 (interest)
