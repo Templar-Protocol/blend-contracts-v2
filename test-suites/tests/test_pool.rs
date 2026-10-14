@@ -759,6 +759,31 @@ fn test_pool_config() {
 }
 
 #[test]
+fn test_accept_admin_rejects_expired_proposal() {
+    let fixture = create_fixture_with_data(false);
+    let pool_fixture = &fixture.pools[0];
+    let new_admin = Address::generate(&fixture.env);
+    pool_fixture.pool.propose_admin(&new_admin);
+
+    // The proposal is valid 10 days (10 * 17280 = 172800 ledgers) past the
+    // ledger it was made on. Accepting it within the window still works.
+    fixture.jump_with_sequence(9 * 24 * 60 * 60);
+    pool_fixture.pool.accept_admin();
+
+    // Propose again, then step one ledger past the 10-day expiry. The
+    // 10-day deadline is enforced by the expiry stored with the proposal,
+    // since a temporary entry's TTL can be extended by anyone.
+    let new_admin = Address::generate(&fixture.env);
+    pool_fixture.pool.propose_admin(&new_admin);
+    fixture.jump_with_sequence(10 * 24 * 60 * 60 + 5);
+    assert_eq!(
+        pool_fixture.pool.try_accept_admin().err(),
+        Some(Ok(Error::from_contract_error(1200))),
+        "expired proposals must be rejected"
+    );
+}
+
+#[test]
 fn setup_cannot_plant_an_immediate_reserve_disable() {
     for wasm in [false, true] {
         let mut fixture = TestFixture::create(wasm);
