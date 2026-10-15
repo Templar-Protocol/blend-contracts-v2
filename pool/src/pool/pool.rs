@@ -124,13 +124,12 @@ impl Pool {
             return price;
         }
         #[cfg(not(feature = "certora"))]
-        let reported = PriceFeedClient::new(e, &self.config.oracle)
-            .lastprice(&Asset::Stellar(asset.clone()));
+        let reported =
+            PriceFeedClient::new(e, &self.config.oracle).lastprice(&Asset::Stellar(asset.clone()));
         #[cfg(feature = "certora")]
         let reported = crate::spec::oracle::lastprice_summary();
 
-        let price_data =
-            reported.unwrap_or_else(|| panic_with_error!(e, PoolError::InvalidPrice));
+        let price_data = reported.unwrap_or_else(|| panic_with_error!(e, PoolError::InvalidPrice));
         let now = e.ledger().timestamp();
         if price_data.timestamp > now
             || now - price_data.timestamp > 86_400

@@ -144,7 +144,9 @@ pub fn sanity_future_dated_reachable(e: Env) {
 pub fn sanity_stale_price_reachable(e: Env) {
     let _pool = setup(&e);
     let now = e.ledger().timestamp();
-    cvlr_satisfy!(feed_has_price() && feed_timestamp() <= now && now - feed_timestamp() > MAX_PRICE_AGE);
+    cvlr_satisfy!(
+        feed_has_price() && feed_timestamp() <= now && now - feed_timestamp() > MAX_PRICE_AGE
+    );
 }
 
 #[rule]
