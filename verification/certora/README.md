@@ -8,6 +8,16 @@ is the run evidence.
 Each `*.json` beside this file is the unmodified `output.json` fetched from
 `prover.certora.com/output/<userId>/<jobId>/output.json`.
 
+> **Read this before quoting any verdict below.** The headline health rule,
+> `user_health_execute_submit`, passes without ever exercising the property it
+> names. Its post-state is always equal to its pre-state, so the assertion is
+> satisfied by its trivial disjunct on every path. The verdict is SUCCESS and
+> the property is untested. This is inherited verbatim from the auditor's
+> harness and is therefore also a limitation of the June 2025 report's
+> Verified status, not a defect introduced by this port. It is left in place
+> deliberately; [Limits](#limits) gives the mechanism and the fix it would
+> take.
+
 ## Summary
 
 **24 of the 26 configured rules** returned SUCCESS on this fork, covering 24
@@ -25,6 +35,9 @@ superseded run.
 | SUCCESS | 24 |
 | UNKNOWN | 2 |
 | VIOLATED | 0 |
+
+Those counts are verdicts, not assurance. `user_health_execute_submit` is in
+the SUCCESS column and is untested, per the note above.
 
 What that does **not** mean is covered under [Limits](#limits). In particular,
 `user_health_execute_submit` is SUCCESS only modulo a summary whose own

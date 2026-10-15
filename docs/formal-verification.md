@@ -3,6 +3,15 @@
 Contract-level formal verification of the pool, built on the auditor's own
 harness rather than a parallel invention.
 
+> **The headline health rule is untested despite passing.**
+> `user_health_execute_submit` compares a user's positions before and after
+> `execute_submit`, but in the Certora build those two states are always
+> equal, so its assertion holds trivially on every path. The summary, the rule
+> and the `from_state.store(e)` that causes it are byte-identical to the
+> auditor's harness, so the June 2025 report's Verified status for this
+> property carries the same limitation. Known and deliberately not fixed in
+> this change; the mechanism and the required fix are below.
+
 ## Provenance
 
 | | |
