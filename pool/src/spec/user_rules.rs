@@ -1,7 +1,7 @@
 use soroban_sdk::Env;
 
-use cvlr_soroban_derive::rule;
 use cvlr::asserts::{cvlr_assert, cvlr_assume};
+use cvlr_soroban_derive::rule;
 
 use crate::pool::{Reserve, User};
 
@@ -228,7 +228,7 @@ pub fn remove_supply_decreases_position_collateral(env: &Env) {
     cvlr_assert!(supply_after == supply_before - amount);
 }
 
-// removing collateral decreases bsupply, unchanged d_supply
+// removing supply decreases b_supply, unchanged d_supply
 #[rule]
 pub fn remove_supply_decreases_b_supply(env: &Env) {
     let mut user: User = cvlr::nondet();
@@ -240,7 +240,7 @@ pub fn remove_supply_decreases_b_supply(env: &Env) {
     let reserve_b_supply_before = reserve.data.b_supply;
     let reserve_d_supply_before = reserve.data.d_supply;
 
-    user.remove_collateral(env, &mut reserve, amount);
+    user.remove_supply(env, &mut reserve, amount);
 
     let reserve_b_supply_after = reserve.data.b_supply;
     let reserve_d_supply_after = reserve.data.d_supply;

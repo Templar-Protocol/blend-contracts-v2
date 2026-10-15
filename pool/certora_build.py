@@ -47,7 +47,7 @@ def run_command(command, to_stdout=False):
                 return stdout_file.name, stderr_file.name, result.returncode
     except Exception as e:
         log(f"Error running command '{command}': {e}")
-        return None, None -1
+        return None, None, -1
 
 def write_output(output_data, output_file=None):
     """Writes the JSON output either to a file or dumps it to the console."""

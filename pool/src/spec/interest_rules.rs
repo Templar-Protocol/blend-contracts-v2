@@ -1,7 +1,7 @@
 use soroban_sdk::Env;
 
-use cvlr_soroban_derive::rule;
 use cvlr::asserts::{cvlr_assert, cvlr_assume};
+use cvlr_soroban_derive::rule;
 
 use crate::{spec::summaries::interest::calc_ir, ReserveConfig};
 
@@ -14,7 +14,7 @@ use crate::{spec::summaries::interest::calc_ir, ReserveConfig};
  * If cur_util is <= 0.95,
  * then the second branch should be taken, not the first one but right now
  * the control does not reach the second branch because target_util is allowed to be >= 0.95.
-*/ 
+*/
 #[rule]
 pub fn target_util_should_be_less_than_0_9500000(
     e: &Env,

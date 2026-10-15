@@ -25,5 +25,5 @@ pub fn calc_ir(
     } else {
         cur_ir = 3;
     }
-    return cur_ir
+    return cur_ir;
 }

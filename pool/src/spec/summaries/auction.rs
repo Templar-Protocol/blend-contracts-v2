@@ -1,9 +1,6 @@
-use soroban_sdk::{Env, Address};
-use crate::{AuctionType, AuctionData};
-use crate::pool::{
-    User,
-    Pool,
-};
+use crate::pool::{Pool, User};
+use crate::{AuctionData, AuctionType};
+use soroban_sdk::{Address, Env};
 
 /// N.B. ignores auction storage
 pub fn fill(
@@ -15,12 +12,14 @@ pub fn fill(
     _percent_filled: u64,
 ) -> AuctionData {
     match AuctionType::from_u32(e, auction_type) {
-        AuctionType::InterestAuction => {
-        }
+        AuctionType::InterestAuction => {}
         _ => {
             filler_state.positions.collateral = cvlr_soroban::nondet_map();
             filler_state.positions.liabilities = cvlr_soroban::nondet_map();
-            let user_state = User { address: user.clone(), positions: cvlr::nondet() };
+            let user_state = User {
+                address: user.clone(),
+                positions: cvlr::nondet(),
+            };
             user_state.store(e);
         }
     }
@@ -29,5 +28,4 @@ pub fn fill(
 }
 
 /// N.B. ignores auction storage
-pub fn delete_liquidation(_e: &Env, _user: &Address) {
-}
+pub fn delete_liquidation(_e: &Env, _user: &Address) {}

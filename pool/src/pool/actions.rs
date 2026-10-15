@@ -4,18 +4,18 @@ use soroban_sdk::{contracttype, panic_with_error, Address, Env, Vec};
 use super::pool::Pool;
 use super::User;
 
-#[cfg(feature = "certora")]
-use crate::spec::summaries::actions as summaries;
-#[cfg(feature = "certora")]
-use cvlr_soroban_macros::apply_summary;
 #[cfg(not(feature = "certora"))]
 use crate::apply_summary;
 use crate::events::PoolEvents;
+#[cfg(feature = "certora")]
+use crate::spec::summaries::actions as summaries;
 use crate::AuctionType;
 use crate::{
     auctions, errors::PoolError, math::FixedMath, storage::ReserveData,
     validator::require_nonnegative,
 };
+#[cfg(feature = "certora")]
+use cvlr_soroban_macros::apply_summary;
 
 /// A request a user makes against the pool
 #[derive(Clone)]
@@ -155,6 +155,7 @@ impl Actions {
     }
 }
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::build_actions_from_request,
 /// Build a set of pool actions and the new positions from the supplied requests. Validates that the requests
@@ -325,6 +326,7 @@ pub fn build_actions_from_request(
     actions
 });
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::apply_supply,
 /// Apply a "supply" request to the pool
@@ -377,6 +379,7 @@ fn supply_within_cap(total_supply: i128, supply_cap: i128) -> bool {
     total_supply <= supply_cap
 }
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::apply_withdraw,
 /// Apply a "withdraw" request to the pool
@@ -404,6 +407,7 @@ fn apply_withdraw(
     (tokens_out, to_burn)
 });
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::apply_supply_collateral,
 /// Apply a "supply_collateral" request to the pool
@@ -430,6 +434,7 @@ fn apply_supply_collateral(
     b_tokens_minted
 });
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::apply_withdraw_collateral,
 /// Apply a "withdraw_collateral" request to the pool
@@ -455,6 +460,7 @@ fn apply_withdraw_collateral(
     (tokens_out, to_burn)
 });
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::apply_borrow,
 /// Apply a "borrow" request to the pool
@@ -507,6 +513,7 @@ fn plan_repay(
     }
 }
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::apply_repay,
 /// Apply a "repay" request to the pool

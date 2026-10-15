@@ -1,12 +1,8 @@
 #![allow(unused)]
-use soroban_sdk::{Env, Address, Vec};
+use crate::pool::{actions::Actions, Pool, User};
 use crate::spec::model;
-use crate::{Request, Positions, AuctionType, AuctionData};
-use crate::pool::{
-    User,
-    Pool,
-    actions::Actions,
-};
+use crate::{AuctionData, AuctionType, Positions, Request};
+use soroban_sdk::{Address, Env, Vec};
 
 /// N.B. these summaries do not model storage outside of positions,
 /// so they are unsound when considering any properties that depend on
@@ -15,7 +11,7 @@ use crate::pool::{
 macro_rules! arb_positions {
     ($positions:expr, $map:ident, $amount:ident, $orig:ident, $new:expr) => {
         let reserve: u32 = cvlr::nondet();
-        let $amount: i128  = cvlr::nondet();
+        let $amount: i128 = cvlr::nondet();
         cvlr::cvlr_assume!($amount > 0);
         let b = &mut $positions;
         let $orig = b.$map.get(reserve).unwrap_or(0);
@@ -24,7 +20,7 @@ macro_rules! arb_positions {
 
     ($positions:expr, $map:ident, $amount:ident, $new:expr) => {
         let reserve: u32 = cvlr::nondet();
-        let $amount: i128  = cvlr::nondet();
+        let $amount: i128 = cvlr::nondet();
         cvlr::cvlr_assume!($amount > 0);
         let b = &mut $positions;
         b.$map.set(reserve, $new);
@@ -135,9 +131,11 @@ pub fn build_actions_from_request(
     }
 
     // Assume the postcondition
-    cvlr::cvlr_assume!(
-        build_actions_from_request_postcondition(actions.check_health, &from_state, &new_state)
-    );
+    cvlr::cvlr_assume!(build_actions_from_request_postcondition(
+        actions.check_health,
+        &from_state,
+        &new_state
+    ));
 
     actions
 }

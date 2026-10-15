@@ -1,6 +1,6 @@
-use soroban_sdk::{Env, Address, String};
-use cvlr_soroban_derive::cvlr_mock_client as mock_client;
 use cvlr_soroban::nondet_string;
+use cvlr_soroban_derive::cvlr_mock_client as mock_client;
+use soroban_sdk::{Address, Env, String};
 
 #[allow(unused)]
 #[mock_client(name = "TokenClient")]

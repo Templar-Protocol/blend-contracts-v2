@@ -10,9 +10,13 @@ Each `*.json` beside this file is the unmodified `output.json` fetched from
 
 ## Summary
 
-**24 of the 26 rules** the June 2025 Certora report records as Verified are
-reproduced on this fork. Two are undecided. No rule was violated and no
-counter-example was produced.
+**24 of the 26 configured rules** returned SUCCESS on this fork. Two are
+undecided. No rule was violated and no counter-example was produced.
+
+Those 24 verdicts cover **23 distinct properties**. As run,
+`remove_supply_decreases_b_supply` called `User::remove_collateral` and so
+duplicated `remove_collateral_decreases_b_supply`; the body is corrected in
+this branch and its verdict below is stale pending a `user_rules.conf` rerun.
 
 | Verdict | Count |
 |---|---|
@@ -47,7 +51,7 @@ before the solver cost was reduced; it produced no report and is not counted.
 
 Where a rule was run more than once, the latest verdict is shown.
 
-### User integrity — 12/12 SUCCESS
+### User integrity — 12 SUCCESS verdicts, 11 distinct properties
 
 Position and supply bookkeeping on `User::{add,remove}_{liabilities,collateral,supply}`.
 Each rule checks both the position delta and that the paired supply moves while
@@ -65,7 +69,7 @@ SUCCESS  remove_collateral_decreases_b_supply
 SUCCESS  add_supply_increases_position_supply
 SUCCESS  add_supply_increases_b_supply
 SUCCESS  remove_supply_decreases_position_collateral
-SUCCESS  remove_supply_decreases_b_supply
+SUCCESS  remove_supply_decreases_b_supply   (stale: ran remove_collateral)
 ```
 
 ### Pool status state machine — 9/9 SUCCESS

@@ -1,9 +1,9 @@
 #![allow(unused)]
 
-use soroban_sdk::{Env, Address};
+use soroban_sdk::{Address, Env};
 
-use crate::storage::{get_res_emis_data, set_res_emis_data, ReserveEmissionData};
 use crate::emissions::set_user_emissions;
+use crate::storage::{get_res_emis_data, set_res_emis_data, ReserveEmissionData};
 
 pub fn update_emissions_summary(
     e: &Env,
@@ -13,8 +13,17 @@ pub fn update_emissions_summary(
     user: &Address,
     balance: i128,
 ) {
-    if let Some(res_emis_data) = update_emission_data_summary(e, res_token_id, supply, supply_scalar) {
-        set_user_emissions(e, user, res_token_id, res_emis_data.index, cvlr::nondet(), false);
+    if let Some(res_emis_data) =
+        update_emission_data_summary(e, res_token_id, supply, supply_scalar)
+    {
+        set_user_emissions(
+            e,
+            user,
+            res_token_id,
+            res_emis_data.index,
+            cvlr::nondet(),
+            false,
+        );
     }
 }
 

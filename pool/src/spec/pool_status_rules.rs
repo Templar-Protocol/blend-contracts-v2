@@ -19,7 +19,13 @@ pub fn verify_status_update(e: Env) {
 
     clog!(status_after);
 
-    cvlr_assert!(status_after == 0 || status_after == 1 || status_after == 2 || status_after == 3 || status_after == 5);
+    cvlr_assert!(
+        status_after == 0
+            || status_after == 1
+            || status_after == 2
+            || status_after == 3
+            || status_after == 5
+    );
 }
 
 #[rule]
@@ -71,11 +77,12 @@ pub fn verify_update_status_0_a(e: Env) {
 
     let status_after = execute_update_pool_status(&e);
 
-    cvlr_assume!(unsafe {GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_5000000} || unsafe { !GHOST_MET_THRESHOLD });
+    cvlr_assume!(
+        unsafe { GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_5000000 } || unsafe { !GHOST_MET_THRESHOLD }
+    );
 
     cvlr_assert!(status_after == 3);
 }
-
 
 #[rule]
 pub fn verify_update_status_0_b(e: Env) {
@@ -87,10 +94,12 @@ pub fn verify_update_status_0_b(e: Env) {
 
     let status_after = execute_update_pool_status(&e);
 
-    cvlr_assume!(!(unsafe {GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_5000000} || unsafe { !GHOST_MET_THRESHOLD }));
+    cvlr_assume!(
+        !(unsafe { GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_5000000 }
+            || unsafe { !GHOST_MET_THRESHOLD })
+    );
     cvlr_assert!(status_after == 0);
 }
-
 
 #[rule]
 pub fn verify_update_status_other_a(e: Env) {
@@ -128,7 +137,9 @@ pub fn verify_update_status_other_b(e: Env) {
     let status_after = execute_update_pool_status(&e);
 
     cvlr_assume!(!unsafe { GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_6000000 });
-    cvlr_assume!(unsafe {GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_3000000} || unsafe { !GHOST_MET_THRESHOLD });
+    cvlr_assume!(
+        unsafe { GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_3000000 } || unsafe { !GHOST_MET_THRESHOLD }
+    );
 
     cvlr_assert!(status_after == 3);
 }
@@ -149,7 +160,10 @@ pub fn verify_update_status_other_c(e: Env) {
     let status_after = execute_update_pool_status(&e);
 
     cvlr_assume!(!unsafe { GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_6000000 });
-    cvlr_assume!(!(unsafe {GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_3000000} || unsafe { !GHOST_MET_THRESHOLD }));
+    cvlr_assume!(
+        !(unsafe { GHOST_POOL_BACKSTOP_DATA.q4w_pct >= 0_3000000 }
+            || unsafe { !GHOST_MET_THRESHOLD })
+    );
 
     cvlr_assert!(status_after == 1);
 }

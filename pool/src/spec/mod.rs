@@ -6,19 +6,19 @@
 //! feature so a production build resolves the upstream dependency graph.
 
 #[cfg(feature = "certora")]
-pub mod token;
-#[cfg(feature = "certora")]
-pub(crate) mod summaries;
-#[cfg(feature = "certora")]
-pub(crate) mod model;
-#[cfg(feature = "certora")]
 pub(crate) mod health_rules;
-#[cfg(feature = "certora")]
-pub(crate) mod user_rules;
 #[cfg(feature = "certora")]
 pub(crate) mod interest_rules;
 #[cfg(feature = "certora")]
+pub(crate) mod model;
+#[cfg(feature = "certora")]
 pub(crate) mod pool_status_rules;
+#[cfg(feature = "certora")]
+pub(crate) mod summaries;
+#[cfg(feature = "certora")]
+pub mod token;
+#[cfg(feature = "certora")]
+pub(crate) mod user_rules;
 
 /// Replace an expression the prover cannot reason about with an unconstrained
 /// value, optionally havocking the places it would have written.

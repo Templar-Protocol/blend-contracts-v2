@@ -70,8 +70,14 @@ under `verification/certora/`.
 | `pool_status4.conf` | `b51c0b2d5b5646788b07af28e0e4f76c` | 1 | all SUCCESS |
 | `health.conf` | `184c39409e0a4924936e4e985f89e142` | 5 | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
 
-24 of the 26 rules the June 2025 report records as Verified have been
-reproduced. `health.conf` resolved three of its five:
+The jobs returned 24 SUCCESS verdicts across the 26 configured rules. They
+cover 23 distinct properties: as run, `remove_supply_decreases_b_supply`
+called `User::remove_collateral`, duplicating
+`remove_collateral_decreases_b_supply`. That body is corrected in this branch,
+so its recorded verdict is stale and `user_rules.conf` needs a rerun before the
+remove-supply b-supply effect can be claimed.
+
+`health.conf` resolved three of its five:
 
 ```
 SUCCESS   user_health_execute_submit

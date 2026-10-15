@@ -14,12 +14,12 @@ use super::{
     user_liquidation_auction::{create_user_liq_auction_data, fill_user_liq_auction},
 };
 
+#[cfg(not(feature = "certora"))]
+use crate::apply_summary;
 #[cfg(feature = "certora")]
 use crate::spec::summaries::auction as summaries;
 #[cfg(feature = "certora")]
 use cvlr_soroban_macros::apply_summary;
-#[cfg(not(feature = "certora"))]
-use crate::apply_summary;
 
 #[derive(Clone, PartialEq)]
 #[repr(u32)]

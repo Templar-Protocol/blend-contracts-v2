@@ -1,8 +1,8 @@
+#[cfg(feature = "certora")]
+use crate::spec::token::TokenClient;
 use moderc3156::FlashLoanClient;
 #[cfg(not(feature = "certora"))]
 use sep_41_token::TokenClient;
-#[cfg(feature = "certora")]
-use crate::spec::token::TokenClient;
 use soroban_sdk::{panic_with_error, Address, Env, Map, Vec};
 
 use crate::{events::PoolEvents, storage, AuctionType, PoolError};
@@ -14,13 +14,13 @@ use super::{
     FlashLoan, Positions, RequestType, User,
 };
 
+#[cfg(not(feature = "certora"))]
+use crate::apply_summary;
+use crate::nondet_expr;
 #[cfg(feature = "certora")]
 use crate::spec::summaries::submit as summaries;
 #[cfg(feature = "certora")]
 use cvlr_soroban_macros::apply_summary;
-#[cfg(not(feature = "certora"))]
-use crate::apply_summary;
-use crate::nondet_expr;
 
 /// Execute a set of updates for a user against the pool.
 ///
@@ -211,11 +211,15 @@ fn validate_submit(
 
     // panics if the new positions set does not meet the health factor requirement
     // min is 1.0000100 to prevent rounding errors
-    if check_health && from_state.has_liabilities() && positions_hf_under(e, pool, &from_state.positions, 1_0000100) {
+    if check_health
+        && from_state.has_liabilities()
+        && positions_hf_under(e, pool, &from_state.positions, 1_0000100)
+    {
         panic_with_error!(e, PoolError::InvalidHf);
     }
 }
 
+#[rustfmt::skip]
 apply_summary!(
     summaries::positions_hf_under,
     /// Returns true when the positions fail the health floor. Also panics with
@@ -233,6 +237,7 @@ apply_summary!(
     }
 );
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::handle_transfer_with_allowance,
 fn handle_transfer_with_allowance(e: &Env, actions: &Actions, spender: &Address, to: &Address) {
@@ -272,6 +277,7 @@ fn handle_transfer_with_allowance(e: &Env, actions: &Actions, spender: &Address,
     }
 });
 
+#[rustfmt::skip]
 apply_summary!(
 summaries::handle_transfers,
 fn handle_transfers(e: &Env, actions: &Actions, spender: &Address, to: &Address) {
