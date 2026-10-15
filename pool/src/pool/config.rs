@@ -223,6 +223,7 @@ fn is_disable_only(current: &ReserveConfig, candidate: &ReserveConfig) -> bool {
         && current.r_three == candidate.r_three
         && current.reactivity == candidate.reactivity
         && current.supply_cap == candidate.supply_cap
+        && current.min_position == candidate.min_position
 }
 
 fn require_valid_reserve_metadata_changes(
@@ -1216,6 +1217,54 @@ mod tests {
             // Fork semantics: no backstop credit is taken during accrual.
             assert_eq!(res_data.backstop_credit, 0);
             assert_eq!(res_data.last_time, 10000);
+        });
+    }
+
+    /// A disable-only transition may not also change `min_position`.
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1202)")]
+    fn test_execute_set_reserve_disable_only_rejects_min_position_change() {
+        let e = Env::default();
+        e.mock_all_auths();
+        e.ledger().set(LedgerInfo {
+            timestamp: 500,
+            protocol_version: 22,
+            sequence_number: 100,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let pool = testutils::create_pool(&e);
+        let bombadil = Address::generate(&e);
+
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, reserve_data) = testutils::default_reserve_meta();
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        reserve_config.enabled = false;
+        reserve_config.min_position = 100_0000000;
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            storage::set_queued_reserve_set(
+                &e,
+                &QueuedReserveInit {
+                    new_config: reserve_config.clone(),
+                    unlock_time: e.ledger().timestamp(),
+                },
+                &underlying,
+            );
+            execute_set_reserve(&e, &underlying);
         });
     }
 

@@ -61,7 +61,12 @@ pub fn check_and_handle_user_bad_debt(
         return false;
     }
     // prices are only needed (and only loaded) when there is collateral to value
-    if user_state.positions.collateral.values().iter().any(|a| a > 0)
+    if user_state
+        .positions
+        .collateral
+        .values()
+        .iter()
+        .any(|a| a > 0)
         && PositionData::calculate_from_positions(e, pool, &user_state.positions).collateral_raw
             != 0
     {
