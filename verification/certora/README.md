@@ -10,13 +10,15 @@ Each `*.json` beside this file is the unmodified `output.json` fetched from
 
 ## Summary
 
-**24 of the 26 configured rules** returned SUCCESS on this fork. Two are
-undecided. No rule was violated and no counter-example was produced.
+**24 of the 26 configured rules** returned SUCCESS on this fork, covering 24
+distinct properties. Two are undecided. No rule was violated and no
+counter-example was produced.
 
-Those 24 verdicts cover **23 distinct properties**. As run,
-`remove_supply_decreases_b_supply` called `User::remove_collateral` and so
-duplicated `remove_collateral_decreases_b_supply`; the body is corrected in
-this branch and its verdict below is stale pending a `user_rules.conf` rerun.
+`remove_supply_decreases_b_supply` originally called `User::remove_collateral`,
+duplicating `remove_collateral_decreases_b_supply`. The body is corrected here
+and `user_rules.conf` was rerun as job `3ce7b162…`, which returned 12/12
+SUCCESS against the corrected rule. Job `1b57051d…` is retained as the
+superseded run.
 
 | Verdict | Count |
 |---|---|
@@ -35,7 +37,8 @@ against upstream `996e09e` with the 2025 prover. User id `4040469`.
 
 | Date | Conf | Job | Budget | Outcome |
 |---|---|---|---|---|
-| 2026-10-04 | `user_rules.conf` | `1b57051d…` | default | 12/12 SUCCESS |
+| 2026-10-04 | `user_rules.conf` | `1b57051d…` | default | 12/12 SUCCESS (superseded) |
+| 2026-10-15 | `user_rules.conf` | `3ce7b162…` | default | 12/12 SUCCESS |
 | 2026-10-04 | `pool_status1.conf` | `638ceeac…` | default | 3/3 SUCCESS |
 | 2026-10-04 | `pool_status3.conf` | `32f65ab6…` | default | 3/3 SUCCESS |
 | 2026-10-05 | `pool_status2.conf` | `bf0cc6db…` | 1800s | 2/2 SUCCESS |
@@ -51,7 +54,7 @@ before the solver cost was reduced; it produced no report and is not counted.
 
 Where a rule was run more than once, the latest verdict is shown.
 
-### User integrity — 12 SUCCESS verdicts, 11 distinct properties
+### User integrity — 12/12 SUCCESS
 
 Position and supply bookkeeping on `User::{add,remove}_{liabilities,collateral,supply}`.
 Each rule checks both the position delta and that the paired supply moves while
@@ -69,7 +72,7 @@ SUCCESS  remove_collateral_decreases_b_supply
 SUCCESS  add_supply_increases_position_supply
 SUCCESS  add_supply_increases_b_supply
 SUCCESS  remove_supply_decreases_position_collateral
-SUCCESS  remove_supply_decreases_b_supply   (stale: ran remove_collateral)
+SUCCESS  remove_supply_decreases_b_supply
 ```
 
 ### Pool status state machine — 9/9 SUCCESS
