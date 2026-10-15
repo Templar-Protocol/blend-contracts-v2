@@ -241,7 +241,8 @@ pub fn sanity_supply_collateral_can_succeed(e: Env) {
     let mut user: User = cvlr::nondet();
     let mut actions = crate::pool::actions::Actions::new(&e);
 
-    let minted = original::apply_supply_collateral(&e, &mut actions, &mut pool, &mut user, &request);
+    let minted =
+        original::apply_supply_collateral(&e, &mut actions, &mut pool, &mut user, &request);
 
     cvlr_satisfy!(minted > 0);
 }
