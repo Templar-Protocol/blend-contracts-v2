@@ -95,6 +95,17 @@ auditor's chain had both links; ours has the property but not the link it
 rests on. Do not quote the health property for this fork without that
 caveat.
 
+**It also never exercises its own non-trivial branch.** The summary never
+writes the `from_state` it is given, and `execute_submit` ends with
+`from_state.store(e)`, so the address under test is stored back unchanged and
+the rule's reloaded state equals its original. `should_check` is false for
+equal states, satisfying the assertion through its second disjunct on every
+path. The assertion stays reachable because `model::init()` havocs
+`GHOST_CHECKED`, so `rule_sanity: basic` does not flag it. The summary, the
+rule and the `from_state.store(e)` are byte-identical to the auditor's, so the
+report's Verified status has the same limitation. See
+`verification/certora/README.md` for what closing it requires.
+
 ### The two unresolved health rules
 
 `user_health_execute_submit_with_flash_loan` and `build_actions_from_request`

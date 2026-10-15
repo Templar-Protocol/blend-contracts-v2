@@ -165,6 +165,21 @@ was invoked. It is not a health-factor bound and not monotonicity.
 UNKNOWN. The auditor's chain has both links Verified; this fork has the
 property without the link beneath it.
 
+**`user_health_execute_submit` does not exercise its own non-trivial branch.**
+The summary takes `from_state: &mut User` and never writes it: it havocs a
+separate `new_state`, may `store` that, and assumes the postcondition over the
+pair. `execute_submit` then validates `from_state` and ends with
+`from_state.store(e)`, so the address under test is written back unchanged.
+The rule reloads it, `orig_state` and `new_state` agree, and `should_check`
+returns false for equal states, which satisfies the assertion through its
+second disjunct on every path. `model::init()` havocs `GHOST_CHECKED`, so the
+assertion is reachable and `rule_sanity: basic` does not flag it; the SUCCESS
+verdict is therefore consistent with the property never being tested. This is
+inherited verbatim: the auditor's summary, rule and `from_state.store(e)` are
+byte-identical, so the June 2025 Verified status carries the same limitation.
+Closing it needs the summary to bind `new_state` to the submitting address and
+apply the modeled positions to `from_state`, then a `health.conf` rerun.
+
 **Pool only.** No backstop, pool-factory or emitter rules exist. The backstop
 was Code4rena contest scope and is excluded from the June 2025 report; the
 auditor's repository contains no backstop specs.
