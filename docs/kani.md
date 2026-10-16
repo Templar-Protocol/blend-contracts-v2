@@ -137,8 +137,9 @@ Select harnesses with `--exact` and the fully qualified name
 substring filter: `astra_grow_debt_nonnegative_delta` alone matches 258
 harnesses because of the `proof_case!` fixed-supply families, so a run reports
 many verdicts and the first one does not necessarily belong to the named
-harness. Prefer `--harness-timeout` over an external `timeout`, which yields a
-signal rather than a verdict.
+harness. Prefer `-Z unstable-options --harness-timeout <n>s` over an external
+`timeout`, which yields a signal rather than a verdict; on 0.67.0 the flag is
+unstable and exits 2 without the `-Z`.
 
 | Property | Harness | Verdict | Time (s) |
 | --- | --- | --- | --- |
