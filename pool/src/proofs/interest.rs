@@ -21,6 +21,7 @@ fn reserve_config(
         r_three: u32::from(r_three),
         reactivity: u32::from(reactivity),
         supply_cap: 1000000000000000000,
+        min_position: 0,
         enabled: true,
     }
 }

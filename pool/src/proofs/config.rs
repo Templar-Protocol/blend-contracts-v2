@@ -33,12 +33,6 @@ fn prove_disable_only_transition() {
             current.util,
             current.max_util,
             current.r_base,
-            current.r_one,
-            current.r_two,
-            current.r_three,
-            current.reactivity,
-            current.supply_cap,
-            current.min_position,
         ) == (
             candidate.index,
             candidate.decimals,
@@ -47,6 +41,15 @@ fn prove_disable_only_transition() {
             candidate.util,
             candidate.max_util,
             candidate.r_base,
+        )
+        && (
+            current.r_one,
+            current.r_two,
+            current.r_three,
+            current.reactivity,
+            current.supply_cap,
+            current.min_position,
+        ) == (
             candidate.r_one,
             candidate.r_two,
             candidate.r_three,
