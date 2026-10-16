@@ -386,8 +386,10 @@ fn apply_supply_collateral(
 ) -> i128 {
     let mut reserve = pool.load_reserve(e, &request.address, true);
     reserve.require_action_allowed(e, request.request_type);
-    // borrowers may not add collateral in a reserve whose price is unusable, since that would block their liquidation
-    if user.has_liabilities() {
+    // A borrower may not open a collateral position in a reserve whose price is unusable: the
+    // new price dependency would block their liquidation (L-02). Topping up an existing
+    // position adds no new dependency, so it stays available during an outage.
+    if user.has_liabilities() && user.get_collateral(reserve.config.index) == 0 {
         pool.load_price(e, &reserve.asset);
     }
     let b_tokens_minted = reserve.to_b_token_down(e, request.amount);
@@ -1091,6 +1093,81 @@ mod tests {
             assert_eq!(positions.liabilities.len(), 0);
             assert_eq!(positions.collateral.len(), 1);
             assert!(user.get_collateral(0) > 0);
+        });
+    }
+
+    /// L-02: a borrower topping up an existing collateral position adds no new price
+    /// dependency, so the top-up succeeds while that reserve's price is unusable.
+    #[test]
+    fn test_supply_collateral_top_up_with_liabilities_ignores_invalid_price() {
+        let e = Env::default();
+        e.mock_all_auths();
+
+        let bombadil = Address::generate(&e);
+        let samwise = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (reserve_config, reserve_data) = testutils::default_reserve_meta();
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        let (oracle, oracle_client) = testutils::create_mock_oracle(&e);
+        oracle_client.set_data(
+            &bombadil,
+            &sep_40_oracle::testutils::Asset::Other(soroban_sdk::Symbol::new(&e, "USD")),
+            &vec![
+                &e,
+                sep_40_oracle::testutils::Asset::Stellar(underlying.clone()),
+            ],
+            &7,
+            &300,
+        );
+        oracle_client.set_price_stable(&vec![&e, 0]);
+
+        e.ledger().set(LedgerInfo {
+            timestamp: 600,
+            protocol_version: 22,
+            sequence_number: 1234,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+        let pool_config = PoolConfig {
+            oracle,
+            min_collateral: 1_0000000,
+            bstop_rate: 0_1000000,
+            status: 0,
+            max_positions: 2,
+        };
+        let user_positions = Positions {
+            liabilities: map![&e, (reserve_config.index, 5_0000000)],
+            collateral: map![&e, (reserve_config.index, 20_0000000)],
+            supply: map![&e],
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            storage::set_user_positions(&e, &samwise, &user_positions);
+
+            let mut pool = Pool::load(&e);
+
+            let requests = vec![
+                &e,
+                Request {
+                    request_type: RequestType::SupplyCollateral as u32,
+                    address: underlying.clone(),
+                    amount: 10_1234567,
+                },
+            ];
+            let mut user = User::load(&e, &samwise);
+            let actions = build_actions_from_request(&e, &mut pool, &mut user, requests);
+
+            assert_eq!(
+                actions.spender_transfer.get_unchecked(underlying.clone()),
+                10_1234567
+            );
+            assert!(user.get_collateral(reserve_config.index) > 20_0000000);
         });
     }
 
