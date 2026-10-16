@@ -162,7 +162,35 @@ Read the verdict from the run rather than the exit status, and expect one
 ```sh
 grep -cE 'VERIFICATION:-' run.log          # 1 confirms the filter matched once
 grep -oE 'VERIFICATION:- [A-Z]+' run.log
+grep -F 'CBMC timed out' run.log           # a FAILED that is only a budget
 ```
+
+A budget exhausted under `--harness-timeout` is reported as
+`VERIFICATION:- FAILED` with `CBMC timed out` beneath it, and exits 1 exactly
+as a refuted property does. Neither the verdict line nor the exit status
+distinguishes the two, so check for that message before reporting a failure as
+a counterexample.
+
+### Liquidation and bad debt
+
+Run after the `cfg(kani)` surface was repaired; these were unrunnable while
+`pool/src/proofs` failed to compile.
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_auction_timing_modifiers` | SUCCESSFUL | 0.35 |
+| `prove_auction_quote_partition` | SUCCESSFUL | 5.16 |
+| `prove_auction_discount_bounds` | SUCCESSFUL | 2.77 |
+| `prove_orphan_collateral_decision` | SUCCESSFUL | 0.03 |
+| `prove_setoff_guarded_parametric` | SUCCESSFUL | 1.13 |
+| `prove_setoff_guarded_witnesses` | SUCCESSFUL | 0.50 |
+| `prove_setoff_exact_policy_split_and_conditions` | SUCCESSFUL | 2322.10 |
+
+The last one needs a budget above 1800 s. At 1800 s it reports
+`VERIFICATION:- FAILED` with `CBMC timed out`, which is a resource limit and
+not a refutation; given 7200 s it verifies in 2322 s.
+
+### Arithmetic kernels
 
 | Property | Harness | Verdict | Time (s) |
 | --- | --- | --- | --- |
