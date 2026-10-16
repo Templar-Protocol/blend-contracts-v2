@@ -141,6 +141,29 @@ harness. Prefer `-Z unstable-options --harness-timeout <n>s` over an external
 `timeout`, which yields a signal rather than a verdict; on 0.67.0 the flag is
 unstable and exits 2 without the `-Z`.
 
+One harness, by fully qualified name:
+
+```sh
+cargo kani -p pool --lib \
+  --exact --harness pool::reserve::verification::astra_grow_debt_nonnegative_delta \
+  --solver kissat \
+  -Z unstable-options --harness-timeout 1800s
+```
+
+The module segment follows the harness's production parent, so
+`prove_supply_cap_strictness` is `pool::actions::verification::…`. To recover
+the exact selector for any harness, `cargo kani -p pool --lib list --format json`
+writes every fully qualified name to `kani-list.json` (gitignored); `--format
+pretty` is the default and prints instead.
+
+Read the verdict from the run rather than the exit status, and expect one
+`VERIFICATION:-` line per matched harness:
+
+```sh
+grep -cE 'VERIFICATION:-' run.log          # 1 confirms the filter matched once
+grep -oE 'VERIFICATION:- [A-Z]+' run.log
+```
+
 | Property | Harness | Verdict | Time (s) |
 | --- | --- | --- | --- |
 | No-free-money | `prove_b_token_forward_floor` | SUCCESSFUL | 2.18 |
