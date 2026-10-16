@@ -182,6 +182,7 @@ fn initialize_reserve(e: &Env, asset: &Address, config: &ReserveConfig) -> u32 {
         r_three: config.r_three,
         reactivity: config.reactivity,
         supply_cap: config.supply_cap,
+        min_position: config.min_position,
         enabled: config.enabled,
     };
     storage::set_res_config(e, asset, &reserve_config);
@@ -201,6 +202,7 @@ fn require_valid_reserve_metadata(e: &Env, metadata: &ReserveConfig) {
         || metadata.r_base < 0_0001000
         || (metadata.r_one > metadata.r_two || metadata.r_two > metadata.r_three)
         || (metadata.reactivity > 0_0001000)
+        || metadata.min_position < 0
     {
         panic_with_error!(e, PoolError::InvalidReserveMetadata);
     }
@@ -221,6 +223,7 @@ fn is_disable_only(current: &ReserveConfig, candidate: &ReserveConfig) -> bool {
         && current.r_three == candidate.r_three
         && current.reactivity == candidate.reactivity
         && current.supply_cap == candidate.supply_cap
+        && current.min_position == candidate.min_position
 }
 
 fn require_valid_reserve_metadata_changes(
@@ -550,6 +553,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let pool_config = PoolConfig {
@@ -602,6 +606,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let pool_config = PoolConfig {
@@ -645,6 +650,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let pool_config = PoolConfig {
@@ -682,6 +688,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let mut disabled = current.clone();
@@ -730,6 +737,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let mut drifted = current.clone();
@@ -771,6 +779,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let metadata = ReserveConfig {
@@ -786,6 +795,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let pool_config = PoolConfig {
@@ -838,6 +848,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let metadata = ReserveConfig {
@@ -853,6 +864,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let pool_config = PoolConfig {
@@ -892,6 +904,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let metadata = ReserveConfig {
@@ -907,6 +920,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         let pool_config = PoolConfig {
@@ -945,6 +959,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         e.as_contract(&pool, || {
@@ -985,6 +1000,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         e.as_contract(&pool, || {
@@ -1034,6 +1050,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         e.as_contract(&pool, || {
@@ -1203,6 +1220,54 @@ mod tests {
         });
     }
 
+    /// A disable-only transition may not also change `min_position`.
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1202)")]
+    fn test_execute_set_reserve_disable_only_rejects_min_position_change() {
+        let e = Env::default();
+        e.mock_all_auths();
+        e.ledger().set(LedgerInfo {
+            timestamp: 500,
+            protocol_version: 22,
+            sequence_number: 100,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let pool = testutils::create_pool(&e);
+        let bombadil = Address::generate(&e);
+
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, reserve_data) = testutils::default_reserve_meta();
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        reserve_config.enabled = false;
+        reserve_config.min_position = 100_0000000;
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0,
+            status: 0,
+            max_positions: 2,
+        };
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            storage::set_queued_reserve_set(
+                &e,
+                &QueuedReserveInit {
+                    new_config: reserve_config.clone(),
+                    unlock_time: e.ledger().timestamp(),
+                },
+                &underlying,
+            );
+            execute_set_reserve(&e, &underlying);
+        });
+    }
+
     #[test]
     #[should_panic(expected = "Error(Contract, #1202)")]
     fn test_execute_set_reserve_rejects_drift_on_existing_reserve() {
@@ -1300,6 +1365,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 105,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
 
@@ -1348,6 +1414,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         e.as_contract(&pool, || {
@@ -1388,6 +1455,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1413,6 +1481,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1436,6 +1505,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1459,6 +1529,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1482,6 +1553,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1505,6 +1577,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1528,6 +1601,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1551,6 +1625,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1574,6 +1649,7 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 100,
             supply_cap: 1000000000000000000,
+            min_position: 0,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
@@ -1597,6 +1673,31 @@ mod tests {
             r_three: 1_5000000,
             reactivity: 0_0001001,
             supply_cap: 1000000000000000000,
+            min_position: 0,
+            enabled: true,
+        };
+        require_valid_reserve_metadata(&e, &metadata);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1202)")]
+    fn test_validate_reserve_metadata_validates_min_position() {
+        let e = Env::default();
+
+        let metadata = ReserveConfig {
+            index: 0,
+            decimals: 18,
+            c_factor: 0_7500000,
+            l_factor: 0_7500000,
+            util: 0_5000000,
+            max_util: 0_9500000,
+            r_base: 0_0100000,
+            r_one: 0_0500000,
+            r_two: 0_5000000,
+            r_three: 1_5000000,
+            reactivity: 100,
+            supply_cap: 1000000000000000000,
+            min_position: -1,
             enabled: true,
         };
         require_valid_reserve_metadata(&e, &metadata);
