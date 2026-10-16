@@ -48,15 +48,28 @@ soundness rule is one of the two UNKNOWN results.
 All jobs ran under `prover_version: master` against this fork's `main`, not
 against upstream `996e09e` with the 2025 prover. User id `4040469`.
 
+This branch later merged six Guardian audit commits, which added a
+`require_min_position` guard and an oracle `load_price` call inside
+`apply_supply_collateral`, a `plan_withdraw` overflow guard, and a
+`min_position` field on `ReserveConfig`. `health.conf` and `user_rules.conf`
+were rerun after that merge and reproduced their verdicts exactly. The four
+`pool_status*.conf` jobs predate the merge and were not rerun: they exercise
+`execute_update_pool_status`, which the merge left untouched, as it did
+`user.rs`, `submit.rs`, `reserve.rs` and `pool.rs`. The changed `apply_*`
+bodies sit behind havocking summaries that over-approximate them, and the
+merge only adds panics, which such a summary already covers.
+
 | Date | Conf | Job | Budget | Outcome |
 |---|---|---|---|---|
 | 2026-10-04 | `user_rules.conf` | `1b57051d…` | default | 12/12 SUCCESS (superseded) |
-| 2026-10-15 | `user_rules.conf` | `3ce7b162…` | default | 12/12 SUCCESS |
+| 2026-10-15 | `user_rules.conf` | `3ce7b162…` | default | 12/12 SUCCESS (pre-merge) |
+| 2026-10-16 | `user_rules.conf` | `f684493d…` | default | 12/12 SUCCESS |
 | 2026-10-04 | `pool_status1.conf` | `638ceeac…` | default | 3/3 SUCCESS |
 | 2026-10-04 | `pool_status3.conf` | `32f65ab6…` | default | 3/3 SUCCESS |
 | 2026-10-05 | `pool_status2.conf` | `bf0cc6db…` | 1800s | 2/2 SUCCESS |
 | 2026-10-05 | `pool_status4.conf` | `b51c0b2d…` | 1800s | 1/1 SUCCESS |
-| 2026-10-05 | `health.conf` | `184c3940…` | 1800s | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
+| 2026-10-05 | `health.conf` | `184c3940…` | 1800s | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN (pre-merge) |
+| 2026-10-16 | `health.conf` | `09dfece5…` | 1800s | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
 | 2026-10-06 | `health_unresolved.conf` | `c5934d7b…` | 7200s | 2 UNKNOWN (~100 min) |
 | 2026-10-07 | `health_unresolved.conf` | `68449b7e…` | 7200s | 2 UNKNOWN (~22 min) |
 

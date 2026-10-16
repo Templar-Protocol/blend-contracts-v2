@@ -70,14 +70,20 @@ Verified on this fork's `main` with `prover_version: master`, rather than on
 `996e09e` with the 2025 prover. Raw `output.json` for each job is retained
 under `verification/certora/`.
 
+`health.conf` and `user_rules.conf` were rerun after this branch merged the
+Guardian audit commits and reproduced their verdicts exactly; the
+`pool_status*.conf` jobs predate that merge and were not rerun, because it
+left `execute_update_pool_status` and every other directly exercised module
+untouched. See the README for the reasoning.
+
 | Conf | Job | Rules | Result |
 |---|---|---|---|
-| `user_rules.conf` | `3ce7b162e5d34229840f24fbf020bcf3` | 12 | all SUCCESS |
+| `user_rules.conf` | `f684493dac5543c3b6997dd730092254` | 12 | all SUCCESS |
 | `pool_status1.conf` | `638ceeac7cf54f02bdd247c4afd5edc7` | 3 | all SUCCESS |
 | `pool_status2.conf` | `bf0cc6db0e6d4d4dadc69870bba77438` | 2 | all SUCCESS |
 | `pool_status3.conf` | `32f65ab6816849ccb720500e915c9f7e` | 3 | all SUCCESS |
 | `pool_status4.conf` | `b51c0b2d5b5646788b07af28e0e4f76c` | 1 | all SUCCESS |
-| `health.conf` | `184c39409e0a4924936e4e985f89e142` | 5 | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
+| `health.conf` | `09dfece5c775483883b7ceef765c0642` | 5 | 3 SUCCESS, 1 TIMEOUT, 1 UNKNOWN |
 
 The jobs returned 24 SUCCESS verdicts across the 26 configured rules, covering
 24 distinct properties. `remove_supply_decreases_b_supply` originally called
