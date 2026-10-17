@@ -307,3 +307,118 @@ no rules yet:
 - `execute_set_pool_status(4)` taking an early return that bypasses the
   backstop read, and the hoisted status-4 guard in `execute_update_pool_status`.
 - The ADR 0011 bad-debt set-off and backstop trap paths.
+
+## Rules beyond the auditor's set
+
+These are ours, not inherited. They carry no auditor provenance and stand on
+their own; each is paired with vacuity checks, because the inherited set left
+vacuity unconfirmed.
+
+### Oracle circuit breaker — 13/13 SUCCESS
+
+Job `816e5763b27f42b583bdc4578915ee18`, `confs/oracle.conf`, 2026-10-10,
+`prover_version: master`. Evidence in
+[`verification/certora/oracle-816e5763.json`](../verification/certora/oracle-816e5763.json).
+
+`Pool::load_price` must reject a quote that is absent, non-positive,
+future-dated or older than 86400 seconds, and `load_price_decimals` must
+reject a feed whose decimals are not 7.
+
+```
+SUCCESS  price_accepted_implies_quote_acceptable
+SUCCESS  missing_price_panics
+SUCCESS  non_positive_price_panics
+SUCCESS  future_dated_price_panics
+SUCCESS  stale_price_panics
+SUCCESS  wrong_decimals_panics
+```
+
+`price_accepted_implies_quote_acceptable` states the breaker as a
+postcondition: if `load_price` returns, the quote it used was present,
+positive, not future-dated and inside the window, and the value returned is
+the one the feed reported. The five `*_panics` rules take each rejection case
+and assert the code after the call is unreachable, the shape
+`verify_update_status_6` uses.
+
+All seven accompanying vacuity rules also passed, which is what makes the
+above meaningful: every `*_panics` rule asserts `false` and so would pass
+vacuously if its assumptions were unsatisfiable.
+
+```
+SUCCESS  sanity_acceptable_quote_reachable
+SUCCESS  sanity_missing_price_reachable
+SUCCESS  sanity_non_positive_price_reachable
+SUCCESS  sanity_future_dated_reachable
+SUCCESS  sanity_stale_price_reachable
+SUCCESS  sanity_wrong_decimals_reachable
+SUCCESS  sanity_price_load_can_succeed
+```
+
+**Scope.** The feed is modelled at the call site through ghost state, so these
+rules establish the guard is correct given what the feed reports. They do not
+model the real `PriceFeedClient` and say nothing about an oracle returning
+inconsistent values across calls within one transaction. Nothing here bounds
+price *accuracy*; the breaker is a freshness and sign check.
+
+### Utilization caps — 9/10
+
+Job `cb6dca8e771147bea1a81b627f2a378b`, `confs/utilization.conf`, 2026-10-10.
+Evidence in
+[`verification/certora/utilization-cb6dca8e.json`](../verification/certora/utilization-cb6dca8e.json).
+
+```
+SUCCESS  utilization_above_max_panics
+SUCCESS  utilization_below_max_accepted_implies_within
+SUCCESS  utilization_at_100_panics
+SUCCESS  utilization_below_100_accepted_implies_below
+TIMEOUT  utilization_in_range
+```
+
+All five accompanying vacuity rules passed.
+
+**Both guards are established, in both directions.** For
+`require_utilization_below_max`: utilization above `max_util` always panics,
+and surviving the guard implies being at or below it. For
+`require_utilization_below_100`: utilization at or above `SCALAR_7` always
+panics, and surviving implies being strictly below. Those two pairs
+completely characterise each guard, so on any path that passes the 100%
+check, utilization is strictly below `SCALAR_7`.
+
+`utilization_in_range` — the unconditional claim that utilization lies in
+`[0, SCALAR_7]` for *every* reserve state, guarded or not — timed out. The
+guards only require reasoning about a comparison against utilization,
+whereas this requires bounding the quotient itself, proving
+`ceil(liabilities * SCALAR_7 / supply) <= SCALAR_7` on the dividing branch.
+It is **not** established, and the guard results above do not imply it for
+unguarded states.
+
+These rules hold over `bounded_reserve`; see the domain note in
+`spec/cap_rules.rs`. A first attempt without those bounds crashed the prover
+outright (job `ed0b99fc`, FAILED, no output).
+
+### Supply cap — not established at contract level
+
+`supply_cap_enforced_on_supply` and
+`supply_cap_enforced_on_supply_collateral` assert that `apply_supply` and
+`apply_supply_collateral` cannot leave a reserve's total supply above its
+cap. Three attempts produced **no verdicts at all**:
+
+| Job | Setup | Result |
+|---|---|---|
+| `2a1e1f22…` | 4 rules, one job, unbounded storage | HALTED, no output |
+| `912e07ce…` | 2 rules, seeded bounded storage | HALTED, no output |
+| `fe0bc232…` | 2 rules, seeded bounded storage | HALTED, no output |
+
+Seeding a bounded `ReserveConfig` and `ReserveData` into storage and
+splitting the rules one handler per job did not help. The remaining
+unconstrained input is `User`, whose position maps are fully symbolic, and
+the handlers run the whole `load_reserve` → `to_b_token_down` →
+`add_supply`/`add_collateral` → `total_supply` chain under `loop_iter: 2`.
+
+The rules and confs are kept so the attempt is reproducible, but **the supply
+cap is not verified**. `supply_within_cap` itself is a single comparison;
+what defeats the prover is the handler call graph around it. The property is
+therefore better pursued with Kani over `supply_within_cap` and the
+conversion arithmetic feeding it, on an explicitly bounded domain and without
+a whole-handler call graph. That is carried into the Kani work rather than
+pursued further here.
