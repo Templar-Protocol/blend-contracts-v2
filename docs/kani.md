@@ -134,12 +134,13 @@ audit property list; they are a scoped subset, not the full inventory.
 
 Select harnesses with `--exact` and the fully qualified name
 (`pool::reserve::verification::<harness>`). A bare `--harness <name>` is a
-substring filter: `astra_grow_debt_nonnegative_delta` alone matches 258
-harnesses because of the `proof_case!` fixed-supply families, so a run reports
-many verdicts and the first one does not necessarily belong to the named
-harness. Prefer `-Z unstable-options --harness-timeout <n>s` over an external
-`timeout`, which yields a signal rather than a verdict; on 0.67.0 the flag is
-unstable and exits 2 without the `-Z`.
+substring filter: `astra_grow_debt_nonnegative_delta` alone matches 257
+harnesses — itself plus the 256 `proof_case!` fixed-supply cases
+`_supply_000` through `_supply_255` — so a run reports many verdicts and the
+first one does not necessarily belong to the named harness. Prefer
+`-Z unstable-options --harness-timeout <n>s` over an external `timeout`, which
+yields a signal rather than a verdict; on 0.67.0 the flag is unstable and
+exits 2 without the `-Z`.
 
 One harness, by fully qualified name:
 
