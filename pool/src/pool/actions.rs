@@ -3,12 +3,19 @@ use soroban_sdk::{contracttype, panic_with_error, Address, Env, Vec};
 
 use super::pool::Pool;
 use super::{Reserve, User};
+
+#[cfg(not(feature = "certora"))]
+use crate::apply_summary;
 use crate::events::PoolEvents;
+#[cfg(feature = "certora")]
+use crate::spec::summaries::actions as summaries;
 use crate::AuctionType;
 use crate::{
     auctions, errors::PoolError, math::FixedMath, storage::ReserveData,
     validator::require_nonnegative,
 };
+#[cfg(feature = "certora")]
+use cvlr_soroban_macros::apply_summary;
 
 /// A request a user makes against the pool
 #[derive(Clone)]
@@ -17,6 +24,17 @@ pub struct Request {
     pub request_type: u32,
     pub address: Address, // asset address or liquidatee
     pub amount: i128,
+}
+
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for Request {
+    fn nondet() -> Self {
+        Self {
+            request_type: cvlr::nondet(),
+            address: cvlr_soroban::nondet_address(),
+            amount: cvlr::nondet(),
+        }
+    }
 }
 
 /// The type of request to be made against the pool
@@ -64,12 +82,35 @@ pub struct FlashLoan {
     pub amount: i128,
 }
 
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for FlashLoan {
+    fn nondet() -> Self {
+        Self {
+            contract: cvlr_soroban::nondet_address(),
+            asset: cvlr_soroban::nondet_address(),
+            amount: cvlr::nondet(),
+        }
+    }
+}
+
 /// Transfer actions to be taken by the sender and pool
 pub struct Actions {
     pub spender_transfer: Map<Address, i128>,
     pub pool_transfer: Map<Address, i128>,
     pub check_health: bool,
     pub check_max_util: Vec<Address>,
+}
+
+#[cfg(feature = "certora")]
+impl cvlr::nondet::Nondet for Actions {
+    fn nondet() -> Self {
+        Self {
+            spender_transfer: cvlr_soroban::nondet_map(),
+            pool_transfer: cvlr_soroban::nondet_map(),
+            check_health: cvlr::nondet(),
+            check_max_util: cvlr_soroban::nondet_vec(),
+        }
+    }
 }
 
 impl Actions {
@@ -114,6 +155,9 @@ impl Actions {
     }
 }
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::build_actions_from_request,
 /// Build a set of pool actions and the new positions from the supplied requests. Validates that the requests
 /// are valid based on the status and supported reserves in the pool.
 ///
@@ -280,8 +324,11 @@ pub fn build_actions_from_request(
     }
 
     actions
-}
+});
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::apply_supply,
 /// Apply a "supply" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -304,7 +351,7 @@ fn apply_supply(
     }
     pool.cache_reserve(reserve);
     b_tokens_minted
-}
+});
 
 /// Cap a withdrawal at the user's b-token position.
 ///
@@ -339,6 +386,9 @@ fn supply_within_cap(total_supply: i128, supply_cap: i128) -> bool {
     total_supply <= supply_cap
 }
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::apply_withdraw,
 /// Apply a "withdraw" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -362,7 +412,7 @@ fn apply_withdraw(
     actions.add_for_pool_transfer(&reserve.asset, tokens_out);
     pool.cache_reserve(reserve);
     (tokens_out, to_burn)
-}
+});
 
 /// Require the user's collateral position in the reserve to be zero or at least the reserve's `min_position`
 fn require_min_position(e: &Env, reserve: &Reserve, user: &User) {
@@ -372,6 +422,9 @@ fn require_min_position(e: &Env, reserve: &Reserve, user: &User) {
     }
 }
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::apply_supply_collateral,
 /// Apply a "supply_collateral" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -401,8 +454,11 @@ fn apply_supply_collateral(
     }
     pool.cache_reserve(reserve);
     b_tokens_minted
-}
+});
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::apply_withdraw_collateral,
 /// Apply a "withdraw_collateral" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -425,8 +481,11 @@ fn apply_withdraw_collateral(
     actions.do_check_health();
     pool.cache_reserve(reserve);
     (tokens_out, to_burn)
-}
+});
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::apply_borrow,
 /// Apply a "borrow" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -449,7 +508,7 @@ fn apply_borrow(
     actions.do_check_health();
     pool.cache_reserve(reserve);
     d_tokens_minted
-}
+});
 
 /// Split a repayment request into (tokens_in, d_tokens_burnt, refund, capped).
 ///
@@ -478,6 +537,9 @@ fn plan_repay(
     }
 }
 
+#[rustfmt::skip]
+apply_summary!(
+summaries::apply_repay,
 /// Apply a "repay" request to the pool
 ///
 /// Appends any necessary actions to the actions list, updates the user and pool's state
@@ -507,7 +569,7 @@ fn apply_repay(
         pool.cache_reserve(reserve);
         (repayment_amount, d_tokens_burnt)
     }
-}
+});
 
 #[cfg(test)]
 mod tests {

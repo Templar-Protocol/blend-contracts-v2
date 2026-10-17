@@ -1,4 +1,4 @@
-mod actions;
+pub(crate) mod actions;
 pub use actions::{FlashLoan, Request, RequestType};
 
 mod bad_debt;
@@ -15,7 +15,7 @@ pub use health_factor::PositionData;
 
 mod interest;
 
-mod submit;
+pub(crate) mod submit;
 
 pub use submit::{execute_submit, execute_submit_with_flash_loan};
 

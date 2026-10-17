@@ -1,0 +1,22 @@
+export RUSTFLAGS := "-C strip=none" 
+
+root := "../"
+target := "../target"
+
+build-deps:
+    cd {{root}} && cargo build -p blend-contract-sdk
+    cd {{root}} && cargo rustc --manifest-path=pool-factory/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release --features certora
+    cd {{root}} && cargo rustc --manifest-path=backstop/Cargo.toml --crate-type=cdylib --target=wasm32-unknown-unknown --release --features certora
+
+build: build-deps
+    cargo rustc --crate-type=cdylib --target=wasm32-unknown-unknown --release --features certora
+
+rebuild:
+    cargo rustc --crate-type=cdylib --target=wasm32-unknown-unknown --release --features certora
+
+build-llvm:
+    env RUSTFLAGS="--emit=llvm-ir" cargo rustc --target=wasm32-unknown-unknown --release
+    @echo "See target/wasm32-unknown-unknown/release/deps/pool.wasm.ll"
+
+clean:
+    rm -rf {{target}}

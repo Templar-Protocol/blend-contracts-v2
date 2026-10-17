@@ -1,0 +1,9 @@
+{
+	"rules": {
+		"build_actions_from_request": "UNKNOWN",
+		"handle_transfer_with_allowance_summary_ok": "SUCCESS",
+		"handle_transfers_summary_ok": "SUCCESS",
+		"user_health_execute_submit": "SUCCESS",
+		"user_health_execute_submit_with_flash_loan": "TIMEOUT"
+	}
+}

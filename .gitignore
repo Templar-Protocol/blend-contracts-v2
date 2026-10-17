@@ -14,3 +14,7 @@ local.*
 .devenv*
 devenv.local.nix
 .direnv
+# Certora CLI per-run artifacts: source snapshots, logs, metadata.
+.certora_internal/
+.certora_sources/
+.last_confs/

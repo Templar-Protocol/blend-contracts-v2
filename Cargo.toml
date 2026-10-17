@@ -47,3 +47,23 @@ version = "1.22.0"
 [workspace.dependencies.moderc3156]
 git = "https://github.com/xycloo/xycloans"
 rev = "d9a7ae1"
+
+[workspace.dependencies.cvlr]
+git = "https://github.com/Certora/cvlr.git"
+# Pinned to the revisions behind the June 2025 Certora FV report. Later cvlr
+# requires soroban-sdk 26, which this workspace does not use.
+rev = "919957b622d8ebb5e2e0430a6df9ea1e470f00d7"
+default-features = false
+
+[workspace.dependencies.cvlr-soroban]
+git = "https://github.com/Certora/cvlr-soroban.git"
+rev = "69a49e15c496b695cd15a01bb06d811294d0f954"
+
+[workspace.dependencies.cvlr-soroban-macros]
+git = "https://github.com/Certora/cvlr-soroban.git"
+rev = "69a49e15c496b695cd15a01bb06d811294d0f954"
+
+[workspace.dependencies.cvlr-soroban-derive]
+git = "https://github.com/Certora/cvlr-soroban.git"
+rev = "69a49e15c496b695cd15a01bb06d811294d0f954"
+
