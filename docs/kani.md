@@ -2,6 +2,42 @@
 
 This PR keeps the code that is reviewed and merged: production arithmetic seams and their `#[cfg(kani)]` proofs. Campaign inventories, runners, receipts, and generated closure data are published as release evidence instead of living in the merge diff.
 
+## Toolchain
+
+**Kani 0.67.0 is required.** Not a preference — the suite does not build under
+0.68.0.
+
+| | ethnum 1.5.0 | ethnum 1.5.3 |
+|---|---|---|
+| Kani 0.67.0 | **builds** | — |
+| Kani 0.68.0 | `E0512` in `ethnum` | builds |
+| Production on Rust 1.81 | builds | `from_str_radix` not const-stable |
+
+`ethnum` reaches the build through `soroban-env-common` →
+`soroban-sdk-macros`. Kani 0.68.0 bundles a newer rustc that rejects
+`ethnum` 1.5.0's `mem::transmute(())` with `E0512`, so every harness fails
+before compiling. Bumping to `ethnum` 1.5.3 fixes that but needs a const
+`from_str_radix`, which is not stable on the `rust-toolchain.toml` pin of
+1.81, so it breaks the production build instead. There is no version of
+`ethnum` that satisfies both, and `devenv.nix` already records the same
+`E0512` problem for building `stellar-cli`.
+
+Pinning Kani to 0.67.0 resolves it without touching the lockfile or the
+production toolchain, and it is the version the published campaign ran under
+(`integrated-execution-receipt.json`: "kissat (Kani 0.67.0)").
+
+```sh
+# Run from OUTSIDE this repository, or with a newer cargo: kani-verifier
+# requires edition2024, which the repo's pinned cargo 1.81 cannot parse.
+cd /tmp && cargo install --locked kani-verifier --version 0.67.0 --force
+cargo-kani setup   # only if ~/.kani/kani-0.67.0 is absent
+
+cargo kani --version   # expect cargo-kani 0.67.0
+```
+
+Verified on this tree: `cargo kani -p pool --lib` compiles the crate,
+`ethnum` included, in about 28 seconds.
+
 ## Tracked proof surface
 
 - Runtime code remains in the ordinary `pool/src` and `backstop/src` modules.
@@ -90,9 +126,115 @@ Publishing atomically creates the `kani-run-*` tag at the full commit SHA before
 
 This is a custody/integrity tool for a trusted operator with `gh` publication authority, not a cryptographic execution attestation. Run it with exclusive authority over `kani-run-*` tags, or protect that tag pattern against force updates; a concurrent writer can otherwise move any ordinary Git ref. Use an external signed attestation if proof authenticity must survive a malicious publishing operator.
 
+## Property-mapped reruns on this checkout
+
+Kani 0.67.0, `--solver kissat`, against this tree rather than the published
+campaign commit. These harnesses discharge the arithmetic obligations behind the
+audit property list; they are a scoped subset, not the full inventory.
+
+Select harnesses with `--exact` and the fully qualified name
+(`pool::reserve::verification::<harness>`). A bare `--harness <name>` is a
+substring filter: `astra_grow_debt_nonnegative_delta` alone matches 257
+harnesses — itself plus the 256 `proof_case!` fixed-supply cases
+`_supply_000` through `_supply_255` — so a run reports many verdicts and the
+first one does not necessarily belong to the named harness. Prefer
+`-Z unstable-options --harness-timeout <n>s` over an external `timeout`, which
+yields a signal rather than a verdict; on 0.67.0 the flag is unstable and
+exits 2 without the `-Z`.
+
+One harness, by fully qualified name:
+
+```sh
+cargo kani -p pool --lib \
+  --exact --harness pool::reserve::verification::astra_grow_debt_nonnegative_delta \
+  --solver kissat \
+  -Z unstable-options --harness-timeout 1800s
+```
+
+The module segment follows the harness's production parent, so
+`prove_supply_cap_strictness` is `pool::actions::verification::…`. To recover
+the exact selector for any harness, `cargo kani -p pool --lib list --format json`
+writes every fully qualified name to `kani-list.json` (gitignored); `--format
+pretty` is the default and prints instead.
+
+Read the verdict from the run rather than the exit status, and expect one
+`VERIFICATION:-` line per matched harness:
+
+```sh
+grep -cE 'VERIFICATION:-' run.log          # 1 confirms the filter matched once
+grep -oE 'VERIFICATION:- [A-Z]+' run.log
+grep -F 'CBMC timed out' run.log           # a FAILED that is only a budget
+```
+
+A budget exhausted under `--harness-timeout` is reported as
+`VERIFICATION:- FAILED` with `CBMC timed out` beneath it, and exits 1 exactly
+as a refuted property does. Neither the verdict line nor the exit status
+distinguishes the two, so check for that message before reporting a failure as
+a counterexample.
+
+### Liquidation and bad debt
+
+Run after the `cfg(kani)` surface was repaired; these were unrunnable while
+`pool/src/proofs` failed to compile.
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_auction_timing_modifiers` | SUCCESSFUL | 0.35 |
+| `prove_auction_quote_partition` | SUCCESSFUL | 5.16 |
+| `prove_auction_discount_bounds` | SUCCESSFUL | 2.77 |
+| `prove_orphan_collateral_decision` | SUCCESSFUL | 0.03 |
+| `prove_setoff_guarded_parametric` | SUCCESSFUL | 1.13 |
+| `prove_setoff_guarded_witnesses` | SUCCESSFUL | 0.50 |
+| `prove_setoff_exact_policy_split_and_conditions` | SUCCESSFUL | 2322.10 |
+
+The last one needs a budget above 1800 s. At 1800 s it reports
+`VERIFICATION:- FAILED` with `CBMC timed out`, which is a resource limit and
+not a refutation; given 7200 s it verifies in 2322 s.
+
+### Arithmetic kernels
+
+| Property | Harness | Verdict | Time (s) |
+| --- | --- | --- | --- |
+| No-free-money | `prove_b_token_forward_floor` | SUCCESSFUL | 2.18 |
+| No-free-money | `prove_d_token_forward_ceil` | SUCCESSFUL | 6.14 |
+| No-free-money | `prove_b_token_inverse_rounding` | SUCCESSFUL | 261.00 |
+| No-free-money | `prove_d_token_inverse_rounding` | SUCCESSFUL | 247.58 |
+| No-free-money | `prove_b_round_trip_down_conservative` | SUCCESSFUL | 42.07 |
+| No-free-money | `prove_b_round_trip_up_conservative` | SUCCESSFUL | 59.01 |
+| No-free-money | `prove_d_round_trip_down_conservative` | SUCCESSFUL | 6.23 |
+| No-free-money | `prove_d_round_trip_up_conservative` | SUCCESSFUL | 44.50 |
+| Supply cap | `prove_supply_cap_strictness` | SUCCESSFUL | 0.06 |
+| Utilization | `prove_utilization_and_action_predicates` | SUCCESSFUL | 0.18 |
+| Utilization | `prove_utilization_range_and_branches` | SUCCESSFUL | 768.12 |
+| Accrual safety | `astra_grow_debt_rate_monotonic` | SUCCESSFUL | 14.44 |
+| Accrual safety | `astra_grow_debt_nonnegative_delta` | SUCCESSFUL | 76.34 |
+| Accrual safety | `prove_accrue_split_and_zero_take_rate` | SUCCESSFUL | 747.55 |
+| Accrual safety | `astra_grow_debt_exact_delta_composed` | SUCCESSFUL | 529.08 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_000` | SUCCESSFUL | 0.95 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_001` | SUCCESSFUL | 1.88 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_255` | SUCCESSFUL | 211.03 |
+| Accrual safety | `astra_grow_debt_exact_delta` | TIMEOUT | >3500 |
+| Accrual safety | `prove_grow_debt_nonnegative_interest` | TIMEOUT | >3500 |
+
+Three results need reading together. `prove_grow_debt_nonnegative_interest`
+conjoins rate monotonicity, the exact accrued-interest delta, and delta
+nonnegativity, and times out. Monotonicity and nonnegativity each verify
+standalone. The exact delta verifies over symbolic supply against the
+instrumented `AstraDebtDeltaMath` seam, and against the production `()` seam
+only at supplies 0, 1 and 255; fully symbolic over `()` it times out past
+3500 s. Cost grows steeply with supply magnitude (0.95 s, 1.9 s, 211 s), so the
+symbolic case is intractable here rather than merely slow. Exact-delta
+accounting over the whole symbolic domain on the production seam is therefore
+not established; the accrual safety properties are.
+
+`prove_utilization_range_and_branches` establishes `0 <= util <= SCALAR_7` plus
+the zero-liability, cap and interior branch equalities. The same property is
+configured as `utilization_in_range` in the Certora Sunbeam suite, where it
+times out; Kani discharges it at the kernel level.
+
 ## Claim boundary
 
-The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the scoped moved-module Kani reruns recorded on PR #4.
+The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the property-mapped reruns recorded above.
 
 - Do not weaken a proof obligation, expected cover count, or production behavior to obtain a green verdict.
 - Do not substitute a different contract, tolerance, or historical waiver.
