@@ -121,6 +121,10 @@ rule and the `from_state.store(e)` are byte-identical to the auditor's, so the
 report's Verified status has the same limitation. See
 `verification/certora/README.md` for what closing it requires.
 
+The two `build_actions_from_request_sanity_*` rules would not detect this even
+if submitted: they call the `apply_summary!` wrapper, not the original builder
+that the macro nests as `build_actions_from_request::build_actions_from_request`.
+
 ### The two unresolved health rules
 
 `user_health_execute_submit_with_flash_loan` and `build_actions_from_request`

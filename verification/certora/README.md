@@ -230,9 +230,16 @@ soundness rules; `build_actions_from_request`'s is UNKNOWN. This fork's ADR
 `build_actions_from_request_sanity_1`, `build_actions_from_request_sanity_2`,
 `user_health_sanity`, `user_health_flash_loan_sanity`, and
 `target_util_should_be_less_than_0_9500000`. The first four are the explicit
-vacuity checks, so **vacuity is unconfirmed**. Every conf sets
-`rule_sanity: "basic"`, but those sub-results render only in the web report's
-tree view, which is not captured here.
+vacuity checks, so **vacuity is unconfirmed**. Submitting the two
+`build_actions_from_request_sanity_*` rules as written would not close it:
+both call `pool::actions::build_actions_from_request`, which under `certora`
+is the `apply_summary!` wrapper dispatching to the nondeterministic summary,
+so they would witness the summary rather than the builder. The original is
+nested by the macro as `build_actions_from_request::build_actions_from_request`.
+Both rules, and the stale TODO comment admitting this, are inherited verbatim
+from the auditor's branch. Every conf sets `rule_sanity: "basic"`, but those
+sub-results render only in the web report's tree view, which is not captured
+here.
 
 **Not addressed at all:** solvency, health-factor monotonicity, interest
 accrual safety, liquidation correctness, oracle circuit breaker, borrow caps,
