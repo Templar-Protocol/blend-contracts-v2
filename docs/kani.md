@@ -191,12 +191,6 @@ The last one needs a budget above 1800 s. At 1800 s it reports
 `VERIFICATION:- FAILED` with `CBMC timed out`, which is a resource limit and
 not a refutation; given 7200 s it verifies in 2322 s.
 
-**Scope.** These cover the arithmetic and decision logic of liquidation —
-auction timing, the quote partition, discount bounds, the orphan-collateral
-decision and the set-off policy split with both guards. They are kernel
-proofs over the functions named, not an end-to-end statement that a
-liquidation leaves the pool in a correct state.
-
 ### Arithmetic kernels
 
 | Property | Harness | Verdict | Time (s) |
