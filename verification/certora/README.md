@@ -208,6 +208,30 @@ byte-identical, so the June 2025 Verified status carries the same limitation.
 Closing it needs the summary to bind `new_state` to the submitting address and
 apply the modeled positions to `from_state`, then a `health.conf` rerun.
 
+**Four more inherited rules are weaker than their names suggest.** Each is
+byte-identical to the auditor's, so the June 2025 report carries these too:
+
+- `positions_hf_under` returns an unconstrained bool. Its result does not
+  depend on the positions, pool or health factor it is handed, so a rule that
+  reaches it treats an arbitrary value as a passed health check and can accept
+  positions the concrete helper would reject with `InvalidHf` or
+  `MinCollateralNotMet`.
+- `add_liabilities_increases_liabilities` asserts the position grew by *at
+  least* `amount`. Production adds exactly `amount`, so over-crediting the
+  position while incrementing `d_supply` correctly would still pass.
+- `verify_update_status_2` asserts
+  `q4w_pct < 0_7500000 || status_after == 5`, which holds on every path where
+  `q4w_pct` is below the threshold whatever the status becomes. The status-0
+  and other-status rules each have a complementary `_b`/`_c` rule; status 2
+  has none.
+- `target_util_should_be_less_than_0_9500000` is a counter-example demo
+  rather than a property. It assumes `config.util > 0_9500000` and asserts the
+  middle interest branch is taken, which those assumptions make impossible.
+  The hazard its comment describes is already prevented in production:
+  `require_valid_reserve_metadata` panics on `util > 0_9000000` on both the
+  queue and execute paths, so the premise is unreachable for any validated
+  config. It is one of the five rules never submitted.
+
 **Pool only.** No backstop, pool-factory or emitter rules exist. The backstop
 was Code4rena contest scope and is excluded from the June 2025 report; the
 auditor's repository contains no backstop specs.
