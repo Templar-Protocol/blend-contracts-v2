@@ -363,6 +363,15 @@ model the real `PriceFeedClient` and say nothing about an oracle returning
 inconsistent values across calls within one transaction. Nothing here bounds
 price *accuracy*; the breaker is a freshness and sign check.
 
+Each rule drives a `Pool` whose price cache is empty, so `load_price` must
+consult the feed. The cached path is therefore unexercised: within one
+transaction the breaker runs once per asset, and these rules cover that first
+read only. `spec/oracle.rs` also repeats the staleness window as
+`MAX_PRICE_AGE` with no compile-time link to the `86_400` literal in
+`load_price`. Widening the production window would break
+`price_accepted_implies_quote_acceptable`, but narrowing it would leave every
+rule passing against the stale bound.
+
 ### Utilization caps — 9/10
 
 Job `cb6dca8e771147bea1a81b627f2a378b`, `confs/utilization.conf`, 2026-10-10.
