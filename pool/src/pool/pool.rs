@@ -1,5 +1,6 @@
 use soroban_sdk::{map, panic_with_error, vec, Address, Env, Map, Vec};
 
+#[cfg(not(feature = "certora"))]
 use sep_40_oracle::{Asset, PriceFeedClient};
 
 use crate::{
