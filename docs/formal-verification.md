@@ -435,10 +435,38 @@ cap. Three attempts produced **no verdicts at all**:
 | `fe0bc232…` | 2 rules, seeded bounded storage | HALTED, no output |
 
 Seeding a bounded `ReserveConfig` and `ReserveData` into storage and
-splitting the rules one handler per job did not help. The remaining
-unconstrained input is `User`, whose position maps are fully symbolic, and
-the handlers run the whole `load_reserve` → `to_b_token_down` →
-`add_supply`/`add_collateral` → `total_supply` chain under `loop_iter: 2`.
+splitting the rules one handler per job did not help, and the seeding is
+weaker than it looks:
+
+- `seed_bounded_reserve` pins `data.last_time = 0`, which defeats the
+  `timestamp == last_time` short circuit in `Reserve::load`. Every query
+  therefore carries the full accrual path — `utilization`, `calc_accrual`,
+  `grow_debt`, `accrue` — on top of the four nonlinear terms the cap property
+  needs.
+- That path reads fields the seeding never bounds: `data.ir_mod`,
+  `config.util`, `r_base`, `r_one`, `r_two`, `r_three`, `reactivity` and
+  `pool_config.bstop_rate` are all left symbolic, so none of the overflow
+  branches can be pruned. `grow_debt` then writes `d_rate` back unbounded,
+  discarding the `d_rate <= MAX_RATE` premise before the assertion runs.
+- `config.decimals <= 18` leaves a symbolic exponent in
+  `10i128.pow(decimals)`, the one real loop in the call graph. That is why
+  both confs need `loop_iter: 2`, and with `optimistic_loop: true` the rules
+  as configured reach only the smallest few decimal values anyway.
+- `User` stays fully symbolic, though `config.index = 0` means only index 0
+  is ever read.
+
+A further attempt should bound the rate-model fields to the ranges
+`require_valid_reserve_metadata` already enforces and pin `config.decimals`,
+rather than raise the budget again.
+
+Independently of the HALT, `supply_cap_enforced_on_supply_collateral` would
+not have covered the whole handler even given a verdict. `cap_rules.rs` never
+calls `havoc_feed`, so `GHOST_HAS_PRICE` keeps its `false` initializer,
+`lastprice_summary` returns `None`, and the `load_price` call that
+`apply_supply_collateral` makes when a borrower opens a new collateral
+position always panics. That is the L-02 branch, so the prover prunes it for
+free and the rule silently covers only the top-up path. Covering it needs
+`havoc_feed()` in that rule's setup, with the solver cost back.
 
 The rules and confs are kept so the attempt is reproducible, but **the supply
 cap is not verified**. `supply_within_cap` itself is a single comparison;
