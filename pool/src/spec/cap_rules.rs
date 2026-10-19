@@ -95,8 +95,6 @@ fn seed_bounded_reserve(e: &Env, asset: &Address) {
     storage::set_res_data(e, asset, &data);
 }
 
-// ---------------------------------------------------------------- supply cap
-
 /// `apply_supply` cannot leave a reserve's total supply above its cap.
 #[rule]
 pub fn supply_cap_enforced_on_supply(e: Env) {
@@ -142,8 +140,6 @@ pub fn supply_cap_enforced_on_supply_collateral(e: Env) {
     cvlr_assert!(reserve.total_supply(&e) <= reserve.config.supply_cap);
 }
 
-// --------------------------------------------------------- utilization range
-
 /// Utilization is always a proportion: between zero and `SCALAR_7` inclusive,
 /// for any reserve state.
 #[rule]
@@ -155,8 +151,6 @@ pub fn utilization_in_range(e: Env) {
     cvlr_assert!(utilization >= 0);
     cvlr_assert!(utilization <= SCALAR_7);
 }
-
-// ----------------------------------------------------- utilization below max
 
 /// A reserve over its maximum utilization is always rejected.
 #[rule]
@@ -179,8 +173,6 @@ pub fn utilization_below_max_accepted_implies_within(e: Env) {
     cvlr_assert!(reserve.utilization(&e) <= i128::from(reserve.config.max_util));
 }
 
-// ----------------------------------------------------- utilization below 100
-
 /// A reserve at or above full utilization is always rejected.
 #[rule]
 pub fn utilization_at_100_panics(e: Env) {
@@ -202,8 +194,6 @@ pub fn utilization_below_100_accepted_implies_below(e: Env) {
     cvlr_assert!(reserve.utilization(&e) < SCALAR_7);
 }
 
-// ---------------------------------------------------------- vacuity checks
-//
 // Every `*_panics` rule asserts `false`, so it passes whenever its
 // assumptions are unsatisfiable. Every `*_implies_*` rule passes whenever the
 // call under it panics on all paths. These confirm neither is the case.
