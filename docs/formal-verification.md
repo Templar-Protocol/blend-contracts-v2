@@ -43,6 +43,10 @@ cd pool                                        # confs resolve relative to here
 certoraSorobanProver confs/user_rules.conf
 certoraSorobanProver confs/pool_status1.conf   # ... through pool_status4.conf
 certoraSorobanProver confs/health.conf
+certoraSorobanProver confs/oracle.conf
+certoraSorobanProver confs/utilization.conf
+certoraSorobanProver confs/supply_cap.conf     # HALTED, kept to reproduce
+certoraSorobanProver confs/supply_cap_collateral.conf   # HALTED, kept to reproduce
 ```
 
 Each conf invokes `pool/certora_build.py`, which runs `just build` (building
@@ -291,8 +295,11 @@ What these rules do **not** establish:
   `handle_transfers`, and `handle_transfer_with_allowance` have soundness
   rules. Our ADR 0011 bad-debt and trap changes touch the summarized auction
   region.
-- **Loops unrolled at most twice**, with `optimistic_loop: true`. Nothing is
-  established for more than two reserves or requests in a single call.
+- **Loops barely unrolled**, with `optimistic_loop: true`. `loop_iter: 2` is
+  set only in `health.conf`, `health_unresolved.conf` and the two supply-cap
+  confs; everything else runs at the default 1. Nothing is established for
+  more than two reserves or requests in a single call, or more than one
+  wherever `loop_iter` is unset.
 - Authorization, the Soroban host and wasm runtime, ledger atomicity, and
   deployment behaviour are all out of scope.
 
@@ -306,4 +313,170 @@ no rules yet:
   and `execute_set_reserve`, including the status-6 versus live-pool timelock split.
 - `execute_set_pool_status(4)` taking an early return that bypasses the
   backstop read, and the hoisted status-4 guard in `execute_update_pool_status`.
+  Note that `execute_set_pool_status` also reads the oracle directly
+  (`status.rs`, the `decimals() != 7` guard on leaving setup) and that call has
+  no `certora` seam, so a rule for it needs one added first.
 - The ADR 0011 bad-debt set-off and backstop trap paths.
+
+## Rules beyond the auditor's set
+
+These are ours, not inherited. They carry no auditor provenance and stand on
+their own; each is paired with vacuity checks, because the inherited set left
+vacuity unconfirmed.
+
+### Oracle circuit breaker — 13/13 SUCCESS
+
+Job `816e5763b27f42b583bdc4578915ee18`, `confs/oracle.conf`, 2026-10-10,
+`prover_version: master`. Evidence in
+[`verification/certora/oracle-816e5763.json`](../verification/certora/oracle-816e5763.json).
+
+`Pool::load_price` must reject a quote that is absent, non-positive,
+future-dated or older than 86400 seconds, and `load_price_decimals` must
+reject a feed whose decimals are not 7.
+
+```
+SUCCESS  price_accepted_implies_quote_acceptable
+SUCCESS  missing_price_panics
+SUCCESS  non_positive_price_panics
+SUCCESS  future_dated_price_panics
+SUCCESS  stale_price_panics
+SUCCESS  wrong_decimals_panics
+```
+
+`price_accepted_implies_quote_acceptable` states the breaker as a
+postcondition: if `load_price` returns, the quote it used was present,
+positive, not future-dated and inside the window, and the value returned is
+the one the feed reported. The five `*_panics` rules take each rejection case
+and assert the code after the call is unreachable, the shape
+`verify_update_status_6` uses.
+
+All seven accompanying vacuity rules also passed, which is what makes the
+above meaningful: every `*_panics` rule asserts `false` and so would pass
+vacuously if its assumptions were unsatisfiable.
+
+```
+SUCCESS  sanity_acceptable_quote_reachable
+SUCCESS  sanity_missing_price_reachable
+SUCCESS  sanity_non_positive_price_reachable
+SUCCESS  sanity_future_dated_reachable
+SUCCESS  sanity_stale_price_reachable
+SUCCESS  sanity_wrong_decimals_reachable
+SUCCESS  sanity_price_load_can_succeed
+```
+
+**Scope.** The feed is modelled at the call site through ghost state, so these
+rules establish the guard is correct given what the feed reports. They do not
+model the real `PriceFeedClient` and say nothing about an oracle returning
+inconsistent values across calls within one transaction. Nothing here bounds
+price *accuracy*; the breaker is a freshness and sign check.
+
+Each rule drives a `Pool` whose price cache is empty, so `load_price` must
+consult the feed. The cached path is therefore unexercised: within one
+transaction the breaker runs once per asset, and these rules cover that first
+read only. `spec/oracle.rs` also repeats the staleness window as
+`MAX_PRICE_AGE` with no compile-time link to the `86_400` literal in
+`load_price`. Widening the production window would break
+`price_accepted_implies_quote_acceptable`, but narrowing it would leave every
+rule passing against the stale bound.
+
+### Utilization caps — 9/10
+
+Job `cb6dca8e771147bea1a81b627f2a378b`, `confs/utilization.conf`, 2026-10-10.
+Evidence in
+[`verification/certora/utilization-cb6dca8e.json`](../verification/certora/utilization-cb6dca8e.json).
+
+```
+SUCCESS  utilization_above_max_panics
+SUCCESS  utilization_below_max_accepted_implies_within
+SUCCESS  utilization_at_100_panics
+SUCCESS  utilization_below_100_accepted_implies_below
+TIMEOUT  utilization_in_range
+```
+
+All five accompanying vacuity rules passed.
+
+**Both guards reject every over-threshold reserve in the `bounded_reserve`
+domain.** For `require_utilization_below_max`: utilization above `max_util`
+always panics, and surviving the guard implies being at or below it. For
+`require_utilization_below_100`: utilization at or above `SCALAR_7` always
+panics, and surviving implies being strictly below.
+
+Each pair is one implication and its contrapositive, not a characterisation.
+Nothing here establishes that a compliant reserve is *accepted* — only that a
+surviving one is compliant. The `sanity_*_reachable` rules add a single
+witness that some below-threshold path survives, which is reachability, not
+universal acceptance. What does follow is that any path passing the 100% check
+with a reserve in that domain has utilization strictly below `SCALAR_7`.
+
+`utilization_in_range` — the claim that utilization lies in `[0, SCALAR_7]`
+for every reserve in the `bounded_reserve` domain, guarded or not — timed
+out. Kani establishes the same range over a smaller domain
+(`prove_utilization_range_and_branches`, supplies to 255); neither covers
+production-scale supplies at post-default rates. The guards only require
+reasoning about a comparison against utilization, whereas this requires
+bounding the quotient itself, proving
+`ceil(liabilities * SCALAR_7 / supply) <= SCALAR_7` on the dividing branch.
+It is **not** established, and the guard results above do not imply it for
+unguarded states.
+
+These rules hold over `bounded_reserve`; see the domain note in
+`spec/cap_rules.rs`. A first attempt without those bounds crashed the prover
+outright (job `ed0b99fc`, FAILED, no output). Production can leave that
+domain: `default_b_rate` reduces `b_rate` by a rounded loss and clamps at
+zero, so a reserve that has absorbed a default can hold
+`b_rate < SCALAR_12` and is covered by no rule here.
+
+### Supply cap — not established at contract level
+
+`supply_cap_enforced_on_supply` and
+`supply_cap_enforced_on_supply_collateral` assert that `apply_supply` and
+`apply_supply_collateral` cannot leave a reserve's total supply above its
+cap. Three attempts produced **no verdicts at all**:
+
+| Job | Setup | Result |
+|---|---|---|
+| `2a1e1f22…` | 4 rules, one job, unbounded storage | HALTED, no output |
+| `912e07ce…` | 2 rules, seeded bounded storage | HALTED, no output |
+| `fe0bc232…` | 2 rules, seeded bounded storage | HALTED, no output |
+
+Seeding a bounded `ReserveConfig` and `ReserveData` into storage and
+splitting the rules one handler per job did not help, and the seeding is
+weaker than it looks:
+
+- `seed_bounded_reserve` pins `data.last_time = 0`, which defeats the
+  `timestamp == last_time` short circuit in `Reserve::load`. Every query
+  therefore carries the full accrual path — `utilization`, `calc_accrual`,
+  `grow_debt`, `accrue` — on top of the four nonlinear terms the cap property
+  needs.
+- That path reads fields the seeding never bounds: `data.ir_mod`,
+  `config.util`, `r_base`, `r_one`, `r_two`, `r_three`, `reactivity` and
+  `pool_config.bstop_rate` are all left symbolic, so none of the overflow
+  branches can be pruned. `grow_debt` then writes `d_rate` back unbounded,
+  discarding the `d_rate <= MAX_RATE` premise before the assertion runs.
+- `config.decimals <= 18` leaves a symbolic exponent in
+  `10i128.pow(decimals)`, the one real loop in the call graph. That is why
+  both confs need `loop_iter: 2`, and with `optimistic_loop: true` the rules
+  as configured reach only the smallest few decimal values anyway.
+- `User` stays fully symbolic, though `config.index = 0` means only index 0
+  is ever read.
+
+A further attempt should bound the rate-model fields to the ranges
+`require_valid_reserve_metadata` already enforces and pin `config.decimals`,
+rather than raise the budget again.
+
+Independently of the HALT, `supply_cap_enforced_on_supply_collateral` would
+not have covered the whole handler even given a verdict. `cap_rules.rs` never
+calls `havoc_feed`, so `GHOST_HAS_PRICE` keeps its `false` initializer,
+`lastprice_summary` returns `None`, and the `load_price` call that
+`apply_supply_collateral` makes when a borrower opens a new collateral
+position always panics. That is the L-02 branch, so the prover prunes it for
+free and the rule silently covers only the top-up path. Covering it needs
+`havoc_feed()` in that rule's setup, with the solver cost back.
+
+The rules and confs are kept so the attempt is reproducible, but **the supply
+cap is not verified**. `supply_within_cap` itself is a single comparison;
+what defeats the prover is the handler call graph around it. The property is
+therefore better pursued with Kani over `supply_within_cap` and the
+conversion arithmetic feeding it, on an explicitly bounded domain and without
+a whole-handler call graph. That is carried into the Kani work rather than
+pursued further here.

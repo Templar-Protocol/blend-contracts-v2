@@ -137,11 +137,13 @@ UNKNOWN  user_health_execute_submit_with_flash_loan
 UNKNOWN  build_actions_from_request
 ```
 
-The two transfer rules are summary-soundness checks: they establish that the
-ported summaries over-approximate this fork's behaviour, which is what makes
-the drift reconciliation (`Actions` gaining `check_max_util`, the realigned
-ADR 0011 event no-ops, `ReserveConfig.supply_cap`) trustworthy rather than
-assumed.
+The two transfer rules are summary-soundness checks for the transfer
+summaries alone: they establish that `handle_transfers` and
+`handle_transfer_with_allowance` leave position entries unchanged. They say
+nothing about the other summaries, so the rest of the drift reconciliation
+(`Actions` gaining `check_max_util`, the realigned ADR 0011 event no-ops,
+`ReserveConfig.supply_cap`) stays assumed rather than established.
+[Limits](#limits) lists which summaries are unproven.
 
 ## The two UNKNOWN rules
 
@@ -206,6 +208,30 @@ byte-identical, so the June 2025 Verified status carries the same limitation.
 Closing it needs the summary to bind `new_state` to the submitting address and
 apply the modeled positions to `from_state`, then a `health.conf` rerun.
 
+**Four more inherited rules are weaker than their names suggest.** Each is
+byte-identical to the auditor's, so the June 2025 report carries these too:
+
+- `positions_hf_under` returns an unconstrained bool. Its result does not
+  depend on the positions, pool or health factor it is handed, so a rule that
+  reaches it treats an arbitrary value as a passed health check and can accept
+  positions the concrete helper would reject with `InvalidHf` or
+  `MinCollateralNotMet`.
+- `add_liabilities_increases_liabilities` asserts the position grew by *at
+  least* `amount`. Production adds exactly `amount`, so over-crediting the
+  position while incrementing `d_supply` correctly would still pass.
+- `verify_update_status_2` asserts
+  `q4w_pct < 0_7500000 || status_after == 5`, which holds on every path where
+  `q4w_pct` is below the threshold whatever the status becomes. The status-0
+  and other-status rules each have a complementary `_b`/`_c` rule; status 2
+  has none.
+- `target_util_should_be_less_than_0_9500000` is a counter-example demo
+  rather than a property. It assumes `config.util > 0_9500000` and asserts the
+  middle interest branch is taken, which those assumptions make impossible.
+  The hazard its comment describes is already prevented in production:
+  `require_valid_reserve_metadata` panics on `util > 0_9000000` on both the
+  queue and execute paths, so the premise is unreachable for any validated
+  config. It is one of the five rules never submitted.
+
 **Pool only.** No backstop, pool-factory or emitter rules exist. The backstop
 was Code4rena contest scope and is excluded from the June 2025 report; the
 auditor's repository contains no backstop specs.
@@ -216,9 +242,14 @@ are summarized to empty bodies and `spec/token.rs` is a mock client whose
 no solvency or value-conservation property is expressible without first adding
 a balance model.
 
-**Loops unrolled at most twice**, with `optimistic_loop: true`, against
-`MAX_RESERVES: 30`. Any property quantified over a portfolio is established
-only for two reserves.
+**Loops barely unrolled**, with `optimistic_loop: true`, against
+`MAX_RESERVES: 30`. Only `health.conf`, `health_unresolved.conf` and the two
+supply-cap confs set `loop_iter: 2`; `user_rules.conf`, `pool_status*.conf`,
+`oracle.conf` and `utilization.conf` leave it at the default 1. Because
+`optimistic_loop` assumes away the paths that would need another iteration
+rather than reporting them, a property quantified over a portfolio is
+established for at most two reserves, and for one wherever `loop_iter` is
+unset.
 
 **Summaries are unproven except where stated.** `events` (no-ops),
 `emissions`, `auction::{fill, delete}` and the `actions` family are modeled.
@@ -241,9 +272,26 @@ from the auditor's branch. Every conf sets `rule_sanity: "basic"`, but those
 sub-results render only in the web report's tree view, which is not captured
 here.
 
-**Not addressed at all:** solvency, health-factor monotonicity, interest
-accrual safety, liquidation correctness, oracle circuit breaker, borrow caps,
-and value conservation. No rule in the harness speaks to any of them.
+**Not addressed by the auditor's rule set:** solvency, health-factor
+monotonicity, interest accrual safety, liquidation correctness, the oracle
+circuit breaker, the supply and utilization caps, and value conservation. No
+rule among the 26 configured here speaks to any of them.
+
+Some are covered elsewhere, each more narrowly than the property name
+suggests. Rules added after the audit establish that `load_price` rejects
+every invalid quote the modelled feed can report — the guard, not the real
+`PriceFeedClient`, cross-call consistency or price accuracy — and the
+rejection behaviour of both utilization guards over a bounded reserve domain;
+see [`docs/formal-verification.md`](../../docs/formal-verification.md), which
+gives the scope limits on each. The Kani suite covers the liquidation
+arithmetic and decision logic rather than end-to-end liquidation correctness,
+plus the conversion-rounding obligations and most of interest accrual; see
+[`docs/kani.md`](../../docs/kani.md). Solvency, health-factor monotonicity
+and value conservation are unaddressed by either suite — the rounding
+obligations constrain which way each conversion rounds, which is a
+prerequisite for value conservation and not the property itself, and as
+stated above no value-conservation property is expressible without a balance
+model.
 
 Authorization, the Soroban host and wasm runtime, ledger atomicity and
 deployment behaviour are all outside the Prover's scope by construction.

@@ -6,11 +6,17 @@
 //! feature so a production build resolves the upstream dependency graph.
 
 #[cfg(feature = "certora")]
+pub(crate) mod cap_rules;
+#[cfg(feature = "certora")]
 pub(crate) mod health_rules;
 #[cfg(feature = "certora")]
 pub(crate) mod interest_rules;
 #[cfg(feature = "certora")]
 pub(crate) mod model;
+#[cfg(feature = "certora")]
+pub(crate) mod oracle;
+#[cfg(feature = "certora")]
+pub(crate) mod oracle_rules;
 #[cfg(feature = "certora")]
 pub(crate) mod pool_status_rules;
 #[cfg(feature = "certora")]
