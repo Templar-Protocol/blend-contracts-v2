@@ -137,11 +137,13 @@ UNKNOWN  user_health_execute_submit_with_flash_loan
 UNKNOWN  build_actions_from_request
 ```
 
-The two transfer rules are summary-soundness checks: they establish that the
-ported summaries over-approximate this fork's behaviour, which is what makes
-the drift reconciliation (`Actions` gaining `check_max_util`, the realigned
-ADR 0011 event no-ops, `ReserveConfig.supply_cap`) trustworthy rather than
-assumed.
+The two transfer rules are summary-soundness checks for the transfer
+summaries alone: they establish that `handle_transfers` and
+`handle_transfer_with_allowance` leave position entries unchanged. They say
+nothing about the other summaries, so the rest of the drift reconciliation
+(`Actions` gaining `check_max_util`, the realigned ADR 0011 event no-ops,
+`ReserveConfig.supply_cap`) stays assumed rather than established.
+[Limits](#limits) lists which summaries are unproven.
 
 ## The two UNKNOWN rules
 
@@ -241,9 +243,18 @@ from the auditor's branch. Every conf sets `rule_sanity: "basic"`, but those
 sub-results render only in the web report's tree view, which is not captured
 here.
 
-**Not addressed at all:** solvency, health-factor monotonicity, interest
-accrual safety, liquidation correctness, oracle circuit breaker, borrow caps,
-and value conservation. No rule in the harness speaks to any of them.
+**Not addressed by the auditor's rule set:** solvency, health-factor
+monotonicity, interest accrual safety, liquidation correctness, the oracle
+circuit breaker, the supply and utilization caps, and value conservation. No
+rule among the 26 configured here speaks to any of them.
+
+Some are covered elsewhere. Rules added after the audit establish the oracle
+circuit breaker and both utilization guards, over a bounded reserve domain;
+see [`docs/formal-verification.md`](../../docs/formal-verification.md). The
+Kani suite covers liquidation, the rounding-direction obligations and most of
+interest accrual; see [`docs/kani.md`](../../docs/kani.md). Solvency and
+health-factor monotonicity are unaddressed by either suite, and value
+conservation only through those rounding-direction obligations.
 
 Authorization, the Soroban host and wasm runtime, ledger atomicity and
 deployment behaviour are all outside the Prover's scope by construction.
