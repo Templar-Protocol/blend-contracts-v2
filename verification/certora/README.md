@@ -242,9 +242,14 @@ are summarized to empty bodies and `spec/token.rs` is a mock client whose
 no solvency or value-conservation property is expressible without first adding
 a balance model.
 
-**Loops unrolled at most twice**, with `optimistic_loop: true`, against
-`MAX_RESERVES: 30`. Any property quantified over a portfolio is established
-only for two reserves.
+**Loops barely unrolled**, with `optimistic_loop: true`, against
+`MAX_RESERVES: 30`. Only `health.conf`, `health_unresolved.conf` and the two
+supply-cap confs set `loop_iter: 2`; `user_rules.conf`, `pool_status*.conf`,
+`oracle.conf` and `utilization.conf` leave it at the default 1. Because
+`optimistic_loop` assumes away the paths that would need another iteration
+rather than reporting them, a property quantified over a portfolio is
+established for at most two reserves, and for one wherever `loop_iter` is
+unset.
 
 **Summaries are unproven except where stated.** `events` (no-ops),
 `emissions`, `auction::{fill, delete}` and the `actions` family are modeled.

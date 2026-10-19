@@ -291,8 +291,11 @@ What these rules do **not** establish:
   `handle_transfers`, and `handle_transfer_with_allowance` have soundness
   rules. Our ADR 0011 bad-debt and trap changes touch the summarized auction
   region.
-- **Loops unrolled at most twice**, with `optimistic_loop: true`. Nothing is
-  established for more than two reserves or requests in a single call.
+- **Loops barely unrolled**, with `optimistic_loop: true`. `loop_iter: 2` is
+  set only in `health.conf`, `health_unresolved.conf` and the two supply-cap
+  confs; everything else runs at the default 1. Nothing is established for
+  more than two reserves or requests in a single call, or more than one
+  wherever `loop_iter` is unset.
 - Authorization, the Soroban host and wasm runtime, ledger atomicity, and
   deployment behaviour are all out of scope.
 
