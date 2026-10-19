@@ -34,8 +34,10 @@
 //!
 //! This is a premise, not a theorem. Outside it the products overflow, and
 //! production — built with `overflow-checks = true` — panics rather than
-//! returning a wrong utilization. What these rules do not cover is whether
-//! the reserve fields can leave this region in the first place.
+//! returning a wrong utilization. Production does leave the region:
+//! `default_b_rate` subtracts a rounded loss from `b_rate` and clamps at
+//! zero, so a reserve that has absorbed a default can hold
+//! `b_rate < SCALAR_12`. No rule here covers those states.
 
 use cvlr::asserts::{cvlr_assert, cvlr_assume, cvlr_satisfy};
 use cvlr_soroban::nondet_address;

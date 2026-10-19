@@ -376,25 +376,28 @@ TIMEOUT  utilization_in_range
 
 All five accompanying vacuity rules passed.
 
-**Both guards are established, in both directions.** For
-`require_utilization_below_max`: utilization above `max_util` always panics,
-and surviving the guard implies being at or below it. For
+**Both guards are established, in both directions, over the `bounded_reserve`
+domain.** For `require_utilization_below_max`: utilization above `max_util`
+always panics, and surviving the guard implies being at or below it. For
 `require_utilization_below_100`: utilization at or above `SCALAR_7` always
 panics, and surviving implies being strictly below. Those two pairs
-completely characterise each guard, so on any path that passes the 100%
-check, utilization is strictly below `SCALAR_7`.
+completely characterise each guard, so on any path that passes the 100% check
+with a reserve in that domain, utilization is strictly below `SCALAR_7`.
 
-`utilization_in_range` — the unconditional claim that utilization lies in
-`[0, SCALAR_7]` for *every* reserve state, guarded or not — timed out. The
-guards only require reasoning about a comparison against utilization,
-whereas this requires bounding the quotient itself, proving
+`utilization_in_range` — the claim that utilization lies in `[0, SCALAR_7]`
+for every reserve in the `bounded_reserve` domain, guarded or not — timed
+out. The guards only require reasoning about a comparison against
+utilization, whereas this requires bounding the quotient itself, proving
 `ceil(liabilities * SCALAR_7 / supply) <= SCALAR_7` on the dividing branch.
 It is **not** established, and the guard results above do not imply it for
 unguarded states.
 
 These rules hold over `bounded_reserve`; see the domain note in
 `spec/cap_rules.rs`. A first attempt without those bounds crashed the prover
-outright (job `ed0b99fc`, FAILED, no output).
+outright (job `ed0b99fc`, FAILED, no output). Production can leave that
+domain: `default_b_rate` reduces `b_rate` by a rounded loss and clamps at
+zero, so a reserve that has absorbed a default can hold
+`b_rate < SCALAR_12` and is covered by no rule here.
 
 ### Supply cap — not established at contract level
 
