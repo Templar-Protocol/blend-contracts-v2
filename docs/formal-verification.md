@@ -313,6 +313,9 @@ no rules yet:
   and `execute_set_reserve`, including the status-6 versus live-pool timelock split.
 - `execute_set_pool_status(4)` taking an early return that bypasses the
   backstop read, and the hoisted status-4 guard in `execute_update_pool_status`.
+  Note that `execute_set_pool_status` also reads the oracle directly
+  (`status.rs`, the `decimals() != 7` guard on leaving setup) and that call has
+  no `certora` seam, so a rule for it needs one added first.
 - The ADR 0011 bad-debt set-off and backstop trap paths.
 
 ## Rules beyond the auditor's set
