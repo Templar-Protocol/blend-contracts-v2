@@ -278,12 +278,16 @@ circuit breaker, the supply and utilization caps, and value conservation. No
 rule among the 26 configured here speaks to any of them.
 
 Some are covered elsewhere. Rules added after the audit establish the oracle
-circuit breaker and both utilization guards, over a bounded reserve domain;
-see [`docs/formal-verification.md`](../../docs/formal-verification.md). The
-Kani suite covers liquidation, the rounding-direction obligations and most of
-interest accrual; see [`docs/kani.md`](../../docs/kani.md). Solvency and
-health-factor monotonicity are unaddressed by either suite, and value
-conservation only through those rounding-direction obligations.
+circuit breaker, and the rejection behaviour of both utilization guards over a
+bounded reserve domain; see
+[`docs/formal-verification.md`](../../docs/formal-verification.md). The
+Kani suite covers liquidation, the conversion-rounding obligations and most of
+interest accrual; see [`docs/kani.md`](../../docs/kani.md). Solvency,
+health-factor monotonicity and value conservation are unaddressed by either
+suite — the rounding obligations constrain which way each conversion rounds,
+which is a prerequisite for value conservation and not the property itself,
+and as stated above no value-conservation property is expressible without a
+balance model.
 
 Authorization, the Soroban host and wasm runtime, ledger atomicity and
 deployment behaviour are all outside the Prover's scope by construction.

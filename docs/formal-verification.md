@@ -395,13 +395,18 @@ TIMEOUT  utilization_in_range
 
 All five accompanying vacuity rules passed.
 
-**Both guards are established, in both directions, over the `bounded_reserve`
+**Both guards reject every over-threshold reserve in the `bounded_reserve`
 domain.** For `require_utilization_below_max`: utilization above `max_util`
 always panics, and surviving the guard implies being at or below it. For
 `require_utilization_below_100`: utilization at or above `SCALAR_7` always
-panics, and surviving implies being strictly below. Those two pairs
-completely characterise each guard, so on any path that passes the 100% check
-with a reserve in that domain, utilization is strictly below `SCALAR_7`.
+panics, and surviving implies being strictly below.
+
+Each pair is one implication and its contrapositive, not a characterisation.
+Nothing here establishes that a compliant reserve is *accepted* — only that a
+surviving one is compliant. The `sanity_*_reachable` rules add a single
+witness that some below-threshold path survives, which is reachability, not
+universal acceptance. What does follow is that any path passing the 100% check
+with a reserve in that domain has utilization strictly below `SCALAR_7`.
 
 `utilization_in_range` — the claim that utilization lies in `[0, SCALAR_7]`
 for every reserve in the `bounded_reserve` domain, guarded or not — timed
