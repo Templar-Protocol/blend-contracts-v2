@@ -43,6 +43,10 @@ cd pool                                        # confs resolve relative to here
 certoraSorobanProver confs/user_rules.conf
 certoraSorobanProver confs/pool_status1.conf   # ... through pool_status4.conf
 certoraSorobanProver confs/health.conf
+certoraSorobanProver confs/oracle.conf
+certoraSorobanProver confs/utilization.conf
+certoraSorobanProver confs/supply_cap.conf     # HALTED, kept to reproduce
+certoraSorobanProver confs/supply_cap_collateral.conf   # HALTED, kept to reproduce
 ```
 
 Each conf invokes `pool/certora_build.py`, which runs `just build` (building
@@ -398,8 +402,11 @@ with a reserve in that domain, utilization is strictly below `SCALAR_7`.
 
 `utilization_in_range` — the claim that utilization lies in `[0, SCALAR_7]`
 for every reserve in the `bounded_reserve` domain, guarded or not — timed
-out. The guards only require reasoning about a comparison against
-utilization, whereas this requires bounding the quotient itself, proving
+out. Kani establishes the same range over a smaller domain
+(`prove_utilization_range_and_branches`, supplies to 255); neither covers
+production-scale supplies at post-default rates. The guards only require
+reasoning about a comparison against utilization, whereas this requires
+bounding the quotient itself, proving
 `ceil(liabilities * SCALAR_7 / supply) <= SCALAR_7` on the dividing branch.
 It is **not** established, and the guard results above do not imply it for
 unguarded states.

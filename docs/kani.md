@@ -230,7 +230,13 @@ not established; the accrual safety properties are.
 `prove_utilization_range_and_branches` establishes `0 <= util <= SCALAR_7` plus
 the zero-liability, cap and interior branch equalities. The same property is
 configured as `utilization_in_range` in the Certora Sunbeam suite, where it
-times out; Kani discharges it at the kernel level.
+times out, so Kani reaches a range claim the prover does not — but over a
+different domain, and neither contains the other. This harness takes `u8`
+supplies (0 to 255) and `hundredths` rates (0 to 2.55x `SCALAR_12`, `b_rate`
+included, which is what reaches the saturation branch). Certora's
+`bounded_reserve` spans supplies to 1e18 and rates `SCALAR_12` to 1e15,
+excluding `b_rate` below `SCALAR_12`. Neither establishes the range for
+production-scale supplies at post-default rates.
 
 ## Claim boundary
 
