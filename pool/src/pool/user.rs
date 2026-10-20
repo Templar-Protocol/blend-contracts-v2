@@ -476,11 +476,11 @@ mod tests {
         (inc, dec, set)
     }
 
-    /// `ReserveData::{mint_supply, burn_supply}` are the only production writers
-    /// of `b_supply`, both `pub(super)`, so rustc confines their callers to
-    /// `pool/src/pool`. This pins the remaining gap: that nothing bypasses them
-    /// with a bare field write, which the `pub` field of a `#[contracttype]`
-    /// still permits.
+    /// `ReserveData::{mint_supply, burn_supply}` are the only production mutators
+    /// of `b_supply` -- `initialize_reserve` also writes it, as a struct-literal
+    /// field this scan does not count. This pins the remaining gap: that nothing
+    /// bypasses them with a bare field write, which the `pub` field of a
+    /// `#[contracttype]` still permits.
     #[test]
     fn test_b_supply_writers_are_enumerated() {
         let src_root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));

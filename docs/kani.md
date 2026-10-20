@@ -152,7 +152,11 @@ cargo kani -p pool --lib \
 ```
 
 The module segment follows the harness's production parent, so
-`prove_supply_cap_strictness` is `pool::actions::verification::…`. To recover
+`prove_supply_cap_strictness` is `pool::actions::verification::…`. The frame
+harnesses are the one exception: `proofs/reserve_frames.rs` is attached from
+`proofs/reserve.rs` so it can reuse `sym_data` and `hundredths`, which puts
+them at `pool::reserve::verification::frames::…`. A selector built from the
+rule above matches nothing for them, silently. To recover
 the exact selector for any harness, `cargo kani -p pool --lib list --format json`
 writes every fully qualified name to `kani-list.json` (gitignored); `--format
 pretty` is the default and prints instead.
@@ -304,7 +308,11 @@ nor the cache write touches `b_supply`.
 `b_supply`: `ReserveData::mint_supply`, the mirror of `burn_supply`. It is
 `pub(super)`, so rustc confines its callers to `pool/src/pool`, and
 `User::add_collateral` and `User::add_supply` are the only two that call it.
-Their own production callers are:
+That bounds the callers of the method, not the writers of the field: under
+`#[contracttype]` `b_supply` stays `pub`, so a bare field write elsewhere in
+`pool/src/pool` would still compile, and it is
+`test_b_supply_writers_are_enumerated` rather than the compiler that pins its
+absence. Their own production callers are:
 
 | Caller | Why the cap is not evaded |
 | --- | --- |
@@ -318,16 +326,31 @@ The last two are position transfers between users, not new supply. They are
 safe only because an equal decrease precedes the increase on the same reserve,
 which `prove_burn_then_add_is_supply_neutral` pins.
 
-**Each mutator moves only the field it names.** Nothing in the suite checked
-that before, so the enumeration above rested on reading each function to the
-end. Four harnesses over a symbolic rate now pin it:
+**Each mutator moves only the field it names.** `impl ReserveData` has exactly
+four `&mut self` methods, so these four harnesses are the whole mutator
+surface rather than a sample. Each runs over a reserve whose every field is
+symbolic, and the field list is recovered by exhaustive destructuring, so a
+new `ReserveData` field fails to compile here instead of dropping silently
+out of all four frames.
+
+The Certora suite already covers part of this at the handler level and more
+strongly: `add_supply_increases_b_supply`,
+`add_collateral_increases_b_supply`, `remove_supply_decreases_b_supply` and
+`remove_collateral_decreases_b_supply` drive the real handlers over a nondet
+`Reserve`, a nondet `User` and a symbolic `Env`, and each asserts the
+`b_supply` delta and that `d_supply` is untouched. What is new here is the
+other five fields, and the frames on `accrue` and `grow_debt`, which neither
+suite covered.
+
+`Reserve::load` writes `ir_mod` and `last_time` itself, outside these four
+methods and behind an `Env`, so it is not framed here.
 
 | Harness | Verdict | Time (s) |
 | --- | --- | --- |
 | `prove_mint_supply_frame` | SUCCESSFUL | 0.14 |
-| `prove_burn_supply_frame` | SUCCESSFUL | 0.15 |
-| `prove_accrue_moves_only_rate_and_credit` | SUCCESSFUL | 0.57 |
-| `prove_grow_debt_moves_only_d_rate` | SUCCESSFUL | 0.81 |
+| `prove_burn_supply_frame` | SUCCESSFUL | 0.16 |
+| `prove_accrue_moves_only_rate_and_credit` | SUCCESSFUL | 0.66 |
+| `prove_grow_debt_moves_only_d_rate` | SUCCESSFUL | 0.50 |
 
 `mint_supply` and `burn_supply` each move `b_supply` by exactly their
 argument. `burn_supply`'s harness leaves `amount` unbounded by `b_supply`

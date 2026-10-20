@@ -299,7 +299,7 @@ pub fn supply_credits_no_more_than_supplied(e: Env) {
     let minted = reserve.to_b_token_down(&e, amount);
     cvlr_assert!(minted >= 0);
 
-    reserve.data.b_supply += minted; // exactly what add_supply does
+    reserve.data.b_supply += minted; // what add_supply reaches via mint_supply
     let total_after = reserve.total_supply(&e);
 
     cvlr_assert!(total_after <= total_before + amount); // no value created
