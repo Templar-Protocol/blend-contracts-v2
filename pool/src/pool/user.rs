@@ -396,7 +396,8 @@ mod tests {
         }
     }
 
-    /// Excises `#[cfg(test)] mod` blocks. Every other shape panics: a field,
+    /// Excises `#[cfg(test)] mod`, inline or out-of-line. Every other shape
+    /// panics: a field,
     /// variant or match arm ends at a comma or the enclosing brace, and
     /// guessing wrong excises production code and hides writes silently.
     fn production(src: &str) -> std::string::String {
@@ -420,8 +421,20 @@ mod tests {
                 "only `#[cfg(test)] mod` is excised; extend production() for {:?}",
                 &src[j..(j + 40).min(src.len())]
             );
+            // `mod x { .. }` and `mod x;` are the only two forms, so both are
+            // handled rather than one guessed
+            let mut out_of_line = None;
             while j < b.len() && b[j] != b'{' {
+                if b[j] == b';' {
+                    out_of_line = Some(j + 1);
+                    break;
+                }
                 j = skip_token(b, j);
+            }
+            if let Some(after) = out_of_line {
+                i = after;
+                copy_from = after;
+                continue;
             }
             assert!(j < b.len(), "unterminated #[cfg(test)] mod");
             let mut depth = 0usize;
@@ -566,6 +579,8 @@ mod tests {
             "#[cfg(test)]\nmod tests { fn t() { let c = '{'; } }\nfn p() { d.b_supply += a; }",
             "#[cfg(test)]\nmod tests { fn t() { let s = r#\"{ \" {\"#; } }\nfn p() { d.b_supply += a; }",
             "#[cfg(test)]\npub mod tests { fn t() {} }\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nmod tests;\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\npub mod tests;\nfn p() { d.b_supply += a; }",
         ];
         for src in fixtures {
             assert_eq!(
