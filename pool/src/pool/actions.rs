@@ -2346,6 +2346,139 @@ mod tests {
         });
     }
 
+    /// Drive the real `apply_supply` at the cap boundary: a supply landing
+    /// exactly on the cap is admitted, one token more is rejected. The Kani
+    /// harnesses prove the conversion arithmetic but transcribe the handler's
+    /// sequence; this is the check that the handler itself decides where they
+    /// say it does.
+    #[test]
+    fn test_apply_supply_admits_exactly_up_to_cap() {
+        let e = Env::default();
+        e.mock_all_auths();
+        let bombadil = Address::generate(&e);
+        let samwise = Address::generate(&e);
+        let pool_id = testutils::create_pool(&e);
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, reserve_data) = testutils::default_reserve_meta();
+        // b_supply is 100_0000000 at b_rate SCALAR_12, so the reserve holds 100.
+        reserve_config.supply_cap = 150_0000000;
+        testutils::create_reserve(&e, &pool_id, &underlying, &reserve_config, &reserve_data);
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+
+        // Exactly to the cap: admitted, and the post-state sits on the cap.
+        e.as_contract(&pool_id, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+            let mut user = User::load(&e, &samwise);
+            let requests = vec![
+                &e,
+                Request {
+                    request_type: RequestType::Supply as u32,
+                    address: underlying.clone(),
+                    amount: 50_0000000,
+                },
+            ];
+            build_actions_from_request(&e, &mut pool, &mut user, requests);
+            let reserve = pool.load_reserve(&e, &underlying, false);
+            assert_eq!(reserve.total_supply(&e), reserve_config.supply_cap);
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1220)")]
+    fn test_apply_supply_rejects_one_over_cap() {
+        let e = Env::default();
+        e.mock_all_auths();
+        let bombadil = Address::generate(&e);
+        let samwise = Address::generate(&e);
+        let pool_id = testutils::create_pool(&e);
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, reserve_data) = testutils::default_reserve_meta();
+        reserve_config.supply_cap = 150_0000000;
+        testutils::create_reserve(&e, &pool_id, &underlying, &reserve_config, &reserve_data);
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+
+        e.as_contract(&pool_id, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+            let mut user = User::load(&e, &samwise);
+            let requests = vec![
+                &e,
+                Request {
+                    request_type: RequestType::Supply as u32,
+                    address: underlying.clone(),
+                    amount: 50_0000001, // one stroop past the cap
+                },
+            ];
+            build_actions_from_request(&e, &mut pool, &mut user, requests);
+        });
+    }
+
+    /// Interest accrual carries a reserve past its supply cap with no cap check
+    /// in the path, so `total_supply <= supply_cap` is not a standing invariant.
+    /// The cap governs supply actions only; see docs/kani.md.
+    #[test]
+    fn test_accrual_carries_total_supply_past_cap() {
+        let e = Env::default();
+        e.mock_all_auths();
+        e.ledger().set(LedgerInfo {
+            timestamp: 0,
+            protocol_version: 22,
+            sequence_number: 123456,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let bombadil = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, reserve_data) = testutils::default_reserve_meta();
+        reserve_config.supply_cap = 100_0000000; // exactly the reserve's current total
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+            let at_cap = pool.load_reserve(&e, &underlying, false);
+            assert_eq!(at_cap.total_supply(&e), reserve_config.supply_cap);
+        });
+
+        // One year of interest on a 75% utilised reserve.
+        e.ledger().set_timestamp(31_536_000);
+
+        e.as_contract(&pool, || {
+            let mut pool = Pool::load(&e);
+            let accrued = pool.load_reserve(&e, &underlying, false);
+            assert!(accrued.total_supply(&e) > reserve_config.supply_cap);
+            assert!(accrued.data.b_rate > reserve_data.b_rate);
+        });
+    }
+
     #[test]
     #[should_panic(expected = "Error(Contract, #1223)")]
     fn test_build_actions_panic_borrow_disabled_asset() {

@@ -274,3 +274,45 @@ pub fn sanity_utilization_strictly_between(e: Env) {
     let _ = nondet_address();
     cvlr_satisfy!(utilization > 0 && utilization < SCALAR_7);
 }
+
+/// Supplying `amount` raises the reserve's accounted supply by at most
+/// `amount`, and never lowers it.
+///
+/// `apply_supply` mints `to_b_token_down(amount)`, adds it to `b_supply`, then
+/// tests `total_supply()` against the cap. Both conversions floor and flooring
+/// is not additive, so a deposit credited more underlying than it delivered
+/// would let the check pass while the true total sat above the cap.
+///
+/// Kani establishes this at `u8` width directly, and over the representable
+/// range in product space, where the products are symbolic inputs rather than
+/// computed — a SAT backend cannot multiply two symbolic 128-bit values at
+/// that width. The prover reasons about integers instead, so it can take the
+/// conversions as written over the whole `bounded_reserve` domain. That is the
+/// one thing this rule adds over the Kani suite.
+#[rule]
+pub fn supply_credits_no_more_than_supplied(e: Env) {
+    let mut reserve = bounded_reserve();
+    let amount: i128 = cvlr::nondet();
+    cvlr_assume!(amount >= 0 && amount <= MAX_SUPPLY);
+
+    let total_before = reserve.total_supply(&e);
+    let minted = reserve.to_b_token_down(&e, amount);
+    cvlr_assert!(minted >= 0);
+
+    reserve.data.b_supply += minted; // exactly what add_supply does
+    let total_after = reserve.total_supply(&e);
+
+    cvlr_assert!(total_after <= total_before + amount); // no value created
+    cvlr_assert!(total_after >= total_before); // supplying never reduces it
+}
+
+/// The mint is not always zero, so the bound above is not a statement about a
+/// no-op.
+#[rule]
+pub fn sanity_supply_credit_mints(e: Env) {
+    let reserve = bounded_reserve();
+    let amount: i128 = cvlr::nondet();
+    cvlr_assume!(amount > 0 && amount <= MAX_SUPPLY);
+    let minted = reserve.to_b_token_down(&e, amount);
+    cvlr_satisfy!(minted > 0);
+}
