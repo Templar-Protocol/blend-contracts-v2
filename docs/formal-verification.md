@@ -473,10 +473,15 @@ position always panics. That is the L-02 branch, so the prover prunes it for
 free and the rule silently covers only the top-up path. Covering it needs
 `havoc_feed()` in that rule's setup, with the solver cost back.
 
-The rules and confs are kept so the attempt is reproducible, but **the supply
-cap is not verified**. `supply_within_cap` itself is a single comparison;
-what defeats the prover is the handler call graph around it. The property is
-therefore better pursued with Kani over `supply_within_cap` and the
-conversion arithmetic feeding it, on an explicitly bounded domain and without
-a whole-handler call graph. That is carried into the Kani work rather than
-pursued further here.
+The rules and confs are kept so the attempt is reproducible, but **this suite
+does not verify the supply cap**. `supply_within_cap` itself is a single
+comparison; what defeats the prover is the handler call graph around it. The
+property is therefore pursued with Kani over the conversion arithmetic feeding
+`supply_within_cap`, on an explicitly bounded domain and without a
+whole-handler call graph. That work is done: see the supply-cap section of
+[`docs/kani.md`](kani.md), which establishes the action-level property — no
+supply action can raise a reserve's accounted supply above its cap — from six
+harnesses plus an enumeration of every production writer of `b_supply`. It
+also records why the standing reading, `total_supply <= supply_cap` at all
+times, is not a property of this system: interest accrual raises the total
+with no cap check in the path.

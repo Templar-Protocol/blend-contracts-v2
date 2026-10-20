@@ -2346,6 +2346,67 @@ mod tests {
         });
     }
 
+    /// Interest accrual carries a reserve past its supply cap with no cap check
+    /// in the path, so `total_supply <= supply_cap` is not a standing invariant.
+    /// The cap governs supply actions only; see docs/kani.md.
+    #[test]
+    fn test_accrual_carries_total_supply_past_cap() {
+        let e = Env::default();
+        e.mock_all_auths();
+        e.ledger().set(LedgerInfo {
+            timestamp: 0,
+            protocol_version: 22,
+            sequence_number: 123456,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        let bombadil = Address::generate(&e);
+        let pool = testutils::create_pool(&e);
+        let (underlying, _) = testutils::create_token_contract(&e, &bombadil);
+        let (mut reserve_config, reserve_data) = testutils::default_reserve_meta();
+        reserve_config.supply_cap = 100_0000000; // exactly the reserve's current total
+        testutils::create_reserve(&e, &pool, &underlying, &reserve_config, &reserve_data);
+
+        let pool_config = PoolConfig {
+            oracle: Address::generate(&e),
+            min_collateral: 1_0000000,
+            bstop_rate: 0_2000000,
+            status: 0,
+            max_positions: 2,
+        };
+
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+            let at_cap = pool.load_reserve(&e, &underlying, false);
+            assert_eq!(at_cap.total_supply(&e), reserve_config.supply_cap);
+        });
+
+        // One year of interest on a 75% utilised reserve.
+        e.ledger().set(LedgerInfo {
+            timestamp: 31_536_000,
+            protocol_version: 22,
+            sequence_number: 123456,
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_temp_entry_ttl: 10,
+            min_persistent_entry_ttl: 10,
+            max_entry_ttl: 3110400,
+        });
+
+        e.as_contract(&pool, || {
+            storage::set_pool_config(&e, &pool_config);
+            let mut pool = Pool::load(&e);
+            let accrued = pool.load_reserve(&e, &underlying, false);
+            assert!(accrued.total_supply(&e) > reserve_config.supply_cap);
+            assert!(accrued.data.b_rate > reserve_data.b_rate);
+        });
+    }
+
     #[test]
     #[should_panic(expected = "Error(Contract, #1223)")]
     fn test_build_actions_panic_borrow_disabled_asset() {

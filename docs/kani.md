@@ -238,6 +238,90 @@ included, which is what reaches the saturation branch). Certora's
 excluding `b_rate` below `SCALAR_12`. Neither establishes the range for
 production-scale supplies at post-default rates.
 
+### Supply cap
+
+The audit property list calls this "borrow caps". The protocol has no borrow
+cap; it has `supply_cap` and `max_util`. This is the supply cap.
+
+**`total_supply <= supply_cap` is not an invariant of this system**, and no
+proof can make it one. One production path raises `total_supply` with no cap
+check anywhere near it: `ReserveData::accrue` recomputes `b_rate` upward as
+interest accrues, and `total_supply` is
+`floor(b_supply * b_rate / SCALAR_12)`, so the total grows with time alone and
+passes the cap if the cap is close. `test_accrual_carries_total_supply_past_cap`
+exercises it.
+
+The cap itself cannot move under a live pool, which is what confines the
+exclusion to accrual. `execute_set_reserve` admits a metadata change on a
+non-setup pool only when `is_disable_only` holds, and that requires
+`current.supply_cap == candidate.supply_cap`; `execute_set_pool_status` accepts
+only 0, 2, 3 and 4, so status 6 is unreachable once the pool leaves setup.
+`supply_cap` is therefore fixed from the moment a pool goes live, which
+`test_queue_set_reserve_rejects_other_field_drift_on_existing` already
+exercises: it drifts `supply_cap` by one on an existing reserve and the queue
+call rejects it.
+
+What the code enforces is the action-level property, and that is what is
+established here: **no supply action can raise a reserve's accounted supply
+above its cap.** It holds in three parts.
+
+**The two capped handlers.** `apply_supply` and `apply_supply_collateral` each
+end by testing `supply_within_cap(reserve.total_supply(e),
+reserve.config.supply_cap)` and panicking on failure, with only
+`pool.cache_reserve(reserve)` between the test and the return. Neither the test
+nor the cache write touches `b_supply`.
+
+**The uncapped increase paths cancel.** Exactly two sites raise `b_supply` in
+production — `User::add_collateral` and `User::add_supply`, both
+`reserve.data.b_supply += amount`. Their production callers are:
+
+| Caller | Why the cap is not evaded |
+| --- | --- |
+| `apply_supply` | the guard above |
+| `apply_supply_collateral` | the guard above |
+| `bad_debt.rs`, orphan collateral | `remove_collateral(amount)` on the same reserve immediately precedes it, and that calls `burn_supply(amount)` |
+| `add_positions` from `fill_bad_debt_auction` | passes `map![e]` as the collateral map, so `add_collateral` is never reached |
+| `add_positions` from `fill_user_liq_auction` | `rm_positions` with the identical `lot` map precedes it, removing the same collateral per asset |
+
+The last two are position transfers between users, not new supply. They are
+safe only because an equal decrease precedes the increase on the same reserve,
+which `prove_burn_then_add_is_supply_neutral` pins.
+
+**The arithmetic cannot evade the check.** The guard is tested on
+`to_asset_from_b_token(b_supply)` after `to_b_token_down(amount)` has been
+minted and added. Both conversions floor, and flooring is not additive, so a
+deposit credited more underlying than it delivered would let the check pass
+while the true total sat above the cap.
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_burn_then_add_is_supply_neutral` | SUCCESSFUL | 0.09 |
+| `prove_supply_credit_monotonic` | SUCCESSFUL | 27.95 |
+| `prove_supply_credit_no_inflation_h001` | SUCCESSFUL | 1.49 |
+| `prove_supply_credit_no_inflation_h255` | SUCCESSFUL | 4.87 |
+| `prove_supply_credit_no_inflation_h100` | SUCCESSFUL | 6.21 |
+| `prove_supply_cap_decides_on_post_state` | SUCCESSFUL | 25.49 |
+
+`prove_supply_credit_monotonic` and `prove_supply_cap_decides_on_post_state`
+hold over a symbolic rate. The upper bound does not: it puts a quotient inside
+the third conversion's dividend, and with a symbolic divisor there the solver
+does not finish, so it is split across three fixed rates. `h001` is far below
+the initial `SCALAR_12`, the region a reserve enters after `default_b_rate`
+subtracts a loss; `h100` is the initial rate exactly; `h255` tops the
+`hundredths` range. Supplies and amounts are `u8`, as elsewhere in this
+module; the combined bound over a symbolic rate, and over `i128` supplies to
+1e18, each exhausted a 900 s and a 3600 s budget respectively.
+
+`supply_chain` transcribes the sequence `apply_supply` runs rather than
+driving the handler, which needs an `Env`. `add_supply` adds exactly its
+argument to `b_supply` and `apply_supply` passes exactly
+`to_b_token_down(amount)`, both checked by reading, so the transcription is
+faithful today and nothing keeps it faithful if the handler is reordered.
+
+Enumerating the `b_supply` writers is a reading of the code, not a machine
+check: a new call site added later satisfies none of the cases above and
+nothing here would notice.
+
 ## Claim boundary
 
 The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the property-mapped reruns recorded above.

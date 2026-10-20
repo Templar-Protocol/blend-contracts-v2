@@ -233,3 +233,143 @@ fn independent_probe_withdraw_parametric() {
     kani::cover!(requested_burn > cur_b_tokens);
     kani::cover!(requested_burn <= cur_b_tokens);
 }
+
+fn supply_data(b_rate: i128, b_supply: i128) -> ReserveData {
+    ReserveData {
+        d_rate: SCALAR_12,
+        b_rate,
+        ir_mod: 0,
+        b_supply,
+        d_supply: 0,
+        backstop_credit: 0,
+        last_time: 0,
+    }
+}
+
+/// Drive the arithmetic `apply_supply` runs between loading the reserve and
+/// testing the cap: mint at the floor rate, add to `b_supply`, re-read the
+/// total. Returns `(total_before, total_after, minted)`.
+///
+/// `add_supply` adds exactly the minted amount to `b_supply` (`user.rs`), and
+/// `apply_supply` passes exactly `to_b_token_down(amount)`, so the sequence
+/// here matches the handler's. It is still a transcription: nothing makes this
+/// follow the handler if the handler's order changes.
+fn supply_chain(b_supply: i128, amount: i128, b_rate: i128) -> (i128, i128, i128) {
+    let before = supply_data(b_rate, b_supply);
+    let total_before = before.to_asset_from_b_token(&(), b_supply);
+    let minted = before.to_b_token_down(&(), amount);
+    let after = supply_data(b_rate, b_supply + minted);
+    let total_after = after.to_asset_from_b_token(&(), b_supply + minted);
+    (total_before, total_after, minted)
+}
+
+/// Supplying never lowers the reserve's accounted supply, at any rate.
+///
+/// This is the half the cap decision rests on: with it, a reserve already over
+/// its cap stays over after any supply, so `prove_supply_cap_decides_on_post_state`
+/// can reject it. The matching upper bound needs the rate fixed — see
+/// `supply_credit_no_inflation`.
+#[kani::proof]
+fn prove_supply_credit_monotonic() {
+    let rate_h = kani::any::<u8>();
+    kani::assume(rate_h >= 1); // the inverse conversion divides by b_rate
+    let b_supply = kani::any::<u8>() as i128;
+    let amount = kani::any::<u8>() as i128;
+    let (total_before, total_after, minted) = supply_chain(b_supply, amount, hundredths(rate_h));
+    assert!(minted >= 0);
+    assert!(total_after >= total_before);
+}
+
+/// Supplying `amount` credits at most `amount` of underlying, so the cap
+/// cannot be overshot by conversion rounding.
+///
+/// `prove_b_round_trip_down_conservative` establishes this for one deposit into
+/// an *empty* reserve. This is the same bound once the reserve already holds
+/// supply, which is the state the cap check runs against; flooring is not
+/// additive, so it does not follow from the single-deposit result.
+///
+/// `RATE_H` fixes `b_rate` at `RATE_H` hundredths of `SCALAR_12`. The bound
+/// puts a quotient inside the third conversion's dividend, and with a symbolic
+/// divisor there the solver does not finish — `prove_supply_credit_monotonic`
+/// keeps the symbolic rate because it needs no such nesting.
+fn supply_credit_no_inflation<const RATE_H: u8>() {
+    let b_supply = kani::any::<u8>() as i128;
+    let amount = kani::any::<u8>() as i128;
+    let (total_before, total_after, _) = supply_chain(b_supply, amount, hundredths(RATE_H));
+    assert!(total_after <= total_before + amount);
+}
+
+macro_rules! proof_case {
+    ($name:ident, $helper:ident, $value:literal) => {
+        #[kani::proof]
+        fn $name() {
+            $helper::<$value>();
+        }
+    };
+}
+
+// 1 hundredth is far below the initial SCALAR_12, the region a reserve enters
+// after default_b_rate subtracts a loss; 100 is the initial rate exactly; 255
+// is the top of the hundredths range.
+proof_case!(
+    prove_supply_credit_no_inflation_h001,
+    supply_credit_no_inflation,
+    1
+);
+proof_case!(
+    prove_supply_credit_no_inflation_h100,
+    supply_credit_no_inflation,
+    100
+);
+proof_case!(
+    prove_supply_credit_no_inflation_h255,
+    supply_credit_no_inflation,
+    255
+);
+
+/// The cap decision is taken on the post-supply total, so a reserve already
+/// over its cap cannot be supplied into.
+///
+/// `prove_supply_cap_strictness` shows `supply_within_cap` equals `<=`; it says
+/// nothing about which total the handler hands it. Driving the chain shows an
+/// over-cap reserve stays rejected for every amount, rather than being admitted
+/// on a stale pre-state reading.
+#[kani::proof]
+fn prove_supply_cap_decides_on_post_state() {
+    let rate_h = kani::any::<u8>();
+    kani::assume(rate_h >= 1);
+    let b_supply = kani::any::<u8>() as i128;
+    let amount = kani::any::<u8>() as i128;
+    let supply_cap = kani::any::<u8>() as i128;
+    let (total_before, total_after, _) = supply_chain(b_supply, amount, hundredths(rate_h));
+
+    assert_eq!(
+        supply_within_cap(total_after, supply_cap),
+        total_after <= supply_cap
+    );
+    if total_before > supply_cap {
+        assert!(!supply_within_cap(total_after, supply_cap));
+    }
+    kani::cover!(supply_within_cap(total_after, supply_cap));
+    kani::cover!(!supply_within_cap(total_after, supply_cap));
+}
+
+/// `burn_supply` and the two add paths are exact inverses on `b_supply`.
+///
+/// The orphan-collateral path in `bad_debt.rs` and the liquidation fill in
+/// `user_liquidation_auction.rs` both increase `b_supply` without a cap check,
+/// and both are safe only because an equal decrease precedes them on the same
+/// reserve. This pins that cancellation, so neither path can drift into a net
+/// increase.
+#[kani::proof]
+fn prove_burn_then_add_is_supply_neutral() {
+    let b_supply = kani::any::<u8>() as i128;
+    let amount = kani::any::<u8>() as i128;
+    kani::assume(amount > 0 && amount <= b_supply); // both paths move an existing position
+
+    let mut data = supply_data(SCALAR_12, b_supply);
+    data.burn_supply(amount);
+    assert_eq!(data.b_supply, b_supply - amount);
+    data.b_supply += amount; // what add_supply/add_collateral do
+    assert_eq!(data.b_supply, b_supply);
+}
