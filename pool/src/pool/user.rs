@@ -344,11 +344,34 @@ mod tests {
     /// claim still holds.
     #[test]
     fn test_b_supply_writers_are_enumerated() {
-        fn production(src: &str) -> &str {
-            match src.find("#[cfg(test)]") {
-                Some(i) => &src[..i],
-                None => src,
+        fn production(src: &str) -> std::string::String {
+            let mut kept = std::string::String::new();
+            let mut rest = src;
+            while let Some(i) = rest.find("#[cfg(test)]") {
+                kept.push_str(&rest[..i]);
+                let Some(open) = rest[i..].find('{') else {
+                    return kept;
+                };
+                let mut depth = 0usize;
+                let mut after = None;
+                for (j, c) in rest[i + open..].char_indices() {
+                    match c {
+                        '{' => depth += 1,
+                        '}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                after = Some(i + open + j + 1);
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                let Some(after) = after else { return kept };
+                rest = &rest[after..];
             }
+            kept.push_str(rest);
+            kept
         }
 
         fn writes(src: &str) -> (usize, usize, usize) {
@@ -390,7 +413,7 @@ mod tests {
                 if path.extension().map_or(true, |e| e != "rs") {
                     continue;
                 }
-                let counts = writes(production(&std::fs::read_to_string(&path).unwrap()));
+                let counts = writes(&production(&std::fs::read_to_string(&path).unwrap()));
                 if counts != (0, 0, 0) {
                     let rel: std::vec::Vec<&str> = path
                         .strip_prefix(src_root)

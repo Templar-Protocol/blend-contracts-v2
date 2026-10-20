@@ -420,11 +420,24 @@ asserts the post-state equals it, and
 `ExceededSupplyCap`.
 
 The writer enumeration is a reading of the code, so
-`test_b_supply_writers_are_enumerated` pins it: the counts of `b_supply +=`
-and `b_supply -=` outside `#[cfg(test)]` are asserted across the production
-modules, and a new site fails the build rather than silently joining the
-argument. What the test cannot do is classify the new site; that still needs a
-reader to place it in one of the cases above.
+`test_b_supply_writers_are_enumerated` pins it. The test walks every `.rs`
+file under `pool/src`, skipping the verification-only `proofs/` and `spec/`
+trees, excises each `#[cfg(test)]` module by brace matching, and reports per
+file the number of `b_supply` writes in three forms: compound addition,
+compound subtraction, and plain assignment, the last covering
+`b_supply = b_supply + amount`. The expected report is asserted exactly, so a
+new writer anywhere in the tree fails the build rather than silently joining
+the argument, including one in a module that did not exist when this was
+written.
+
+Three limits are worth naming. The test matches an operator immediately
+following the field, so a write through an alias would not be seen
+(`let s = &mut reserve.data.b_supply; *s += amount`); no production write
+takes that form today. Brace matching does not skip string literals, so an
+unbalanced brace inside one ends a module's excision early — that retains
+code rather than hiding it, and over-counts into a visible failure. And the
+test cannot classify a site it finds: placing a new one in the cap-guard or
+paired-decrease case above still needs a reader.
 
 ## Claim boundary
 
