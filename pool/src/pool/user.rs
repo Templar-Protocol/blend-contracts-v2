@@ -336,6 +336,143 @@ mod tests {
         testutils::{Address as _, Ledger, LedgerInfo},
     };
 
+    fn skip_token(b: &[u8], i: usize) -> usize {
+        match b[i] {
+            b'/' if b.get(i + 1) == Some(&b'/') => {
+                let mut j = i + 2;
+                while j < b.len() && b[j] != b'\n' {
+                    j += 1;
+                }
+                j
+            }
+            b'/' if b.get(i + 1) == Some(&b'*') => {
+                let mut j = i + 2;
+                while j + 1 < b.len() && !(b[j] == b'*' && b[j + 1] == b'/') {
+                    j += 1;
+                }
+                (j + 2).min(b.len())
+            }
+            b'r' if matches!(b.get(i + 1), Some(&b'"') | Some(&b'#')) => {
+                let mut hashes = 0;
+                while b.get(i + 1 + hashes) == Some(&b'#') {
+                    hashes += 1;
+                }
+                if b.get(i + 1 + hashes) != Some(&b'"') {
+                    return i + 1;
+                }
+                let mut j = i + 2 + hashes;
+                while j < b.len() {
+                    if b[j] == b'"' && (1..=hashes).all(|k| b.get(j + k) == Some(&b'#')) {
+                        return j + 1 + hashes;
+                    }
+                    j += 1;
+                }
+                b.len()
+            }
+            b'"' => {
+                let mut j = i + 1;
+                while j < b.len() {
+                    match b[j] {
+                        b'\\' => j += 2,
+                        b'"' => return j + 1,
+                        _ => j += 1,
+                    }
+                }
+                b.len()
+            }
+            // a lifetime is not a literal, so only accept a quote that closes soon
+            b'\'' => {
+                let mut j = i + 1;
+                while j < b.len() && j <= i + 4 {
+                    match b[j] {
+                        b'\\' => j += 2,
+                        b'\'' => return j + 1,
+                        _ => j += 1,
+                    }
+                }
+                i + 1
+            }
+            _ => i + 1,
+        }
+    }
+
+    /// Excises `#[cfg(test)] mod` blocks. Every other shape panics: a field,
+    /// variant or match arm ends at a comma or the enclosing brace, and
+    /// guessing wrong excises production code and hides writes silently.
+    fn production(src: &str) -> std::string::String {
+        const MARKER: &[u8] = b"#[cfg(test)]";
+        let b = src.as_bytes();
+        let mut kept = std::string::String::new();
+        let mut copy_from = 0;
+        let mut i = 0;
+        while i < b.len() {
+            if !b[i..].starts_with(MARKER) {
+                i = skip_token(b, i);
+                continue;
+            }
+            kept.push_str(&src[copy_from..i]);
+            let mut j = i + MARKER.len();
+            while j < b.len() && b[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            assert!(
+                b[j..].starts_with(b"mod ") || b[j..].starts_with(b"pub mod "),
+                "only `#[cfg(test)] mod` is excised; extend production() for {:?}",
+                &src[j..(j + 40).min(src.len())]
+            );
+            while j < b.len() && b[j] != b'{' {
+                j = skip_token(b, j);
+            }
+            assert!(j < b.len(), "unterminated #[cfg(test)] mod");
+            let mut depth = 0usize;
+            let mut after = None;
+            while j < b.len() {
+                match b[j] {
+                    b'{' => {
+                        depth += 1;
+                        j += 1;
+                    }
+                    b'}' => {
+                        depth -= 1;
+                        j += 1;
+                        if depth == 0 {
+                            after = Some(j);
+                            break;
+                        }
+                    }
+                    _ => j = skip_token(b, j),
+                }
+            }
+            let after = after.expect("unbalanced braces in a #[cfg(test)] mod");
+            i = after;
+            copy_from = after;
+        }
+        kept.push_str(&src[copy_from..]);
+        kept
+    }
+
+    fn writes(src: &str) -> (usize, usize, usize) {
+        let (mut inc, mut dec, mut set) = (0, 0, 0);
+        let mut rest = src;
+        while let Some(i) = rest.find("b_supply") {
+            rest = &rest[i + "b_supply".len()..];
+            let tail = rest.trim_start();
+            if tail.starts_with("+=") {
+                inc += 1;
+            } else if tail.starts_with("-=") {
+                dec += 1;
+            } else if tail.starts_with("==") {
+            } else if tail.starts_with('=')
+                || tail.starts_with("*=")
+                || tail.starts_with("/=")
+                || tail.starts_with("%=")
+            {
+                set += 1;
+            }
+        }
+        (inc, dec, set)
+    }
+
     /// The supply-cap argument in `docs/kani.md` enumerates every production
     /// writer of `b_supply` and shows each is either behind the cap guard or
     /// paired with an equal decrease on the same reserve. That enumeration is a
@@ -344,160 +481,6 @@ mod tests {
     /// claim still holds.
     #[test]
     fn test_b_supply_writers_are_enumerated() {
-        /// Braces inside strings, char literals and comments must not shift a
-        /// test module's extent, or code after it is excised and goes unseen.
-        fn skip_token(b: &[u8], i: usize) -> usize {
-            match b[i] {
-                b'/' if b.get(i + 1) == Some(&b'/') => {
-                    let mut j = i + 2;
-                    while j < b.len() && b[j] != b'\n' {
-                        j += 1;
-                    }
-                    j
-                }
-                b'/' if b.get(i + 1) == Some(&b'*') => {
-                    let mut j = i + 2;
-                    while j + 1 < b.len() && !(b[j] == b'*' && b[j + 1] == b'/') {
-                        j += 1;
-                    }
-                    (j + 2).min(b.len())
-                }
-                b'r' if matches!(b.get(i + 1), Some(&b'"') | Some(&b'#')) => {
-                    let mut hashes = 0;
-                    while b.get(i + 1 + hashes) == Some(&b'#') {
-                        hashes += 1;
-                    }
-                    if b.get(i + 1 + hashes) != Some(&b'"') {
-                        return i + 1;
-                    }
-                    let mut j = i + 2 + hashes;
-                    while j < b.len() {
-                        if b[j] == b'"' && (1..=hashes).all(|k| b.get(j + k) == Some(&b'#')) {
-                            return j + 1 + hashes;
-                        }
-                        j += 1;
-                    }
-                    b.len()
-                }
-                b'"' => {
-                    let mut j = i + 1;
-                    while j < b.len() {
-                        match b[j] {
-                            b'\\' => j += 2,
-                            b'"' => return j + 1,
-                            _ => j += 1,
-                        }
-                    }
-                    b.len()
-                }
-                // a lifetime is not a literal, so only accept a quote that closes soon
-                b'\'' => {
-                    let mut j = i + 1;
-                    while j < b.len() && j <= i + 4 {
-                        match b[j] {
-                            b'\\' => j += 2,
-                            b'\'' => return j + 1,
-                            _ => j += 1,
-                        }
-                    }
-                    i + 1
-                }
-                _ => i + 1,
-            }
-        }
-
-        fn production(src: &str) -> std::string::String {
-            const MARKER: &[u8] = b"#[cfg(test)]";
-            let b = src.as_bytes();
-            let mut kept = std::string::String::new();
-            let mut copy_from = 0;
-            let mut i = 0;
-            while i < b.len() {
-                if !b[i..].starts_with(MARKER) {
-                    i = skip_token(b, i);
-                    continue;
-                }
-                kept.push_str(&src[copy_from..i]);
-                // a braced item ends at its matching brace, a `use`-shaped one
-                // at its semicolon; scanning for `{` alone would run into the
-                // next production body and excise that
-                let mut j = i + MARKER.len();
-                let mut nest = 0usize;
-                let mut open = None;
-                let mut after = None;
-                while j < b.len() {
-                    match b[j] {
-                        b'(' | b'[' => {
-                            nest += 1;
-                            j += 1;
-                        }
-                        b')' | b']' => {
-                            nest = nest.saturating_sub(1);
-                            j += 1;
-                        }
-                        b'{' if nest == 0 => {
-                            open = Some(j);
-                            break;
-                        }
-                        b';' if nest == 0 => {
-                            after = Some(j + 1);
-                            break;
-                        }
-                        _ => j = skip_token(b, j),
-                    }
-                }
-                if let Some(open) = open {
-                    let mut depth = 0usize;
-                    j = open;
-                    while j < b.len() {
-                        match b[j] {
-                            b'{' => {
-                                depth += 1;
-                                j += 1;
-                            }
-                            b'}' => {
-                                depth -= 1;
-                                j += 1;
-                                if depth == 0 {
-                                    after = Some(j);
-                                    break;
-                                }
-                            }
-                            _ => j = skip_token(b, j),
-                        }
-                    }
-                    assert!(after.is_some(), "unbalanced braces in a #[cfg(test)] item");
-                }
-                let after = after.expect("unterminated #[cfg(test)] item");
-                i = after;
-                copy_from = after;
-            }
-            kept.push_str(&src[copy_from..]);
-            kept
-        }
-
-        fn writes(src: &str) -> (usize, usize, usize) {
-            let (mut inc, mut dec, mut set) = (0, 0, 0);
-            let mut rest = src;
-            while let Some(i) = rest.find("b_supply") {
-                rest = &rest[i + "b_supply".len()..];
-                let tail = rest.trim_start();
-                if tail.starts_with("+=") {
-                    inc += 1;
-                } else if tail.starts_with("-=") {
-                    dec += 1;
-                } else if tail.starts_with("==") {
-                } else if tail.starts_with('=')
-                    || tail.starts_with("*=")
-                    || tail.starts_with("/=")
-                    || tail.starts_with("%=")
-                {
-                    set += 1;
-                }
-            }
-            (inc, dec, set)
-        }
-
         let src_root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
         let mut found = std::collections::BTreeMap::new();
         let mut stack = std::vec![src_root.to_path_buf()];
@@ -536,6 +519,74 @@ mod tests {
             report, "pool/reserve.rs +0 -1 =0\npool/user.rs +2 -0 =0\n",
             "a new b_supply writer must be checked against the cap guard and \
              paired-decrease cases in docs/kani.md before the supply-cap claim holds"
+        );
+    }
+
+    /// The scanner decides what counts as production code, so its own failure
+    /// modes are pinned here rather than by hand. Every shape below hides a
+    /// write from `test_b_supply_writers_are_enumerated` if excision guesses
+    /// the item's extent wrong.
+    #[test]
+    fn test_production_rejects_unsupported_cfg_test_shapes() {
+        let unsupported = [
+            "struct S { a: i32, #[cfg(test)] b: i32, }\nfn p() { d.b_supply += a; }",
+            "enum E { A, #[cfg(test)] B, }\nfn p() { d.b_supply += a; }",
+            "fn f() { match x { 1 => 1, #[cfg(test)] 2 => 2, _ => 0 } }\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nuse other::Thing;\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nextern crate std;\nfn p() { d.b_supply -= a; }",
+            "#[cfg(test)]\nimpl Foo { fn t() {} }\nfn p() { d.b_supply += a; }",
+        ];
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(std::boxed::Box::new(|_| {}));
+        let outcomes: std::vec::Vec<bool> = unsupported
+            .iter()
+            .map(|src| std::panic::catch_unwind(|| production(src)).is_err())
+            .collect();
+        std::panic::set_hook(prev);
+        assert!(
+            outcomes.iter().all(|rejected| *rejected),
+            "an unsupported #[cfg(test)] shape was excised silently instead of panicking: {:?}",
+            unsupported
+                .iter()
+                .zip(&outcomes)
+                .filter(|(_, ok)| !**ok)
+                .map(|(src, _)| *src)
+                .collect::<std::vec::Vec<_>>()
+        );
+    }
+
+    /// Braces inside strings, raw strings, char literals and comments must not
+    /// extend a test module past its closing brace.
+    #[test]
+    fn test_production_keeps_writes_after_test_modules() {
+        let fixtures = [
+            "#[cfg(test)]\nmod tests { fn t() { let s = \"{\"; } }\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nmod tests { fn t() { let s = \"}\"; } }\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nmod tests { fn t() {} // {{{\n}\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nmod tests { fn t() { let c = '{'; } }\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\nmod tests { fn t() { let s = r#\"{ \" {\"#; } }\nfn p() { d.b_supply += a; }",
+            "#[cfg(test)]\npub mod tests { fn t() {} }\nfn p() { d.b_supply += a; }",
+        ];
+        for src in fixtures {
+            assert_eq!(
+                writes(&production(src)),
+                (1, 0, 0),
+                "excision swallowed the production write in {src:?}"
+            );
+        }
+        assert_eq!(
+            writes(&production(
+                "#[cfg(test)]\nmod tests { fn t() { d.b_supply += a; } }\nfn p() {}"
+            )),
+            (0, 0, 0),
+            "a write inside a test module must not be counted"
+        );
+        assert_eq!(
+            writes(&production(
+                "#[cfg(test)]\nmod tests {}\nfn p() { d.b_supply = d.b_supply + a; }"
+            )),
+            (0, 0, 1),
+            "plain assignment must be counted in its own column"
         );
     }
 

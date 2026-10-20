@@ -439,17 +439,25 @@ including one in a module that did not exist when this was written.
 Enumeration is syntactic and covers direct writes only; the limits below
 say what that excludes.
 
-Excision is literal-aware: the brace matcher skips strings, raw strings, char
-literals and comments, because a brace inside any of them shifts a module's
-extent and silently drops the code after it. An earlier form matched braces
-naively; a test module containing `"{"` followed by a production write hid
-that write and the guard passed. A `#[cfg(test)]` item with no braces, such
-as a `use` declaration, was a second instance of the same fault: scanning
-for the next `{` ran into the following production body and excised it.
-Termination is now delimiter-aware, stopping at a braced item's matching
-brace or a brace-less one's semicolon, with `(` and `[` nesting tracked so
-a semicolon in a header does not end it early. Ten probes cover these
-cases; unbalanced braces assert rather than truncate.
+Excision covers `#[cfg(test)] mod` and nothing else; any other shape panics
+with the offending text. An item's extent depends on its shape, and guessing
+wrong excises production code and hides the writes in it: a field, variant or
+match arm ends at a comma or the enclosing brace, a `use` at a semicolon.
+Three earlier forms each guessed and each hid a write while passing. Naive
+brace matching was the first. Counting braces inside string literals was the
+second, where a test module containing `"{"` ran the excision to end of file.
+Scanning for the next `{` was the third, where a brace-less `use` sent it into
+the following production body. All eighteen `#[cfg(test)]` items under
+`pool/src` are `mod tests`, so the whitelist costs nothing and converts every
+unanticipated shape into a failure rather than a silent omission.
+
+Brace matching inside an accepted module still skips strings, raw strings,
+char literals and comments. Two tests pin both halves against fixtures rather
+than by hand: `test_production_rejects_unsupported_cfg_test_shapes` over the
+field, variant, match-arm, `use`, `extern crate` and `impl` shapes, and
+`test_production_keeps_writes_after_test_modules` over the brace-in-literal
+cases. Disabling either the whitelist or the literal skipping makes one of
+them fail, which is how they were checked.
 
 Two limits remain. The test matches an operator immediately following the
 field, so a write through an alias would not be seen
