@@ -365,7 +365,7 @@ fn prove_burn_then_add_is_supply_neutral() {
     let mut data = supply_data(SCALAR_12, b_supply);
     data.burn_supply(amount);
     assert_eq!(data.b_supply, b_supply - amount);
-    data.b_supply += amount; // what add_supply/add_collateral do
+    data.mint_supply(amount);
     assert_eq!(data.b_supply, b_supply);
 }
 

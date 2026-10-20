@@ -13090,3 +13090,6 @@ fn astra_grow_debt_output_witness_maximum() {
         "actual maximal 255/255/255 growth"
     );
 }
+
+#[path = "reserve_frames.rs"]
+mod frames;
