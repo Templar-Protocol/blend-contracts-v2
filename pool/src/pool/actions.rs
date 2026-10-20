@@ -2469,19 +2469,9 @@ mod tests {
         });
 
         // One year of interest on a 75% utilised reserve.
-        e.ledger().set(LedgerInfo {
-            timestamp: 31_536_000,
-            protocol_version: 22,
-            sequence_number: 123456,
-            network_id: Default::default(),
-            base_reserve: 10,
-            min_temp_entry_ttl: 10,
-            min_persistent_entry_ttl: 10,
-            max_entry_ttl: 3110400,
-        });
+        e.ledger().set_timestamp(31_536_000);
 
         e.as_contract(&pool, || {
-            storage::set_pool_config(&e, &pool_config);
             let mut pool = Pool::load(&e);
             let accrued = pool.load_reserve(&e, &underlying, false);
             assert!(accrued.total_supply(&e) > reserve_config.supply_cap);

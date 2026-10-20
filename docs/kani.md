@@ -378,6 +378,15 @@ TIMEOUT  supply_credits_no_more_than_supplied
 The sanity rule passing is what makes the TIMEOUT meaningful: the setup is
 reachable, so the prover ran out of budget on the property rather than on a
 broken fixture. At `global_timeout: 1800` the bound is undecided there too.
+The rule asserts three things at once — that the mint is non-negative, the
+upper bound, and monotonicity — and Certora checks a rule's assertions as
+one conjunction unless `multi_assert_check` is set. So the TIMEOUT is a
+verdict on all three together, and 1800 s of prover time returned nothing
+about the two cheap ones; splitting them into their own rule would let
+those land while the bound keeps timing out. The non-negativity claim is
+in any case implied by the assumes, since `amount >= 0` and `b_rate` is at
+least `SCALAR_12`.
+
 The conf is also weaker than its sibling in one respect: `supply_cap.conf` passes
 `-splitParallel true` and `-dontStopAtFirstSplitTimeout true`, and
 `supply_credit.conf` passes neither, so the TIMEOUT is a verdict on this
@@ -416,7 +425,10 @@ carried a property unrelated to the bound. The harness was re-measured after
 the fix and killed at 1300 s with no verdict line, so the bound is
 unverified on the fixed harness too. A killed run carries no solver
 evidence, so it says nothing about whether the spurious property was
-contributing; that question is open.
+contributing; that question is open. A later pass removed a symbolic
+`i128` from the same harness that turned out to constrain nothing, and a
+third run was killed at 1300 s as well, so the variable count was not the
+binding constraint either.
 
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
 driving the handler, which needs an `Env`. `add_supply` adds exactly its

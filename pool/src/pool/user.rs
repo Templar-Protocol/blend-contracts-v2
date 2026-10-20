@@ -419,25 +419,19 @@ mod tests {
                 "only `#[cfg(test)] mod` is excised; extend production() for {:?}",
                 src[j..].chars().take(40).collect::<std::string::String>()
             );
-            // `mod x { .. }` and `mod x;` are the only two forms, so both are
-            // handled rather than one guessed
-            let mut out_of_line = None;
-            while j < b.len() && b[j] != b'{' {
-                if b[j] == b';' {
-                    out_of_line = Some(j + 1);
-                    break;
-                }
+            // `mod x { .. }` and `mod x;` are the only two forms
+            while j < b.len() && b[j] != b'{' && b[j] != b';' {
                 j = skip_token(b, j);
             }
-            if let Some(after) = out_of_line {
-                i = after;
-                copy_from = after;
+            assert!(j < b.len(), "unterminated #[cfg(test)] mod");
+            if b[j] == b';' {
+                i = j + 1;
+                copy_from = i;
                 continue;
             }
-            assert!(j < b.len(), "unterminated #[cfg(test)] mod");
             let mut depth = 0usize;
-            let mut after = None;
-            while j < b.len() {
+            loop {
+                assert!(j < b.len(), "unbalanced braces in a #[cfg(test)] mod");
                 match b[j] {
                     b'{' => {
                         depth += 1;
@@ -447,16 +441,14 @@ mod tests {
                         depth -= 1;
                         j += 1;
                         if depth == 0 {
-                            after = Some(j);
                             break;
                         }
                     }
                     _ => j = skip_token(b, j),
                 }
             }
-            let after = after.expect("unbalanced braces in a #[cfg(test)] mod");
-            i = after;
-            copy_from = after;
+            i = j;
+            copy_from = j;
         }
         kept.push_str(&src[copy_from..]);
         kept
@@ -511,23 +503,17 @@ mod tests {
                 }
                 let counts = writes(&production(&std::fs::read_to_string(&path).unwrap()));
                 if counts != (0, 0, 0) {
-                    let rel: std::vec::Vec<&str> = path
-                        .strip_prefix(src_root)
-                        .unwrap()
-                        .components()
-                        .map(|c| c.as_os_str().to_str().unwrap())
-                        .collect();
-                    found.insert(rel.join("/"), counts);
+                    let rel = path.strip_prefix(src_root).unwrap();
+                    found.insert(rel.to_string_lossy().replace('\\', "/"), counts);
                 }
             }
         }
 
-        let mut report = std::string::String::new();
-        for (path, (inc, dec, set)) in &found {
-            report.push_str(&std::format!("{path} +{inc} -{dec} ={set}\n"));
-        }
+        let found: std::vec::Vec<(&str, (usize, usize, usize))> =
+            found.iter().map(|(p, c)| (p.as_str(), *c)).collect();
         assert_eq!(
-            report, "pool/reserve.rs +0 -1 =0\npool/user.rs +2 -0 =0\n",
+            found,
+            [("pool/reserve.rs", (0, 1, 0)), ("pool/user.rs", (2, 0, 0))],
             "a new b_supply writer must be checked against the cap guard and \
              paired-decrease cases in docs/kani.md before the supply-cap claim holds"
         );
@@ -547,16 +533,24 @@ mod tests {
             "#[cfg(test)]\nextern crate std;\nfn p() { d.b_supply -= a; }",
             "#[cfg(test)]\nimpl Foo { fn t() {} }\nfn p() { d.b_supply += a; }",
         ];
+        // `is_err()` alone would accept an unrelated panic, such as a slicing
+        // bug, as a correct rejection
+        const WANT: &str = "only `#[cfg(test)] mod` is excised";
         let prev = std::panic::take_hook();
         std::panic::set_hook(std::boxed::Box::new(|_| {}));
         let outcomes: std::vec::Vec<bool> = unsupported
             .iter()
-            .map(|src| std::panic::catch_unwind(|| production(src)).is_err())
+            .map(|src| {
+                std::panic::catch_unwind(|| production(src))
+                    .err()
+                    .and_then(|p| p.downcast_ref::<std::string::String>().cloned())
+                    .is_some_and(|m| m.contains(WANT))
+            })
             .collect();
         std::panic::set_hook(prev);
         assert!(
             outcomes.iter().all(|rejected| *rejected),
-            "an unsupported #[cfg(test)] shape was excised silently instead of panicking: {:?}",
+            "these shapes were not rejected by the whitelist: {:?}",
             unsupported
                 .iter()
                 .zip(&outcomes)
