@@ -396,10 +396,8 @@ mod tests {
         }
     }
 
-    /// Excises `#[cfg(test)] mod`, inline or out-of-line. Every other shape
-    /// panics: a field,
-    /// variant or match arm ends at a comma or the enclosing brace, and
-    /// guessing wrong excises production code and hides writes silently.
+    /// Excises `#[cfg(test)] mod`, inline or out-of-line, and panics on any
+    /// other shape: guessing an item's extent hides the writes after it.
     fn production(src: &str) -> std::string::String {
         const MARKER: &[u8] = b"#[cfg(test)]";
         let b = src.as_bytes();
@@ -419,7 +417,7 @@ mod tests {
             assert!(
                 b[j..].starts_with(b"mod ") || b[j..].starts_with(b"pub mod "),
                 "only `#[cfg(test)] mod` is excised; extend production() for {:?}",
-                &src[j..(j + 40).min(src.len())]
+                src[j..].chars().take(40).collect::<std::string::String>()
             );
             // `mod x { .. }` and `mod x;` are the only two forms, so both are
             // handled rather than one guessed

@@ -297,7 +297,8 @@ What these rules do **not** establish:
   region.
 - **Loops barely unrolled**, with `optimistic_loop: true`. `loop_iter: 2` is
   set only in `health.conf`, `health_unresolved.conf` and the two supply-cap
-  confs; everything else runs at the default 1. Nothing is established for
+  confs; everything else, `supply_credit.conf` included, runs at the default
+  1, and that conf has no loop to unroll. Nothing is established for
   more than two reserves or requests in a single call, or more than one
   wherever `loop_iter` is unset.
 - Authorization, the Soroban host and wasm runtime, ledger atomicity, and

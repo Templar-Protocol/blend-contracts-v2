@@ -245,7 +245,9 @@ a balance model.
 **Loops barely unrolled**, with `optimistic_loop: true`, against
 `MAX_RESERVES: 30`. Only `health.conf`, `health_unresolved.conf` and the two
 supply-cap confs set `loop_iter: 2`; `user_rules.conf`, `pool_status*.conf`,
-`oracle.conf` and `utilization.conf` leave it at the default 1. Because
+`oracle.conf`, `utilization.conf` and `supply_credit.conf` leave it at the
+default 1. `supply_credit.conf` has no loop to unroll: `bounded_reserve()`
+nondets `scalar` rather than computing `10^decimals`. Because
 `optimistic_loop` assumes away the paths that would need another iteration
 rather than reporting them, a property quantified over a portfolio is
 established for at most two reserves, and for one wherever `loop_iter` is

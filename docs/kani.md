@@ -378,6 +378,11 @@ TIMEOUT  supply_credits_no_more_than_supplied
 The sanity rule passing is what makes the TIMEOUT meaningful: the setup is
 reachable, so the prover ran out of budget on the property rather than on a
 broken fixture. At `global_timeout: 1800` the bound is undecided there too.
+The conf is also weaker than its sibling in one respect: `supply_cap.conf` passes
+`-splitParallel true` and `-dontStopAtFirstSplitTimeout true`, and
+`supply_credit.conf` passes neither, so the TIMEOUT is a verdict on this
+configuration rather than on everything the prover could have been asked to
+try.
 
 The obligation was then held fixed and the backend varied instead, on the
 product-space harness:
@@ -430,7 +435,7 @@ asserts the post-state equals it, and
 The writer enumeration is a reading of the code, so
 `test_b_supply_writers_are_enumerated` pins it. The test walks every `.rs`
 file under `pool/src`, skipping the verification-only `proofs/` and `spec/`
-trees, excises each `#[cfg(test)]` module by brace matching, and reports per
+trees, excises each `#[cfg(test)] mod` block, and reports per
 file the number of `b_supply` writes in three forms: compound addition,
 compound subtraction, and plain assignment, the last covering
 `b_supply = b_supply + amount`. The expected report is asserted exactly, so a
@@ -443,11 +448,15 @@ Excision covers `#[cfg(test)] mod` and nothing else; any other shape panics
 with the offending text. An item's extent depends on its shape, and guessing
 wrong excises production code and hides the writes in it: a field, variant or
 match arm ends at a comma or the enclosing brace, a `use` at a semicolon.
-Three earlier forms each guessed and each hid a write while passing. Naive
+Four earlier forms each guessed and each hid a write while passing. Naive
 brace matching was the first. Counting braces inside string literals was the
 second, where a test module containing `"{"` ran the excision to end of file.
 Scanning for the next `{` was the third, where a brace-less `use` sent it into
-the following production body. All eighteen `#[cfg(test)]` items under
+the following production body. The fourth survived the whitelist: `mod x;`
+declares a module out of line, so the scan for `{` reached the next
+production body, and the proof modules in this tree are declared exactly that
+way. `mod x { .. }` and `mod x;` are the only two forms, so both are handled
+rather than one guessed. All eighteen `#[cfg(test)]` items under
 `pool/src` are `mod tests`, so the whitelist costs nothing and converts every
 unanticipated shape into a failure rather than a silent omission.
 
@@ -462,7 +471,13 @@ them fail, which is how they were checked.
 Two limits remain. The test matches an operator immediately following the
 field, so a write through an alias would not be seen
 (`let s = &mut reserve.data.b_supply; *s += amount`); no production write
-takes that form today. And the test cannot classify a site it finds: placing
+takes that form today. `production()` skips literals and comments but `writes()`
+does not, so `b_supply +=` inside a production comment or string would count;
+that over-counts into a visible failure rather than hiding anything. The walk
+treats everything outside `proofs/` and `spec/` as production, which includes
+the test-only `testutils.rs` and the `#[cfg(all(kani, test))]` module gates —
+again over-counting, not under. And the test cannot classify a site it finds:
+placing
 a new one in the cap-guard or paired-decrease case above still needs a
 reader.
 
