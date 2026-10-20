@@ -1,0 +1,6 @@
+{
+	"rules": {
+		"sanity_supply_credit_mints": "SUCCESS",
+		"supply_credits_no_more_than_supplied": "TIMEOUT"
+	}
+}

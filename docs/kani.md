@@ -339,12 +339,31 @@ at `u8` width.
 
 The bound is therefore established exhaustively over `u8` supplies at the
 three rates above, and the general argument is sound but unchecked at
-production scale. Certora reasons with integer theories rather than
-bit-blasting, which is the capability a SAT backend lacks here, and the three
-HALTed supply-cap jobs failed on the handler call graph rather than on this
-arithmetic. `confs/supply_credit.conf` states the bound over `bounded_reserve`
-with no storage, no handler and no loops for that reason. It has not been run:
-the result belongs here when it has a verdict.
+production scale, by either tool.
+
+`confs/supply_credit.conf` states the bound over `bounded_reserve` with no
+storage, no handler and no loops, on the reasoning that Certora works over
+integer theories and that the three HALTed supply-cap jobs failed on the
+handler call graph rather than on this arithmetic. Job
+`93cecf326b8243d7bdd4751a9f6187e5`, evidence in
+[`../verification/certora/supply_credit-93cecf32.json`](../verification/certora/supply_credit-93cecf32.json):
+
+```
+SUCCESS  sanity_supply_credit_mints
+TIMEOUT  supply_credits_no_more_than_supplied
+```
+
+The sanity rule passing is what makes the TIMEOUT meaningful: the setup is
+reachable, so the prover ran out of budget on the property rather than on a
+broken fixture. At `global_timeout: 1800` the bound is undecided there too.
+
+Seven attempts across both tools have now failed to discharge it at full
+width. Two levers remain untried. Kani accepts `--solver cvc5|z3|bitwuzla`
+as well as the SAT solvers, and every run above used `kissat`; CBMC encodes
+machine integers as bit-vectors either way, so an SMT backend buys word-level
+simplification before bit-blasting rather than integer reasoning, but none of
+it has been measured. And this conf has not been retried at a higher
+`global_timeout`.
 
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
 driving the handler, which needs an `Env`. `add_supply` adds exactly its
