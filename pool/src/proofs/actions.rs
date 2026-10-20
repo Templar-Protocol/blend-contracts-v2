@@ -373,3 +373,40 @@ fn prove_burn_then_add_is_supply_neutral() {
     data.b_supply += amount; // what add_supply/add_collateral do
     assert_eq!(data.b_supply, b_supply);
 }
+
+/// The no-inflation bound and monotonicity over the representable range,
+/// stated in product space so no multiplication appears.
+///
+/// `apply_supply` forms `b_supply * b_rate`, `minted * b_rate` and
+/// `amount * SCALAR_12`. Taking those as the symbolic quantities, under the
+/// only relations integer division guarantees between them, leaves division by
+/// the constant `SCALAR_12` and comparisons.
+///
+/// Faithfulness is by Rust semantics rather than a further harness: `minted`
+/// is `amount * SCALAR_12 / b_rate` and `/` on non-negative `i128` is floor
+/// division, so `minted * b_rate <= amount * SCALAR_12 < (minted + 1) *
+/// b_rate`, which is assumed below; and `(b_supply + minted) * b_rate` is
+/// `b_supply * b_rate + minted * b_rate` by distributivity.
+#[kani::proof]
+fn prove_supply_credit_bound_product_space() {
+    let p_before = kani::any::<i128>(); // b_supply * b_rate
+    let q_minted = kani::any::<i128>(); // minted   * b_rate
+    let p_amount = kani::any::<i128>(); // amount   * SCALAR_12
+    let b_rate = kani::any::<i128>();
+
+    kani::assume(b_rate > 0);
+    kani::assume(p_before >= 0 && q_minted >= 0 && p_amount >= 0);
+    kani::assume(p_before <= i128::MAX / 4);
+    kani::assume(q_minted <= i128::MAX / 4);
+    kani::assume(p_amount <= i128::MAX / 4);
+
+    kani::assume(q_minted <= p_amount && p_amount < q_minted + b_rate);
+    kani::assume(p_amount % SCALAR_12 == 0);
+    let amount = p_amount / SCALAR_12;
+
+    let total_before = p_before / SCALAR_12;
+    let total_after = (p_before + q_minted) / SCALAR_12;
+
+    assert!(total_after <= total_before + amount);
+    assert!(total_after >= total_before);
+}

@@ -166,11 +166,25 @@ grep -oE 'VERIFICATION:- [A-Z]+' run.log
 grep -F 'CBMC timed out' run.log           # a FAILED that is only a budget
 ```
 
-A budget exhausted under `--harness-timeout` is reported as
-`VERIFICATION:- FAILED` with `CBMC timed out` beneath it, and exits 1 exactly
-as a refuted property does. Neither the verdict line nor the exit status
-distinguishes the two, so check for that message before reporting a failure as
-a counterexample.
+`VERIFICATION:- FAILED` has three meanings and the verdict line and exit
+status separate none of them:
+
+| Meaning | What distinguishes it |
+| --- | --- |
+| the property is refuted | a counterexample trace is printed |
+| the budget ran out | `CBMC timed out` appears in the log |
+| CBMC itself aborted | `invariant violation` and `failed with status 134` |
+
+The third is not hypothetical. `--incremental-smt2-solver` aborted CBMC on a
+128-bit `signedbv` while verifying the supply-cap bound, and the run reported
+only `VERIFICATION:- FAILED` with no timeout message — which reads exactly
+like a refutation. Check for all three before calling a FAILED a finding:
+
+```sh
+grep -cE "Trace for|Counterexample" run.log   # refuted
+grep -cF "CBMC timed out" run.log             # budget
+grep -cE "invariant violation|failed with status" run.log  # crashed
+```
 
 ### Liquidation and bad debt
 
@@ -357,12 +371,30 @@ The sanity rule passing is what makes the TIMEOUT meaningful: the setup is
 reachable, so the prover ran out of budget on the property rather than on a
 broken fixture. At `global_timeout: 1800` the bound is undecided there too.
 
-Seven attempts across both tools have now failed to discharge it at full
-width. Two levers remain untried. Kani accepts `--solver cvc5|z3|bitwuzla`
-as well as the SAT solvers, and every run above used `kissat`; CBMC encodes
-machine integers as bit-vectors either way, so an SMT backend buys word-level
-simplification before bit-blasting rather than integer reasoning, but none of
-it has been measured. And this conf has not been retried at a higher
+The obligation was then held fixed and the backend varied instead, on the
+product-space harness:
+
+| Backend | Result |
+| --- | --- |
+| `kissat` (SAT) | budget exhausted |
+| `cadical` (SAT, CBMC default) | budget exhausted |
+| `cvc5` 1.4.2 (SMT) | budget exhausted |
+| `z3` 5.3.1 (SMT) | budget exhausted |
+| `cvc5 --bv-abstraction` via `--incremental-smt2-solver` | CBMC aborted, no verdict |
+| `--refine-arithmetic` | budget exhausted |
+| `--refine-arithmetic --max-node-refinement 50` | budget exhausted |
+| `--refine` | budget exhausted |
+
+The reason the operator matters is documented: `bvmul`, `bvudiv` and `bvurem`
+admit only large SAT encodings, and no statement of this bound avoids all
+three, which is why the harness shapes above fail alike. The published
+mitigation is abstraction refinement over exactly those operators, and both
+implementations of it were tried — cvc5 1.4.0 added `--bv-abstraction`, CBMC
+has `--refine-arithmetic`. Neither discharged it, and the cvc5 route aborted
+CBMC rather than returning a verdict. Certora, which reasons over integers
+rather than bit-vectors, also timed out while its sanity rule passed. Thirteen
+measurements say the bound is not machine-checkable at full width with this
+tooling; the one option left untried is this conf at a higher
 `global_timeout`.
 
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
