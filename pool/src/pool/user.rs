@@ -418,31 +418,59 @@ mod tests {
                     continue;
                 }
                 kept.push_str(&src[copy_from..i]);
+                // a braced item ends at its matching brace, a `use`-shaped one
+                // at its semicolon; scanning for `{` alone would run into the
+                // next production body and excise that
                 let mut j = i + MARKER.len();
-                while j < b.len() && b[j] != b'{' {
-                    j = skip_token(b, j);
-                }
-                assert!(j < b.len(), "unterminated #[cfg(test)] item");
-                let mut depth = 0;
+                let mut nest = 0usize;
+                let mut open = None;
+                let mut after = None;
                 while j < b.len() {
                     match b[j] {
-                        b'{' => {
-                            depth += 1;
+                        b'(' | b'[' => {
+                            nest += 1;
                             j += 1;
                         }
-                        b'}' => {
-                            depth -= 1;
+                        b')' | b']' => {
+                            nest = nest.saturating_sub(1);
                             j += 1;
-                            if depth == 0 {
-                                break;
-                            }
+                        }
+                        b'{' if nest == 0 => {
+                            open = Some(j);
+                            break;
+                        }
+                        b';' if nest == 0 => {
+                            after = Some(j + 1);
+                            break;
                         }
                         _ => j = skip_token(b, j),
                     }
                 }
-                assert_eq!(depth, 0, "unbalanced braces in a #[cfg(test)] item");
-                i = j;
-                copy_from = j;
+                if let Some(open) = open {
+                    let mut depth = 0usize;
+                    j = open;
+                    while j < b.len() {
+                        match b[j] {
+                            b'{' => {
+                                depth += 1;
+                                j += 1;
+                            }
+                            b'}' => {
+                                depth -= 1;
+                                j += 1;
+                                if depth == 0 {
+                                    after = Some(j);
+                                    break;
+                                }
+                            }
+                            _ => j = skip_token(b, j),
+                        }
+                    }
+                    assert!(after.is_some(), "unbalanced braces in a #[cfg(test)] item");
+                }
+                let after = after.expect("unterminated #[cfg(test)] item");
+                i = after;
+                copy_from = after;
             }
             kept.push_str(&src[copy_from..]);
             kept

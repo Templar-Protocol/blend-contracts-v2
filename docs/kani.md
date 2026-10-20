@@ -408,8 +408,10 @@ tooling; the one option left untried is this conf at a higher
 Every measurement above predates the overflow fix to this harness, which
 removed an `i128` addition that could overflow inside a `kani::assume` and so
 carried a property unrelated to the bound. The harness was re-measured after
-the fix and killed at 1300 s with no verdict line, so the outcome is
-unchanged and the spurious property was not what defeated the solver.
+the fix and killed at 1300 s with no verdict line, so the bound is
+unverified on the fixed harness too. A killed run carries no solver
+evidence, so it says nothing about whether the spurious property was
+contributing; that question is open.
 
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
 driving the handler, which needs an `Env`. `add_supply` adds exactly its
@@ -432,16 +434,22 @@ trees, excises each `#[cfg(test)]` module by brace matching, and reports per
 file the number of `b_supply` writes in three forms: compound addition,
 compound subtraction, and plain assignment, the last covering
 `b_supply = b_supply + amount`. The expected report is asserted exactly, so a
-new writer anywhere in the tree fails the build rather than silently joining
-the argument, including one in a module that did not exist when this was
-written.
+new direct write fails the build rather than silently joining the argument,
+including one in a module that did not exist when this was written.
+Enumeration is syntactic and covers direct writes only; the limits below
+say what that excludes.
 
 Excision is literal-aware: the brace matcher skips strings, raw strings, char
 literals and comments, because a brace inside any of them shifts a module's
 extent and silently drops the code after it. An earlier form matched braces
 naively; a test module containing `"{"` followed by a production write hid
-that write and the guard passed. Six probes now cover that case and its
-variants. Unbalanced braces assert rather than truncate.
+that write and the guard passed. A `#[cfg(test)]` item with no braces, such
+as a `use` declaration, was a second instance of the same fault: scanning
+for the next `{` ran into the following production body and excised it.
+Termination is now delimiter-aware, stopping at a braced item's matching
+brace or a brace-less one's semicolon, with `(` and `[` nesting tracked so
+a semicolon in a header does not end it early. Ten probes cover these
+cases; unbalanced braces assert rather than truncate.
 
 Two limits remain. The test matches an operator immediately following the
 field, so a write through an alias would not be seen
