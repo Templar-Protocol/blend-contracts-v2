@@ -336,6 +336,49 @@ mod tests {
         testutils::{Address as _, Ledger, LedgerInfo},
     };
 
+    /// The supply-cap argument in `docs/kani.md` enumerates every production
+    /// writer of `b_supply` and shows each is either behind the cap guard or
+    /// paired with an equal decrease on the same reserve. That enumeration is a
+    /// reading of the code; this pins it. If a count below changes, the new
+    /// site has to be checked against the same two cases before the supply-cap
+    /// claim still holds.
+    #[test]
+    fn test_b_supply_writers_are_enumerated() {
+        fn production(src: &str) -> &str {
+            match src.find("#[cfg(test)]") {
+                Some(i) => &src[..i],
+                None => src,
+            }
+        }
+
+        let user = production(include_str!("user.rs"));
+        assert_eq!(
+            user.matches("b_supply +=").count(),
+            2,
+            "add_supply and add_collateral are the only production increases"
+        );
+
+        let reserve = production(include_str!("reserve.rs"));
+        assert_eq!(
+            reserve.matches("b_supply -=").count(),
+            1,
+            "burn_supply is the only production decrease"
+        );
+
+        for file in [
+            include_str!("actions.rs"),
+            include_str!("bad_debt.rs"),
+            include_str!("pool.rs"),
+            include_str!("submit.rs"),
+            include_str!("config.rs"),
+            include_str!("gulp.rs"),
+        ] {
+            let prod = production(file);
+            assert_eq!(prod.matches("b_supply +=").count(), 0);
+            assert_eq!(prod.matches("b_supply -=").count(), 0);
+        }
+    }
+
     #[test]
     fn test_load_and_store() {
         let e = Env::default();

@@ -313,8 +313,31 @@ does not finish, so it is split across three fixed rates. `h001` is far below
 the initial `SCALAR_12`, the region a reserve enters after `default_b_rate`
 subtracts a loss; `h100` is the initial rate exactly; `h255` tops the
 `hundredths` range. Supplies and amounts are `u8`, as elsewhere in this
-module; the combined bound over a symbolic rate, and over `i128` supplies to
-1e18, each exhausted a 900 s and a 3600 s budget respectively.
+module, and that is the ceiling rather than a convention. Four shapes of the
+bound were attempted and every one exhausted its budget:
+
+| Attempt | Domain | Budget |
+| --- | --- | --- |
+| bound and monotonicity together, symbolic rate | `u8` | 900 s |
+| same, direct division | `i128` to 1e18 | 3600 s |
+| restated division-free, quotients named and constrained | `i128` to 1e18 | 1800 s |
+| same, division-free | `u32` | 1200 s |
+
+The division-free restatement replaces all three divisions with
+multiplication, so the cost is the 128-bit products themselves, not division.
+Writing the divisions as exact remainder equalities gives the same products
+and so buys nothing. A conformance check tying the real conversions to the
+floor inequalities runs in 2.18 s at `u8`
+(`prove_b_token_forward_floor`) and exhausts 1200 s at `u32`, so the link
+between the arithmetic and the implementation is itself only machine-checked
+at `u8` width.
+
+The bound is therefore established exhaustively over `u8` supplies at the
+three rates above, and the general argument is sound but unchecked at
+production scale. Certora is the tool suited to unbounded integer reasoning,
+but it times out on `utilization_in_range`, which is the same shape — an
+expression built from two floors — so that route is not obviously open
+either.
 
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
 driving the handler, which needs an `Env`. `add_supply` adds exactly its
@@ -322,9 +345,20 @@ argument to `b_supply` and `apply_supply` passes exactly
 `to_b_token_down(amount)`, both checked by reading, so the transcription is
 faithful today and nothing keeps it faithful if the handler is reordered.
 
-Enumerating the `b_supply` writers is a reading of the code, not a machine
-check: a new call site added later satisfies none of the cases above and
-nothing here would notice.
+**The handler decides where the harnesses say it does.** The harnesses above
+transcribe the arithmetic rather than driving `apply_supply`, so two tests
+close that gap by execution:
+`test_apply_supply_admits_exactly_up_to_cap` supplies exactly to the cap and
+asserts the post-state equals it, and
+`test_apply_supply_rejects_one_over_cap` supplies one stroop more and expects
+`ExceededSupplyCap`.
+
+The writer enumeration is a reading of the code, so
+`test_b_supply_writers_are_enumerated` pins it: the counts of `b_supply +=`
+and `b_supply -=` outside `#[cfg(test)]` are asserted across the production
+modules, and a new site fails the build rather than silently joining the
+argument. What the test cannot do is classify the new site; that still needs a
+reader to place it in one of the cases above.
 
 ## Claim boundary
 
