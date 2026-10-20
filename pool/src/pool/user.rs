@@ -344,33 +344,107 @@ mod tests {
     /// claim still holds.
     #[test]
     fn test_b_supply_writers_are_enumerated() {
+        /// Braces inside strings, char literals and comments must not shift a
+        /// test module's extent, or code after it is excised and goes unseen.
+        fn skip_token(b: &[u8], i: usize) -> usize {
+            match b[i] {
+                b'/' if b.get(i + 1) == Some(&b'/') => {
+                    let mut j = i + 2;
+                    while j < b.len() && b[j] != b'\n' {
+                        j += 1;
+                    }
+                    j
+                }
+                b'/' if b.get(i + 1) == Some(&b'*') => {
+                    let mut j = i + 2;
+                    while j + 1 < b.len() && !(b[j] == b'*' && b[j + 1] == b'/') {
+                        j += 1;
+                    }
+                    (j + 2).min(b.len())
+                }
+                b'r' if matches!(b.get(i + 1), Some(&b'"') | Some(&b'#')) => {
+                    let mut hashes = 0;
+                    while b.get(i + 1 + hashes) == Some(&b'#') {
+                        hashes += 1;
+                    }
+                    if b.get(i + 1 + hashes) != Some(&b'"') {
+                        return i + 1;
+                    }
+                    let mut j = i + 2 + hashes;
+                    while j < b.len() {
+                        if b[j] == b'"' && (1..=hashes).all(|k| b.get(j + k) == Some(&b'#')) {
+                            return j + 1 + hashes;
+                        }
+                        j += 1;
+                    }
+                    b.len()
+                }
+                b'"' => {
+                    let mut j = i + 1;
+                    while j < b.len() {
+                        match b[j] {
+                            b'\\' => j += 2,
+                            b'"' => return j + 1,
+                            _ => j += 1,
+                        }
+                    }
+                    b.len()
+                }
+                // a lifetime is not a literal, so only accept a quote that closes soon
+                b'\'' => {
+                    let mut j = i + 1;
+                    while j < b.len() && j <= i + 4 {
+                        match b[j] {
+                            b'\\' => j += 2,
+                            b'\'' => return j + 1,
+                            _ => j += 1,
+                        }
+                    }
+                    i + 1
+                }
+                _ => i + 1,
+            }
+        }
+
         fn production(src: &str) -> std::string::String {
+            const MARKER: &[u8] = b"#[cfg(test)]";
+            let b = src.as_bytes();
             let mut kept = std::string::String::new();
-            let mut rest = src;
-            while let Some(i) = rest.find("#[cfg(test)]") {
-                kept.push_str(&rest[..i]);
-                let Some(open) = rest[i..].find('{') else {
-                    return kept;
-                };
-                let mut depth = 0usize;
-                let mut after = None;
-                for (j, c) in rest[i + open..].char_indices() {
-                    match c {
-                        '{' => depth += 1,
-                        '}' => {
+            let mut copy_from = 0;
+            let mut i = 0;
+            while i < b.len() {
+                if !b[i..].starts_with(MARKER) {
+                    i = skip_token(b, i);
+                    continue;
+                }
+                kept.push_str(&src[copy_from..i]);
+                let mut j = i + MARKER.len();
+                while j < b.len() && b[j] != b'{' {
+                    j = skip_token(b, j);
+                }
+                assert!(j < b.len(), "unterminated #[cfg(test)] item");
+                let mut depth = 0;
+                while j < b.len() {
+                    match b[j] {
+                        b'{' => {
+                            depth += 1;
+                            j += 1;
+                        }
+                        b'}' => {
                             depth -= 1;
+                            j += 1;
                             if depth == 0 {
-                                after = Some(i + open + j + 1);
                                 break;
                             }
                         }
-                        _ => {}
+                        _ => j = skip_token(b, j),
                     }
                 }
-                let Some(after) = after else { return kept };
-                rest = &rest[after..];
+                assert_eq!(depth, 0, "unbalanced braces in a #[cfg(test)] item");
+                i = j;
+                copy_from = j;
             }
-            kept.push_str(rest);
+            kept.push_str(&src[copy_from..]);
             kept
         }
 

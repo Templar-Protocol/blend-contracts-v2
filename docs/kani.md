@@ -405,6 +405,12 @@ measurements say the bound is not machine-checkable at full width with this
 tooling; the one option left untried is this conf at a higher
 `global_timeout`.
 
+Every measurement above predates the overflow fix to this harness, which
+removed an `i128` addition that could overflow inside a `kani::assume` and so
+carried a property unrelated to the bound. The harness was re-measured after
+the fix and killed at 1300 s with no verdict line, so the outcome is
+unchanged and the spurious property was not what defeated the solver.
+
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
 driving the handler, which needs an `Env`. `add_supply` adds exactly its
 argument to `b_supply` and `apply_supply` passes exactly
@@ -430,14 +436,19 @@ new writer anywhere in the tree fails the build rather than silently joining
 the argument, including one in a module that did not exist when this was
 written.
 
-Three limits are worth naming. The test matches an operator immediately
-following the field, so a write through an alias would not be seen
+Excision is literal-aware: the brace matcher skips strings, raw strings, char
+literals and comments, because a brace inside any of them shifts a module's
+extent and silently drops the code after it. An earlier form matched braces
+naively; a test module containing `"{"` followed by a production write hid
+that write and the guard passed. Six probes now cover that case and its
+variants. Unbalanced braces assert rather than truncate.
+
+Two limits remain. The test matches an operator immediately following the
+field, so a write through an alias would not be seen
 (`let s = &mut reserve.data.b_supply; *s += amount`); no production write
-takes that form today. Brace matching does not skip string literals, so an
-unbalanced brace inside one ends a module's excision early — that retains
-code rather than hiding it, and over-counts into a visible failure. And the
-test cannot classify a site it finds: placing a new one in the cap-guard or
-paired-decrease case above still needs a reader.
+takes that form today. And the test cannot classify a site it finds: placing
+a new one in the cap-guard or paired-decrease case above still needs a
+reader.
 
 ## Claim boundary
 
