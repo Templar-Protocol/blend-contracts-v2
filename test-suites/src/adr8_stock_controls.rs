@@ -1140,7 +1140,7 @@ fn direct_default_control(
             };
             assert_eq!(fork.b_rate, (base.b_rate - loss).max(0));
         }
-        // Every setoff is explained by exactly one `debt_setoff(asset)` event carrying
+        // Every setoff is explained by exactly one `debt_setoff(user, asset)` event carrying
         // the burned b-tokens and repaid d-tokens.
         let setoff_event = svec![
             &fork_env,
@@ -1148,6 +1148,7 @@ fn direct_default_control(
                 fork_id.clone(),
                 (
                     soroban_sdk::Symbol::new(&fork_env, "debt_setoff"),
+                    sc_address(&fork_env, user),
                     sc_address(&fork_env, asset),
                 )
                     .into_val(&fork_env),

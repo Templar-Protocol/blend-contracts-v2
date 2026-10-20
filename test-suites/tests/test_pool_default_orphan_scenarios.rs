@@ -149,6 +149,7 @@ fn test_public_default_orphan_custody_parking() {
                     pool.address.clone(),
                     (
                         Symbol::new(e, "defaulted_debt"),
+                        sam.clone(),
                         fixture.tokens[*asset].address.clone(),
                     )
                         .into_val(e),
@@ -195,6 +196,7 @@ fn test_public_default_orphan_custody_parking() {
                     pool.address.clone(),
                     (
                         Symbol::new(e, "defaulted_debt"),
+                        second.clone(),
                         fixture.tokens[*asset].address.clone(),
                     )
                         .into_val(e),

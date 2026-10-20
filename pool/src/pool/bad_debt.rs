@@ -91,12 +91,12 @@ pub fn check_and_handle_user_bad_debt(
         if setoff.repaid > 0 {
             user_state.remove_supply(e, &mut reserve, setoff.burn);
             user_state.remove_liabilities(e, &mut reserve, setoff.repaid);
-            PoolEvents::debt_setoff(e, asset.clone(), setoff.burn, setoff.repaid);
+            PoolEvents::debt_setoff(e, user.clone(), asset.clone(), setoff.burn, setoff.repaid);
         }
         if setoff.has_default() {
             user_state.default_liabilities(e, &mut reserve, setoff.residual);
             had_default = true;
-            PoolEvents::defaulted_debt(e, asset, setoff.residual);
+            PoolEvents::defaulted_debt(e, user.clone(), asset, setoff.residual);
         }
         pool.cache_reserve(reserve);
     }
@@ -211,7 +211,12 @@ pub fn check_and_handle_backstop_bad_debt(
                 backstop_state.default_liabilities(e, &mut reserve, liability_balance);
                 pool.cache_reserve(reserve);
 
-                PoolEvents::defaulted_debt(e, res_asset_address, liability_balance);
+                PoolEvents::defaulted_debt(
+                    e,
+                    backstop_address.clone(),
+                    res_asset_address,
+                    liability_balance,
+                );
             }
             return true;
         }
@@ -414,7 +419,12 @@ mod tests {
                     &e,
                     (
                         pool.clone(),
-                        (Symbol::new(&e, "debt_setoff"), underlying_0.clone()).into_val(&e),
+                        (
+                            Symbol::new(&e, "debt_setoff"),
+                            samwise.clone(),
+                            underlying_0.clone(),
+                        )
+                            .into_val(&e),
                         (1_5000000i128, 1_5000000i128).into_val(&e),
                     )
                 ]
@@ -425,7 +435,12 @@ mod tests {
                     &e,
                     (
                         pool.clone(),
-                        (Symbol::new(&e, "defaulted_debt"), underlying_1.clone()).into_val(&e),
+                        (
+                            Symbol::new(&e, "defaulted_debt"),
+                            samwise.clone(),
+                            underlying_1.clone(),
+                        )
+                            .into_val(&e),
                         50_987_654_321i128.into_val(&e),
                     )
                 ]
@@ -536,7 +551,12 @@ mod tests {
                     &e,
                     (
                         pool.clone(),
-                        (Symbol::new(&e, "defaulted_debt"), underlying_0.clone()).into_val(&e),
+                        (
+                            Symbol::new(&e, "defaulted_debt"),
+                            samwise.clone(),
+                            underlying_0.clone(),
+                        )
+                            .into_val(&e),
                         50_0000000i128.into_val(&e),
                     )
                 ]
@@ -984,7 +1004,12 @@ mod tests {
                     &e,
                     (
                         e.current_contract_address(),
-                        (Symbol::new(&e, "debt_setoff"), underlying_0.clone()).into_val(&e),
+                        (
+                            Symbol::new(&e, "debt_setoff"),
+                            samwise.clone(),
+                            underlying_0.clone(),
+                        )
+                            .into_val(&e),
                         (1_5000000i128, 1_5000000i128).into_val(&e),
                     )
                 ]
@@ -995,7 +1020,12 @@ mod tests {
                     &e,
                     (
                         e.current_contract_address(),
-                        (Symbol::new(&e, "defaulted_debt"), underlying_1.clone()).into_val(&e),
+                        (
+                            Symbol::new(&e, "defaulted_debt"),
+                            samwise.clone(),
+                            underlying_1.clone(),
+                        )
+                            .into_val(&e),
                         50_987_654_321i128.into_val(&e),
                     )
                 ]
@@ -1220,7 +1250,12 @@ mod tests {
                     &e,
                     (
                         pool_address.clone(),
-                        (Symbol::new(&e, "debt_setoff"), asset.clone()).into_val(&e),
+                        (
+                            Symbol::new(&e, "debt_setoff"),
+                            samwise.clone(),
+                            asset.clone()
+                        )
+                            .into_val(&e),
                         (claim, debt).into_val(&e),
                     )
                 ]

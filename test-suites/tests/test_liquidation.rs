@@ -700,6 +700,7 @@ fn test_liquidations() {
     );
     let default_topics: Vec<Val> = (
         Symbol::new(&fixture.env, "defaulted_debt"),
+        samwise.clone(),
         fixture.tokens[TokenIndex::STABLE].address.clone(),
     )
         .into_val(&fixture.env);
@@ -1080,6 +1081,7 @@ fn test_bad_debt() {
                 pool_fixture.pool.address.clone(),
                 (
                     Symbol::new(&fixture.env, "defaulted_debt"),
+                    sam.clone(),
                     stable.address.clone()
                 )
                     .into_val(&fixture.env),
