@@ -345,11 +345,17 @@ suite covered.
 `Reserve::load` writes `ir_mod` and `last_time` itself, outside these four
 methods and behind an `Env`, so it is not framed here.
 
+The accrue frame carries two `cover!`s. `bstop_rate` is a percentage in
+`SCALAR_7` points, so a `u8` domain for it floors every credit to zero:
+`floor(255 * 255 / SCALAR_7) == 0`, and the `backstop_credit` half of the frame
+would hold without the branch that moves it ever running. The covers fail if
+that happens again.
+
 | Harness | Verdict | Time (s) |
 | --- | --- | --- |
 | `prove_mint_supply_frame` | SUCCESSFUL | 0.14 |
-| `prove_burn_supply_frame` | SUCCESSFUL | 0.16 |
-| `prove_accrue_moves_only_rate_and_credit` | SUCCESSFUL | 0.66 |
+| `prove_burn_supply_frame` | SUCCESSFUL | 0.14 |
+| `prove_accrue_moves_only_rate_and_credit` | SUCCESSFUL | 1.55 |
 | `prove_grow_debt_moves_only_d_rate` | SUCCESSFUL | 0.50 |
 
 `mint_supply` and `burn_supply` each move `b_supply` by exactly their

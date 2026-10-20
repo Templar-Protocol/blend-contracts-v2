@@ -89,8 +89,10 @@ fn prove_burn_supply_frame() {
 #[kani::proof]
 fn prove_accrue_moves_only_rate_and_credit() {
     let mut data = any_data();
-    let bstop_rate = kani::any::<u8>() as u32;
     let accrued = kani::any::<u8>() as i128;
+    let take_h = kani::any::<u8>();
+    kani::assume(take_h < 100); // take rate is a percentage in SCALAR_7 points, < 100%
+    let bstop_rate = (take_h as u32 * SCALAR_7 as u32) / 100; // < SCALAR_7, genuine zero included
     kani::assume(data.b_supply > 0);
     let before = fields(&data);
 
@@ -100,6 +102,10 @@ fn prove_accrue_moves_only_rate_and_credit() {
     expected.1 = data.b_rate; // recomputed from the accrued underlying
     expected.5 = data.backstop_credit; // the take rate's share of it
     assert_eq!(fields(&data), expected);
+    // a u8 bstop_rate would floor every credit to zero, leaving the field the
+    // frame names unexercised
+    kani::cover!(data.backstop_credit > before.5);
+    kani::cover!(data.b_rate != before.1);
 }
 
 /// Debt growth moves `d_rate` and no other field, so it cannot disturb the
