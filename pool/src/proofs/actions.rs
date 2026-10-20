@@ -400,7 +400,8 @@ fn prove_supply_credit_bound_product_space() {
     kani::assume(q_minted <= i128::MAX / 4);
     kani::assume(p_amount <= i128::MAX / 4);
 
-    kani::assume(q_minted <= p_amount && p_amount < q_minted + b_rate);
+    kani::assume(q_minted <= p_amount);
+    kani::assume(p_amount - q_minted < b_rate); // q_minted + b_rate would overflow
     kani::assume(p_amount % SCALAR_12 == 0);
     let amount = p_amount / SCALAR_12;
 

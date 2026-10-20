@@ -351,32 +351,67 @@ mod tests {
             }
         }
 
-        let user = production(include_str!("user.rs"));
-        assert_eq!(
-            user.matches("b_supply +=").count(),
-            2,
-            "add_supply and add_collateral are the only production increases"
-        );
-
-        let reserve = production(include_str!("reserve.rs"));
-        assert_eq!(
-            reserve.matches("b_supply -=").count(),
-            1,
-            "burn_supply is the only production decrease"
-        );
-
-        for file in [
-            include_str!("actions.rs"),
-            include_str!("bad_debt.rs"),
-            include_str!("pool.rs"),
-            include_str!("submit.rs"),
-            include_str!("config.rs"),
-            include_str!("gulp.rs"),
-        ] {
-            let prod = production(file);
-            assert_eq!(prod.matches("b_supply +=").count(), 0);
-            assert_eq!(prod.matches("b_supply -=").count(), 0);
+        fn writes(src: &str) -> (usize, usize, usize) {
+            let (mut inc, mut dec, mut set) = (0, 0, 0);
+            let mut rest = src;
+            while let Some(i) = rest.find("b_supply") {
+                rest = &rest[i + "b_supply".len()..];
+                let tail = rest.trim_start();
+                if tail.starts_with("+=") {
+                    inc += 1;
+                } else if tail.starts_with("-=") {
+                    dec += 1;
+                } else if tail.starts_with("==") {
+                } else if tail.starts_with('=')
+                    || tail.starts_with("*=")
+                    || tail.starts_with("/=")
+                    || tail.starts_with("%=")
+                {
+                    set += 1;
+                }
+            }
+            (inc, dec, set)
         }
+
+        let src_root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
+        let mut found = std::collections::BTreeMap::new();
+        let mut stack = std::vec![src_root.to_path_buf()];
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    // proofs/ and spec/ write b_supply by design, outside production
+                    let name = path.file_name().and_then(|n| n.to_str());
+                    if !matches!(name, Some("proofs") | Some("spec")) {
+                        stack.push(path);
+                    }
+                    continue;
+                }
+                if path.extension().map_or(true, |e| e != "rs") {
+                    continue;
+                }
+                let counts = writes(production(&std::fs::read_to_string(&path).unwrap()));
+                if counts != (0, 0, 0) {
+                    let rel: std::vec::Vec<&str> = path
+                        .strip_prefix(src_root)
+                        .unwrap()
+                        .components()
+                        .map(|c| c.as_os_str().to_str().unwrap())
+                        .collect();
+                    found.insert(rel.join("/"), counts);
+                }
+            }
+        }
+
+        let mut report = std::string::String::new();
+        for (path, (inc, dec, set)) in &found {
+            report.push_str(&std::format!("{path} +{inc} -{dec} ={set}\n"));
+        }
+        assert_eq!(
+            report, "pool/reserve.rs +0 -1 =0\npool/user.rs +2 -0 =0\n",
+            "a new b_supply writer must be checked against the cap guard and \
+             paired-decrease cases in docs/kani.md before the supply-cap claim holds"
+        );
     }
 
     #[test]
