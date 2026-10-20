@@ -478,10 +478,14 @@ does not verify the supply cap**. `supply_within_cap` itself is a single
 comparison; what defeats the prover is the handler call graph around it. The
 property is therefore pursued with Kani over the conversion arithmetic feeding
 `supply_within_cap`, on an explicitly bounded domain and without a
-whole-handler call graph. That work is done: see the supply-cap section of
-[`docs/kani.md`](kani.md), which establishes the action-level property — no
-supply action can raise a reserve's accounted supply above its cap — from six
-harnesses plus an enumeration of every production writer of `b_supply`. It
-also records why the standing reading, `total_supply <= supply_cap` at all
-times, is not a property of this system: interest accrual raises the total
-with no cap check in the path.
+whole-handler call graph. That line reaches further but does not close the
+obligation either, and the supply cap ships **partially verified, with its
+scope deliberately limited**. See the supply-cap section of
+[`docs/kani.md`](kani.md): it establishes the action-level property — no supply
+action can raise a reserve's accounted supply above its cap — over `u8`
+supplies at three fixed rates, from six harnesses plus an enumeration of every
+production writer of `b_supply`. The same bound at production `i128` width is
+undecided by both tools, across thirteen measurements. That doc carries the
+exact boundary and the evidence for it. It also records why the standing
+reading, `total_supply <= supply_cap` at all times, is not a property of this
+system: interest accrual raises the total with no cap check in the path.

@@ -261,6 +261,14 @@ production-scale supplies at post-default rates.
 The audit property list calls this "borrow caps". The protocol has no borrow
 cap; it has `supply_cap` and `max_util`. This is the supply cap.
 
+**Status: partial, and deliberately so.** The action-level property is
+established over `u8` supplies at three fixed rates. The same bound at
+production `i128` width is undecided — thirteen measurements across six
+harness shapes, eight CBMC backends and one Certora job, every one budget
+exhausted or tool failure, tabulated below. The general argument is sound;
+nothing here machine-checks it at full width. Treat the supply cap as
+partially verified and read the boundary below before relying on it.
+
 **`total_supply <= supply_cap` is not an invariant of this system**, and no
 proof can make it one. One production path raises `total_supply` with no cap
 check anywhere near it: `ReserveData::accrue` recomputes `b_rate` upward as
