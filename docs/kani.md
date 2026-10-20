@@ -483,7 +483,18 @@ them fail, which is how they were checked.
 Two limits remain. The test matches an operator immediately following the
 field, so a write through an alias would not be seen
 (`let s = &mut reserve.data.b_supply; *s += amount`); no production write
-takes that form today. `production()` skips literals and comments but `writes()`
+takes that form today. Struct-literal initialization is not counted either:
+`initialize_reserve` in `config.rs` constructs `ReserveData { b_supply: 0,
+.. }`, which is a production write of the field and is the base case the
+argument above assumes rather than a case it has to exclude. A future
+literal setting a non-zero `b_supply` would escape the guard. Counting
+`b_supply:` would catch that, at the price of also counting the field
+declaration in `storage.rs`, the `certora` nondet impl beside it and two
+`testutils.rs` fixtures — four counts that are not writes, against the one
+that is, and any edit to the struct or the fixtures would then fail the
+test spuriously. The exclusion is recorded instead.
+
+`production()` skips literals and comments but `writes()`
 does not, so `b_supply +=` inside a production comment or string would count;
 that over-counts into a visible failure rather than hiding anything. The walk
 treats everything outside `proofs/` and `spec/` as production, which includes
