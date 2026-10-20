@@ -203,7 +203,7 @@ not a refutation; given 7200 s it verifies in 2322 s.
 | No-free-money | `prove_b_round_trip_up_conservative` | SUCCESSFUL | 59.01 |
 | No-free-money | `prove_d_round_trip_down_conservative` | SUCCESSFUL | 6.23 |
 | No-free-money | `prove_d_round_trip_up_conservative` | SUCCESSFUL | 44.50 |
-| Supply cap | `prove_supply_cap_strictness` | SUCCESSFUL | 0.06 |
+| Cap predicate | `prove_supply_cap_strictness` | SUCCESSFUL | 0.06 |
 | Utilization | `prove_utilization_and_action_predicates` | SUCCESSFUL | 0.18 |
 | Utilization | `prove_utilization_range_and_branches` | SUCCESSFUL | 768.12 |
 | Accrual safety | `astra_grow_debt_rate_monotonic` | SUCCESSFUL | 14.44 |
@@ -215,6 +215,10 @@ not a refutation; given 7200 s it verifies in 2322 s.
 | Accrual safety | `astra_grow_debt_exact_delta_supply_255` | SUCCESSFUL | 211.03 |
 | Accrual safety | `astra_grow_debt_exact_delta` | TIMEOUT | >3500 |
 | Accrual safety | `prove_grow_debt_nonnegative_interest` | TIMEOUT | >3500 |
+
+`prove_supply_cap_strictness` is listed as the cap *predicate* because that is
+all it establishes: `supply_within_cap(a, b) == (a <= b)`, the definition of a
+one-line comparison. The supply cap itself is in its own section below.
 
 Three results need reading together. `prove_grow_debt_nonnegative_interest`
 conjoins rate monotonicity, the exact accrued-interest delta, and delta
