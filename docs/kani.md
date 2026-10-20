@@ -348,8 +348,14 @@ methods and behind an `Env`, so it is not framed here.
 The accrue frame carries two `cover!`s. `bstop_rate` is a percentage in
 `SCALAR_7` points, so a `u8` domain for it floors every credit to zero:
 `floor(255 * 255 / SCALAR_7) == 0`, and the `backstop_credit` half of the frame
-would hold without the branch that moves it ever running. The covers fail if
-that happens again.
+would hold without the branch that moves it ever running. Both report
+SATISFIED today. An unsatisfied cover does **not** fail the harness, though:
+`kani` exits 0 with one present, verified by planting
+`kani::cover!(amount > 1000)` against a `u8` amount. The covers are a
+diagnostic in the harness output; what enforces them is
+`scripts/kani_release.py`, which compares `N of M cover properties
+satisfied` against each inventory entry's `expected_covers`. These two are
+not in that inventory, so nothing currently fails if the domain regresses.
 
 | Harness | Verdict | Time (s) |
 | --- | --- | --- |
