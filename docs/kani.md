@@ -322,11 +322,16 @@ bound were attempted and every one exhausted its budget:
 | same, direct division | `i128` to 1e18 | 3600 s |
 | restated division-free, quotients named and constrained | `i128` to 1e18 | 1800 s |
 | same, division-free | `u32` | 1200 s |
+| restated in product space, no multiplication at all | `i128`, products to `i128::MAX/4` | 1200 s |
 
 The division-free restatement replaces all three divisions with
-multiplication, so the cost is the 128-bit products themselves, not division.
-Writing the divisions as exact remainder equalities gives the same products
-and so buys nothing. A conformance check tying the real conversions to the
+multiplication and the product-space restatement removes multiplication too,
+leaving division by the constant `SCALAR_12`, one modulo and comparisons. Both
+still exhausted their budgets, so the cost is neither division nor
+multiplication specifically: a 128-bit arithmetic circuit over symbolic
+operands is too large for a SAT backend whatever its shape. Writing the
+divisions as exact remainder equalities gives the same products and so buys
+nothing either. A conformance check tying the real conversions to the
 floor inequalities runs in 2.18 s at `u8`
 (`prove_b_token_forward_floor`) and exhausts 1200 s at `u32`, so the link
 between the arithmetic and the implementation is itself only machine-checked
@@ -334,10 +339,12 @@ at `u8` width.
 
 The bound is therefore established exhaustively over `u8` supplies at the
 three rates above, and the general argument is sound but unchecked at
-production scale. Certora is the tool suited to unbounded integer reasoning,
-but it times out on `utilization_in_range`, which is the same shape — an
-expression built from two floors — so that route is not obviously open
-either.
+production scale. Certora reasons with integer theories rather than
+bit-blasting, which is the capability a SAT backend lacks here, and the three
+HALTed supply-cap jobs failed on the handler call graph rather than on this
+arithmetic. `confs/supply_credit.conf` states the bound over `bounded_reserve`
+with no storage, no handler and no loops for that reason. It has not been run:
+the result belongs here when it has a verdict.
 
 `supply_chain` transcribes the sequence `apply_supply` runs rather than
 driving the handler, which needs an `Env`. `add_supply` adds exactly its
