@@ -275,7 +275,10 @@ check anywhere near it: `ReserveData::accrue` recomputes `b_rate` upward as
 interest accrues, and `total_supply` is
 `floor(b_supply * b_rate / SCALAR_12)`, so the total grows with time alone and
 passes the cap if the cap is close. `test_accrual_carries_total_supply_past_cap`
-exercises it.
+exercises it, and `prove_accrue_moves_only_rate_and_credit` establishes the
+other half: accrual moves `b_rate` and `backstop_credit` and no other field,
+so it raises the accounted total without issuing shares and is excluded from
+the cap guard rather than counted as a writer of `b_supply`.
 
 The cap itself cannot move under a live pool, which is what confines the
 exclusion to accrual. `execute_set_reserve` admits a metadata change on a
@@ -297,9 +300,11 @@ reserve.config.supply_cap)` and panicking on failure, with only
 `pool.cache_reserve(reserve)` between the test and the return. Neither the test
 nor the cache write touches `b_supply`.
 
-**The uncapped increase paths cancel.** Exactly two sites raise `b_supply` in
-production — `User::add_collateral` and `User::add_supply`, both
-`reserve.data.b_supply += amount`. Their production callers are:
+**The uncapped increase paths cancel.** One production function raises
+`b_supply`: `ReserveData::mint_supply`, the mirror of `burn_supply`. It is
+`pub(super)`, so rustc confines its callers to `pool/src/pool`, and
+`User::add_collateral` and `User::add_supply` are the only two that call it.
+Their own production callers are:
 
 | Caller | Why the cap is not evaded |
 | --- | --- |
@@ -312,6 +317,26 @@ production — `User::add_collateral` and `User::add_supply`, both
 The last two are position transfers between users, not new supply. They are
 safe only because an equal decrease precedes the increase on the same reserve,
 which `prove_burn_then_add_is_supply_neutral` pins.
+
+**Each mutator moves only the field it names.** Nothing in the suite checked
+that before, so the enumeration above rested on reading each function to the
+end. Four harnesses over a symbolic rate now pin it:
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_mint_supply_frame` | SUCCESSFUL | 0.14 |
+| `prove_burn_supply_frame` | SUCCESSFUL | 0.15 |
+| `prove_accrue_moves_only_rate_and_credit` | SUCCESSFUL | 0.57 |
+| `prove_grow_debt_moves_only_d_rate` | SUCCESSFUL | 0.81 |
+
+`mint_supply` and `burn_supply` each move `b_supply` by exactly their
+argument. `burn_supply`'s harness leaves `amount` unbounded by `b_supply`
+because the method makes no such check: `remove_collateral` and
+`remove_supply` validate the user's position, not the reserve total, so the
+missing premise is the global invariant that positions sum to `b_supply`,
+which nothing here proves. `accrue` divides by `b_supply` to recompute
+`b_rate` without checking it is non-zero, so its harness assumes
+`b_supply > 0`.
 
 **The arithmetic cannot evade the check.** The guard is tested on
 `to_asset_from_b_token(b_supply)` after `to_b_token_down(amount)` has been
