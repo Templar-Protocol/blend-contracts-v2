@@ -718,7 +718,8 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                                     .clone();
                                 expected_events.push_back((
                                     pool.address.clone(),
-                                    (Symbol::new(e, "defaulted_debt"), asset).into_val(e),
+                                    (Symbol::new(e, "defaulted_debt"), user.clone(), asset)
+                                        .into_val(e),
                                     defaulted.into_val(e),
                                 ));
                             }
@@ -1078,7 +1079,12 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                                     .asset;
                                 expected_events.push_back((
                                     pool.address.clone(),
-                                    (Symbol::new(e, "defaulted_debt"), asset.clone()).into_val(e),
+                                    (
+                                        Symbol::new(e, "defaulted_debt"),
+                                        victim.clone(),
+                                        asset.clone(),
+                                    )
+                                        .into_val(e),
                                     defaulted.into_val(e),
                                 ));
                             }
