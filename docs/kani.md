@@ -275,8 +275,13 @@ reserve. These run both live.
 The claim is `(held_after - held_before) + (credit_after - credit_before) <=
 accrued` together with `accrued == owed_after - owed_before`: the supplier and
 backstop claims rise by no more than the borrower obligation that funds them.
-`b_supply`, `b_rate`, `d_rate`, the take rate and the prior backstop credit are
-all symbolic; `d_supply` is pinned.
+`d_supply` is pinned. Every other input is symbolic over a `u8`-derived grid
+rather than the full `i128` range: `b_supply` spans 1 to 255 and the prior
+backstop credit 0 to 255; `b_rate`, `d_rate` and `loan_accrual` are hundredths
+of unity, so `b_rate` covers 0 to 2.55x and the two growth factors 1.00x to
+2.55x in 0.01 steps; the take rate is whole percentage points, 0% to 99%.
+Intermediate rates, rates above 2.55x unity, and take rates off a percentage
+point are therefore not covered.
 
 **`debt_000` is a vacuous pass and is not evidence for the property.** Zero of
 its two covers are satisfied: at `d_supply == 0` there is no debt, `accrued` is
