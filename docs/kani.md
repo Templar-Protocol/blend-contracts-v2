@@ -256,6 +256,54 @@ included, which is what reaches the saturation branch). Certora's
 excluding `b_rate` below `SCALAR_12`. Neither establishes the range for
 production-scale supplies at post-default rates.
 
+### Accrual value conservation
+
+`Reserve::load` is the only place a reserve's accounted value moves without a
+token transfer: it calls `grow_debt` and feeds the return straight into
+`accrue`. Every accrual harness above drives one half of that pair with the
+other half's book pinned to zero -- `grow_debt` at `b_supply == 0`, `accrue` at
+`d_supply == 0` and `d_rate == 0` -- so the two halves had never met on one
+reserve. These run both live.
+
+| Property | Harness | Verdict | Covers | Time (s) |
+| --- | --- | --- | --- | --- |
+| No-free-money | `prove_accrual_conserves_value_debt_000` | SUCCESSFUL | 0 of 2 | 33.82 |
+| No-free-money | `prove_accrual_conserves_value_debt_001` | SUCCESSFUL | 2 of 2 | 434.52 |
+| No-free-money | `prove_accrual_conserves_value_debt_002` | SUCCESSFUL | 2 of 2 | 688.85 |
+| No-free-money | `prove_accrual_conserves_value_debt_255` | SUCCESSFUL | 2 of 2 | 7334.77 |
+
+The claim is `(held_after - held_before) + (credit_after - credit_before) <=
+accrued` together with `accrued == owed_after - owed_before`: the supplier and
+backstop claims rise by no more than the borrower obligation that funds them.
+`d_supply` is pinned. Every other input is symbolic over a `u8`-derived grid
+rather than the full `i128` range: `b_supply` spans 1 to 255 and the prior
+backstop credit 0 to 255; `b_rate`, `d_rate` and `loan_accrual` are hundredths
+of unity, so `b_rate` covers 0 to 2.55x and the two growth factors 1.00x to
+2.55x in 0.01 steps; the take rate is whole percentage points, 0% to 99%.
+Intermediate rates, rates above 2.55x unity, and take rates off a percentage
+point are therefore not covered.
+
+**`debt_000` is a vacuous pass and is not evidence for the property.** Zero of
+its two covers are satisfied: at `d_supply == 0` there is no debt, `accrued` is
+0, `accrue` takes its no-op branch and every assertion holds trivially. An
+unsatisfied `kani::cover!` does not fail a harness, so the row reports
+SUCCESSFUL regardless. It is kept as the boundary case. The three remaining
+rows satisfy both covers, so the backstop-credit branch and the supplier-rate
+branch are reached in each.
+
+`d_supply` is pinned because it is the multiplicand in the debt conversion and
+the established cost driver -- `astra_grow_debt_exact_delta` leaves it symbolic
+and times out past 3500 s. Pinning `b_supply` instead does not help: at
+`b_supply == 1`, where the `accrue` divisor is 1, the harness still reached
+1800 s with no verdict. `debt_255` needs a budget above 7200 s; at 1800 s it
+reports no verdict, which is a resource limit and not a refutation.
+
+Scope: three debt levels, 1, 2 and 255, at `u8` width. The property is not
+established for symbolic `d_supply`, and **solvency proper is not addressed** --
+assets-cover-liabilities needs the pool's token balance, which lives outside
+`ReserveData` and is not reachable from Kani.
+
+
 ### Supply cap
 
 The audit property list calls this "borrow caps". The protocol has no borrow
