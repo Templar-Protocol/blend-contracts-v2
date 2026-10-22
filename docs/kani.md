@@ -22,9 +22,10 @@ The published campaign ran under Kani 0.67.0 on the pre-upgrade tree
 "kissat (Kani 0.67.0)"). 0.68.0 was unusable there: its rustc rejected
 `ethnum` 1.5.0 (`E0512`), and `ethnum` 1.5.3 needed a const `from_str_radix`
 that Rust 1.81 lacked. The soroban-sdk 25.3.0 lock carries `ethnum` 1.5.3,
-which removes that bind. The proofs have only been re-compiled under 0.68.0, not
-re-run; treat the published 0.67.0 run as the evidence until a new campaign is
-run on this tree. No CI job runs Kani.
+which removes that bind. The proofs have since been re-run under 0.68.0 on
+this tree; the results are recorded in "Kani 0.68.0 rerun (2026-10-22)" below
+and supersede the 0.67.0 tables in this document as the current evidence.
+No CI job runs Kani.
 
 ```sh
 cd /tmp && cargo install --locked kani-verifier --version 0.68.0 --force
