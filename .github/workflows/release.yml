@@ -103,14 +103,18 @@ jobs:
       - name: Verify against the existing release, or create a draft
         working-directory: out
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if lookup=$(gh release view "$TAG" 2>&1); then
             gh release download "$TAG" -p SHA256SUMS -O published.SHA256SUMS
             diff -u published.SHA256SUMS SHA256SUMS
             echo "Rebuilt WASMs match the published $TAG release."
-          else
+          elif [[ "$lookup" == *"release not found"* ]]; then
+            commit=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
             gh release create "$TAG" --verify-tag --draft --title "$TAG" \
-              --notes "Built by the release workflow at $GITHUB_SHA. Edit these notes before publishing." \
+              --notes "Built by the release workflow from $TAG ($commit). Edit these notes before publishing." \
               *.wasm SHA256SUMS
+          else
+            echo "$lookup" >&2
+            exit 1
           fi
       - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
