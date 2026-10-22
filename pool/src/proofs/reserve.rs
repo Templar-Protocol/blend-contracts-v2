@@ -13172,5 +13172,55 @@ proof_case!(
     255
 );
 
+/// Supplying raises the pool's obligation by no more than the tokens it takes
+/// in, and never lowers it.
+///
+/// The `mint_supply` half of the solvency induction in `docs/kani.md`. Both
+/// bounds at a symbolic rate generalise `supply_credit_no_inflation`, which
+/// needs the rate fixed; that is the shape the supply-cap section recorded as
+/// budget-exhausted at 900 s.
+#[kani::proof]
+fn prove_supply_claims_bounded_by_tokens_in() {
+    let b_supply = kani::any::<u8>() as i128;
+    let b_rate = hundredths(kani::any::<u8>());
+    kani::assume(b_rate > 0); // to_b_token_down divides by it
+    let amount = kani::any::<u8>() as i128;
+
+    let mut data = sym_data(0, b_rate, b_supply, 0);
+    let claims_before = data.to_asset_from_b_token(&(), data.b_supply);
+    let shares = data.to_b_token_down(&(), amount);
+    data.mint_supply(shares);
+    let claims_after = data.to_asset_from_b_token(&(), data.b_supply);
+
+    assert!(claims_after - claims_before <= amount);
+    assert!(claims_after >= claims_before);
+    kani::cover!(claims_after > claims_before);
+}
+
+/// Withdrawing pays out no more than the obligation it releases.
+///
+/// The `burn_supply` half of the same induction. Implied by
+/// `prove_b_round_trip_up_conservative` and superadditivity of `floor`; this
+/// discharges that step mechanically rather than by hand.
+#[kani::proof]
+fn prove_withdraw_tokens_out_bounded_by_claims_released() {
+    let b_supply = kani::any::<u8>() as i128;
+    let b_rate = hundredths(kani::any::<u8>());
+    kani::assume(b_rate > 0); // to_b_token_up divides by it
+    let tokens_out = kani::any::<u8>() as i128;
+
+    let mut data = sym_data(0, b_rate, b_supply, 0);
+    let shares = data.to_b_token_up(&(), tokens_out);
+    kani::assume(shares <= b_supply); // a withdrawal cannot burn more than exists
+
+    let claims_before = data.to_asset_from_b_token(&(), data.b_supply);
+    data.burn_supply(shares);
+    let claims_after = data.to_asset_from_b_token(&(), data.b_supply);
+
+    assert!(tokens_out <= claims_before - claims_after);
+    assert!(claims_after <= claims_before);
+    kani::cover!(claims_before > claims_after);
+}
+
 #[path = "reserve_frames.rs"]
 mod frames;
