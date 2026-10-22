@@ -39,7 +39,7 @@ PRICE_DATA = udt("PriceData")
 CONFIG = udt("PoolOracleConfig")
 
 def fn(name, inputs, outputs):
-    return {"name": name, "inputs": [{"name": n, "type_": t} for n, t in inputs], "outputs": outputs}
+    return {"name": name, "inputs": [{"name": n, "type": t} for n, t in inputs], "outputs": outputs}
 
 EXPECTED = {
     f["name"]: f
@@ -73,8 +73,8 @@ EXPECTED_UDTS = {
         ("parent_oracle", ADDRESS), ("resolution", U32)]),
     "PriceData": ("udt_struct_v0", [("price", "i128"), ("timestamp", U64)]),
     "Asset": ("udt_union_v0", [
-        {"tuple_v0": {"name": "Stellar", "type_": [ADDRESS]}},
-        {"tuple_v0": {"name": "Other", "type_": ["symbol"]}}]),
+        {"tuple_v0": {"name": "Stellar", "type": [ADDRESS]}},
+        {"tuple_v0": {"name": "Other", "type": ["symbol"]}}]),
     "AdapterError": ("udt_error_enum_v0", [
         ("AlreadyInitialized", 1), ("InvalidConfig", 2),
         ("ParentUnavailable", 3), ("ParentMismatch", 4)]),
@@ -193,7 +193,7 @@ def main():
         elif kind == "udt_union_v0":
             actual_members = payload.get("cases", [])
         else:
-            actual_members = [(m.get("name"), m.get("type_")) for m in payload.get("fields", [])]
+            actual_members = [(m.get("name"), m.get("type")) for m in payload.get("fields", [])]
         check(actual_members == members,
               f"{name}: {kind} members mismatch\n  expected {json.dumps(members)}\n  actual   {json.dumps(actual_members)}")
 

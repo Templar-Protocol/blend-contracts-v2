@@ -32,7 +32,7 @@ fn adr8_base_fork_differential() {
         missing.is_empty(),
         "adr8 differential runner requires all four artifact env vars; missing: {:?}. \
          Invoke explicitly with the BASE baseline {{pool,backstop}}.wasm files and the \
-         FORK optimized artifacts under target/wasm32-unknown-unknown/optimized/. \
+         FORK optimized artifacts under target/wasm32v1-none/optimized/. \
          Ordinary cargo runs skip this #[ignore] test.",
         missing,
     );

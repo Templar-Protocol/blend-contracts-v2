@@ -142,6 +142,8 @@ impl PriceFeedTrait for PoolOracleAdapter {
 
     fn price(env: Env, asset: Asset, timestamp: u64) -> Option<PriceData> {
         let config = active_config(&env)?;
+        // Audited form: `%` traps on a zero resolution, `is_multiple_of` would not.
+        #[allow(clippy::manual_is_multiple_of)]
         if timestamp % u64::from(config.resolution) != 0 {
             return None;
         }

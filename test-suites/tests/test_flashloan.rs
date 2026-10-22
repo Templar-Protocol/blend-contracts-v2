@@ -5,10 +5,8 @@
 //! checked separately.
 
 use pool::{FlashLoan, Request, RequestType};
-use soroban_sdk::{
-    testutils::{Address as _, Events as _},
-    vec, Address, Error,
-};
+use soroban_sdk::{testutils::Address as _, vec, Address, Error};
+use test_suites::all_events;
 use test_suites::{
     create_fixture_with_data,
     test_fixture::{TestFixture, TokenIndex, SCALAR_7},
@@ -72,7 +70,7 @@ fn test_flashloan_rejected_atomically() {
         // allowance, reserve data, instance TTL, and user keys).
         assert_eq!(fixture.env.to_ledger_snapshot(), before);
         assert!(fixture.env.auths().is_empty());
-        assert!(fixture.env.events().all().is_empty());
+        assert!(all_events(&fixture.env).is_empty());
     }
 }
 
@@ -97,5 +95,5 @@ fn test_flashloan_rejected_without_any_permissions() {
 
     assert_eq!(fixture.env.to_ledger_snapshot(), before);
     assert!(fixture.env.auths().is_empty());
-    assert!(fixture.env.events().all().is_empty());
+    assert!(all_events(&fixture.env).is_empty());
 }

@@ -1,14 +1,18 @@
 #![cfg(test)]
 
 use soroban_sdk::{
-    testutils::{Address as _, BytesN as _, Events},
+    testutils::{Address as _, BytesN as _},
     vec, Address, BytesN, Env, IntoVal, String, Symbol,
 };
+
+#[path = "../../shared/events_testutils.rs"]
+mod events_testutils;
+use events_testutils::all_events;
 
 use crate::{PoolFactoryClient, PoolFactoryContract, PoolInitMeta};
 
 mod pool {
-    soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/optimized/pool.wasm");
+    soroban_sdk::contractimport!(file = "../target/wasm32v1-none/optimized/pool.wasm");
 }
 
 #[test]
@@ -50,7 +54,7 @@ fn test_pool_factory() {
         &min_collateral,
     );
 
-    let event = vec![&e, e.events().all().last_unchecked()];
+    let event = vec![&e, all_events(&e).last_unchecked()];
     assert_eq!(
         event,
         vec![

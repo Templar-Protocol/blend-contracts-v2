@@ -98,6 +98,9 @@ impl MockPoolFactoryTrait for MockPoolFactory {
 
         storage::set_deployed(&e, &pool_address);
 
+        // Kept on the deprecated `publish` API: the mock must emit the same
+        // topics and data as the real factory (see pool-factory/src/events.rs).
+        #[allow(deprecated)]
         e.events()
             .publish((Symbol::new(&e, "deploy"),), pool_address.clone());
         pool_address

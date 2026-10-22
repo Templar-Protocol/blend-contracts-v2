@@ -176,7 +176,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 123456 * 5,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 123456,
             network_id: Default::default(),
             base_reserve: 10,
@@ -238,7 +238,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 123456 * 5,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 123456,
             network_id: Default::default(),
             base_reserve: 10,
@@ -326,7 +326,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 123456 * 5,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 123456,
             network_id: Default::default(),
             base_reserve: 10,
@@ -384,7 +384,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 123456 * 5,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 123456,
             network_id: Default::default(),
             base_reserve: 10,
@@ -711,7 +711,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 1000 + 24 * 60 * 60 + 1,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -756,7 +756,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 1000 + 24 * 60 * 60 + 1,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -940,9 +940,14 @@ mod tests {
         let e = Env::default();
         e.mock_all_auths_allowing_non_root_auth();
 
+        // The SEP-40 test oracle only serves prices published within its own
+        // `resolution`, and quantises published timestamps to it, so the fixture
+        // uses timestamps aligned to a 24-hour resolution. That keeps the oracle a
+        // pass-through here and leaves the 86_400 boundary under test owned by
+        // `Pool::load_price`.
         e.ledger().set(LedgerInfo {
-            timestamp: 1000 + 24 * 60 * 60,
-            protocol_version: 22,
+            timestamp: 10 * 86_400 + 86_400,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -960,9 +965,9 @@ mod tests {
             &Asset::Other(Symbol::new(&e, "USD")),
             &vec![&e, Asset::Stellar(asset.clone())],
             &7,
-            &300,
+            &86_400,
         );
-        oracle_client.set_price(&vec![&e, 123], &1000);
+        oracle_client.set_price(&vec![&e, 123], &(10 * 86_400));
         let pool_config = PoolConfig {
             oracle,
             min_collateral: 1_0000000,
@@ -985,9 +990,12 @@ mod tests {
         let e = Env::default();
         e.mock_all_auths_allowing_non_root_auth();
 
+        // Aligned to the oracle's 24-hour resolution (see
+        // `test_load_price_accepts_exact_24_hours`) so the future-dated timestamp
+        // reaches `Pool::load_price` unchanged.
         e.ledger().set(LedgerInfo {
-            timestamp: 1000,
-            protocol_version: 22,
+            timestamp: 10 * 86_400,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -1005,9 +1013,9 @@ mod tests {
             &Asset::Other(Symbol::new(&e, "USD")),
             &vec![&e, Asset::Stellar(asset.clone())],
             &7,
-            &300,
+            &86_400,
         );
-        oracle_client.set_price(&vec![&e, 123], &(1000 + 1));
+        oracle_client.set_price(&vec![&e, 123], &(10 * 86_400 + 86_400));
         let pool_config = PoolConfig {
             oracle,
             min_collateral: 1_0000000,

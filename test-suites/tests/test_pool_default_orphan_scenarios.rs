@@ -2,11 +2,9 @@
 use pool::{PoolDataKey, Request, RequestType};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    testutils::{Address as _, Events as _},
-    vec,
-    xdr::ToXdr,
-    Address, Error, IntoVal, Symbol, Val, Vec,
+    testutils::Address as _, vec, xdr::ToXdr, Address, Error, IntoVal, Symbol, Val, Vec,
 };
+use test_suites::all_events;
 use test_suites::{
     create_fixture_with_data,
     test_fixture::{TestFixture, TokenIndex, SCALAR_12, SCALAR_7},
@@ -94,7 +92,7 @@ fn test_public_default_orphan_custody_parking() {
                 .oracle
                 .set_price_stable(&vec![e, 1, 1_0000000, 1, 1_0000000]);
             pool.bad_debt(&sam);
-            let emitted = e.events().all(); // Capture before any getter starts another invocation.
+            let emitted = all_events(e); // Capture before any getter starts another invocation.
             let after = pool.get_positions(&sam);
             assert!(after.liabilities.is_empty());
             assert!(after.collateral.is_empty());
@@ -183,7 +181,7 @@ fn test_public_default_orphan_custody_parking() {
                 .map(|index| (index, fixture.read_reserve_data(0, index)))
                 .collect();
             pool.bad_debt(&second);
-            let second_events = e.events().all();
+            let second_events = all_events(e);
             expected = vec![e];
             for (index, amount) in second_positions.liabilities.iter() {
                 let asset = fixture.pools[0]
@@ -342,7 +340,7 @@ fn test_public_default_orphan_custody_parking() {
                 let mut expected_reserve = fixture.read_reserve_data(0, index);
                 expected_reserve.b_supply -= orphaned;
                 assert_eq!(pool.gulp(&token.address), 0);
-                let settlement_events = e.events().all();
+                let settlement_events = all_events(e);
                 assert_eq!(
                     settlement_events,
                     vec![
@@ -379,7 +377,7 @@ fn test_public_default_orphan_custody_parking() {
                 // underlying-unit gulp(asset, 0), and changes no ledger entry.
                 let snapshot = e.to_ledger_snapshot();
                 assert_eq!(pool.gulp(&token.address), 0);
-                let repeated_events = e.events().all();
+                let repeated_events = all_events(e);
                 assert_eq!(e.to_ledger_snapshot(), snapshot);
                 assert_eq!(
                     repeated_events,
@@ -768,7 +766,7 @@ fn supplier_loss_reverts_final_fill_then_independent_filler_succeeds() {
         assert_eq!(pool.get_auction(&0, &victim).to_xdr(e), auction.to_xdr(e));
 
         pool.submit(&funded, &funded, &funded, &fill);
-        let events = e.events().all();
+        let events = all_events(e);
         let topics: soroban_sdk::Vec<Val> =
             (Symbol::new(e, "fill_auction"), 0u32, victim.clone()).into_val(e);
         let data = events
