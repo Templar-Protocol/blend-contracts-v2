@@ -1,7 +1,7 @@
 use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::Env;
 
-use crate::{constants::SCALAR_7, storage};
+use crate::{constants::SCALAR_7, math::FixedMath, storage};
 
 use super::{pool::Pool, Positions};
 
@@ -78,19 +78,19 @@ impl PositionData {
     }
 
     /// Return the health factor as a ratio
-    pub fn as_health_factor(&self, e: &Env) -> i128 {
-        self.collateral_base
-            .fixed_div_floor(e, &self.liability_base, &self.scalar)
+    /// `FixedMath::floor(x, y, d)` is `floor(x * y / d)`: the scalar multiplies, the liability divides.
+    pub fn as_health_factor(&self, math: &impl FixedMath) -> i128 {
+        math.floor(self.collateral_base, self.scalar, self.liability_base)
     }
 
     // Check if the position data is over a maximum health factor
     // Note: max must be 7 decimals
-    pub fn is_hf_over(&self, e: &Env, max: i128) -> bool {
+    pub fn is_hf_over(&self, math: &impl FixedMath, max: i128) -> bool {
         if self.liability_base == 0 {
             return true;
         }
-        let min_health_factor = self.scalar.fixed_mul_ceil(e, &max, &SCALAR_7);
-        if self.as_health_factor(e) > min_health_factor {
+        let min_health_factor = math.ceil(self.scalar, max, SCALAR_7);
+        if self.as_health_factor(math) > min_health_factor {
             return true;
         }
         false
@@ -98,12 +98,12 @@ impl PositionData {
 
     /// Check if the position data is under a minimum health factor
     /// Note: min must be 7 decimals
-    pub fn is_hf_under(&self, e: &Env, min: i128) -> bool {
+    pub fn is_hf_under(&self, math: &impl FixedMath, min: i128) -> bool {
         if self.liability_base == 0 {
             return false;
         }
-        let min_health_factor = self.scalar.fixed_mul_floor(e, &min, &SCALAR_7);
-        if self.as_health_factor(e) < min_health_factor {
+        let min_health_factor = math.floor(self.scalar, min, SCALAR_7);
+        if self.as_health_factor(math) < min_health_factor {
             return true;
         }
         false
@@ -357,3 +357,7 @@ mod tests {
         assert!(result);
     }
 }
+
+#[cfg(kani)]
+#[path = "../proofs/health_factor.rs"]
+mod verification;
