@@ -24,10 +24,10 @@ let
 
     src = pkgs.fetchCrate {
       inherit pname version;
-      hash = "sha256-zrJBwSJwf/dnjgfDRZ1DcU7q5q8MgsEl9qRI6FaAUTk=";
+      hash = "sha256-8RT4IqnlM7h3WpchhB+eVJ6vTqHd4e+nKCbt/ffTQPY=";
     };
 
-    cargoHash = "sha256-BuhNdZqD+XwMaH7JqlEwuFIrxk18F1/y5JAO5x95BVA=";
+    cargoHash = "sha256-hVRxXU+ChsabKG1HqDcN1yeVZxkA7ylbZxJY2uEPCqw=";
 
     buildFeatures = [ "additional-libs" ];
 
