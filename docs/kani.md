@@ -559,8 +559,8 @@ Every harness in the four tables above was re-run on this checkout with Kani
 using the documented command form with `--solver kissat` and
 `-Z unstable-options --harness-timeout <n>s`; two harnesses ran concurrently
 against separate `--target-dir` slots. Wall times include per-invocation
-driver overhead and were measured on a shared host, so they run above the
-0.67.0 numbers; verdicts, not timings, are the claim. No counterexample trace
+driver overhead and were measured on a shared host, so they are not comparable
+with the 0.67.0 numbers (some are faster, some slower); verdicts, not timings, are the claim. No counterexample trace
 and no CBMC crash appeared anywhere: the only non-PASS verdicts are the two
 budget cases below.
 
@@ -634,9 +634,10 @@ again completes only with a budget above 1800 s — it verified in 3095 s,
 faster than the 7335 s the 0.67.0 run recorded. Cover counts are unchanged
 from the 0.67.0 campaign, including the vacuous `debt_000` pass (0 of 2).
 
-Nothing in the 0.68.0 run behaves differently from the 0.67.0 campaign on the
-soroban-sdk 25.3.0 / Rust 1.98 tree: 35 SUCCESSFUL, the same 2 budget-limited
-TIMEOUTs, no counterexamples, no tool crashes, no harness required a change.
+The 0.68.0 run reproduces the 0.67.0 campaign's verdicts, cover counts and
+failure modes on the soroban-sdk 25.3.0 / Rust 1.98 tree: 35 SUCCESSFUL, the same
+2 budget-limited TIMEOUTs, no counterexamples, no tool crashes, no harness
+required a change. Timings differ in both directions and are not part of the claim.
 
 ## Claim boundary
 
