@@ -25,22 +25,32 @@ env:
 
 jobs:
   blend:
-    name: pool, backstop, pool_factory (Rust 1.98.0, Stellar CLI 28.1.0)
+    name: pool, backstop, pool_factory
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
-      # Installs 1.98.0 + wasm32v1-none from rust-toolchain.toml.
-      - run: rustup toolchain install && rustc --version | grep -q '^rustc 1\.98\.0'
+      # The tag picks its own recipe. A standalone pool-oracle-adapter/rust-toolchain.toml
+      # marks the audited v0.1.0 layout (Stellar CLI 22.6.0); later tags use 28.1.0.
+      # The WASM directory is the target named by the root rust-toolchain.toml.
+      - name: Detect layout
+        run: |
+          if [[ -f pool-oracle-adapter/rust-toolchain.toml ]]; then cli=22.6.0; else cli=28.1.0; fi
+          target=$(sed -n 's/^targets = \["\([^"]*\)"\].*/\1/p' rust-toolchain.toml)
+          [[ -n "$target" ]] || { echo "no target in rust-toolchain.toml" >&2; exit 1; }
+          echo "STELLAR_CLI=$cli" >> "$GITHUB_ENV"
+          echo "WASM_DIR=target/$target/optimized" >> "$GITHUB_ENV"
+      # Installs the tag's pinned Rust + target from rust-toolchain.toml.
+      - run: rustup toolchain install && rustc --version
       - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
         with:
-          version: 28.1.0
+          version: ${{ env.STELLAR_CLI }}
       - run: make build
       - run: |
           mkdir out
-          cp target/wasm32v1-none/optimized/{pool,backstop,pool_factory}.wasm out/
+          cp "$WASM_DIR"/{pool,backstop,pool_factory}.wasm out/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: blend
@@ -48,7 +58,7 @@ jobs:
           if-no-files-found: error
 
   adapter:
-    name: pool_oracle_adapter (Rust 1.98.0, Stellar CLI 28.1.0)
+    name: pool_oracle_adapter
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -58,21 +68,30 @@ jobs:
         with:
           ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
-      # Installs 1.98.0 + wasm32v1-none from the root rust-toolchain.toml
-      # (adapter is a workspace member; rustup walks up from this directory).
-      - run: rustup toolchain install && rustc --version | grep -q '^rustc 1\.98\.0'
+      # Same layout signal as the blend job. The adapter's own preflight (justfile)
+      # enforces the exact CLI/Rust each layout needs, so no assertion here.
+      - name: Detect layout
+        working-directory: .
+        run: |
+          if [[ -f pool-oracle-adapter/rust-toolchain.toml ]]; then cli=26.0.0; else cli=28.1.0; fi
+          echo "STELLAR_CLI=$cli" >> "$GITHUB_ENV"
+      # Installs the tag's pinned toolchain: the adapter's own rust-toolchain.toml
+      # when standalone (v0.1.0), else the root one (rustup walks up).
+      - run: rustup toolchain install && rustc --version
       - uses: taiki-e/install-action@cde8c9e634f4a17bc06b61413ac0ef75450eac46
         with:
           tool: just
       - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
         with:
-          version: 28.1.0
-      # Same CI shim as pool-oracle-adapter.yml: the default toolchain is already 1.98.0.
+          version: ${{ env.STELLAR_CLI }}
+      # Same CI shim as pool-oracle-adapter.yml: rustup selects the toolchain per directory.
       - run: |
           mkdir -p "$RUNNER_TEMP/bin"
           printf '#!/usr/bin/env bash\nexec "$@"\n' > "$RUNNER_TEMP/bin/pool-adapter-env"
           chmod +x "$RUNNER_TEMP/bin/pool-adapter-env"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # `optimize` does not depend on `preflight`; run it so the tag's exact CLI/Rust gate applies.
+      - run: just preflight
       - run: just optimize
       - run: |
           mkdir ../out
