@@ -1,51 +1,117 @@
-name: Stellar Expert WASM Release
+name: release
 
-permissions:
-  id-token: write
-  contents: write
-  attestations: write
+# Builds every release WASM with the toolchains the audit evidence pins and
+# publishes them as ONE GitHub release for the tag. It never overwrites: if the
+# tag already has a release, the job only checks that the rebuilt bytes match
+# that release's SHA256SUMS. A new release is created as a draft for a human to
+# review and publish. Nothing is sent to any explorer or network.
+#
+# Re-check an existing release: Actions -> release -> Run workflow, tag=v0.1.0.
 
 on:
-  push: 
-    tags:
-      - 'v*'  # triggered whenever a new tag (previxed with "v") is pushed to the repository
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  release-contract-backstop:
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
-    with:
-      release_name: ${{ github.ref_name }}
-      release_description: 'Blend Backstop Release'
-      package: 'backstop'
-      make_target: 'build'
-    secrets:
-      release_token: ${{ secrets.GITHUB_TOKEN }}
+  blend:
+    name: pool, backstop, pool_factory (Rust 1.81, Stellar CLI 22.6.0)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+      # Installs 1.81 + wasm32-unknown-unknown from rust-toolchain.toml.
+      - run: rustup toolchain install && rustc --version | grep -q '^rustc 1\.81\.'
+      - uses: stellar/stellar-cli@f4fd838380408dcad3e39f704e8d56d6408c63e2 # v22.6.0
+        with:
+          version: 22.6.0
+      - run: make build
+      - run: |
+          mkdir out
+          cp target/wasm32-unknown-unknown/optimized/{pool,backstop,pool_factory}.wasm out/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: blend
+          path: out/*.wasm
+          if-no-files-found: error
 
-  release-contract-pool:
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
-    with:
-      release_name: ${{ github.ref_name }}
-      release_description: 'Blend Pool Release'
-      package: 'pool'
-      make_target: 'build'
-    secrets:
-      release_token: ${{ secrets.GITHUB_TOKEN }}
+  adapter:
+    name: pool_oracle_adapter (Rust 1.89.0, Stellar CLI 26.0.0)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pool-oracle-adapter
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+      - run: |
+          rustup toolchain install 1.89.0 --profile minimal --target wasm32v1-none
+          rustup default 1.89.0-x86_64-unknown-linux-gnu
+      - uses: taiki-e/install-action@cde8c9e634f4a17bc06b61413ac0ef75450eac46
+        with:
+          tool: just
+      - uses: stellar/stellar-cli@60f7458e7ecffddf2f2d91dc6d0d2db4fab03ecc # v26.0.0
+        with:
+          version: 26.0.0
+      # Same CI shim as pool-oracle-adapter.yml: the default toolchain is already 1.89.0.
+      - run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          printf '#!/usr/bin/env bash\nexec "$@"\n' > "$RUNNER_TEMP/bin/pool-adapter-env"
+          chmod +x "$RUNNER_TEMP/bin/pool-adapter-env"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - run: just optimize
+      - run: |
+          mkdir ../out
+          cp target/wasm32v1-none/release-soroban-checked/pool_oracle_adapter.optimized.wasm ../out/pool_oracle_adapter.wasm
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: adapter
+          path: out/*.wasm
+          if-no-files-found: error
 
-  release-contract-emitter:
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
-    with:
-      release_name: ${{ github.ref_name }}
-      release_description: 'Blend Emitter Release'
-      package: 'emitter'
-    secrets:
-      release_token: ${{ secrets.GITHUB_TOKEN }}
-
-  release-contract-pool-factory:
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
-    with:
-      release_name: ${{ github.ref_name }}
-      release_description: 'Blend Pool Factory Release'
-      package: 'pool-factory'
-      make_target: 'build'
-    secrets:
-      release_token: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    needs: [blend, adapter]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: out
+          merge-multiple: true
+      - working-directory: out
+        run: sha256sum *.wasm | tee SHA256SUMS
+      - name: Verify against the existing release, or create a draft
+        working-directory: out
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release download "$TAG" -p SHA256SUMS -O published.SHA256SUMS
+            diff -u published.SHA256SUMS SHA256SUMS
+            echo "Rebuilt WASMs match the published $TAG release."
+          else
+            gh release create "$TAG" --verify-tag --draft --title "$TAG" \
+              --notes "Built by the release workflow at $GITHUB_SHA. Edit these notes before publishing." \
+              *.wasm SHA256SUMS
+          fi
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: out/*.wasm
