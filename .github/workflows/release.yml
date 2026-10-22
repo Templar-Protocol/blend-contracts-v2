@@ -90,6 +90,8 @@ jobs:
           printf '#!/usr/bin/env bash\nexec "$@"\n' > "$RUNNER_TEMP/bin/pool-adapter-env"
           chmod +x "$RUNNER_TEMP/bin/pool-adapter-env"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # `optimize` does not depend on `preflight`; run it so the tag's exact CLI/Rust gate applies.
+      - run: just preflight
       - run: just optimize
       - run: |
           mkdir ../out
