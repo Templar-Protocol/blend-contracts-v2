@@ -1,3 +1,8 @@
+// The event topics and data below are part of the audited contract surface:
+// downstream monitoring decodes these exact bytes. soroban-sdk 25 deprecates
+// `events().publish` in favour of `#[contractevent]`, which would move the
+// topics into generated code, so the audited calls stay as they are.
+#![allow(deprecated)]
 #[cfg(not(feature = "certora"))]
 use soroban_sdk::{Address, Env, Symbol, Vec};
 

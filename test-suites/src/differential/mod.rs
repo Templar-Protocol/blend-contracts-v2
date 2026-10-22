@@ -31,8 +31,8 @@ pub use observation::{Capture, Observation, ObservedStep};
 
 use crate::test_fixture::{RUNTIME_BACKSTOP_ID, RUNTIME_FACTORY_ID, RUNTIME_POOL_SALT};
 use soroban_sdk::xdr::{
-    ContractDataEntry, ContractExecutable, Hash as XdrHash, LedgerEntryData, LedgerKey, ScAddress,
-    ScVal,
+    ContractDataEntry, ContractExecutable, ContractId, Hash as XdrHash, LedgerEntryData, LedgerKey,
+    ScAddress, ScVal,
 };
 
 /// Fixed zero identity for normalized executable references during compare.
@@ -88,7 +88,7 @@ pub struct SideCapture {
 
 fn addr_bytes(addr: &ScAddress) -> [u8; 32] {
     match addr {
-        ScAddress::Contract(XdrHash(bytes)) => *bytes,
+        ScAddress::Contract(ContractId(XdrHash(bytes))) => *bytes,
         other => panic!(
             "differential harness: unexpected non-contract address {:?}",
             other
@@ -96,11 +96,11 @@ fn addr_bytes(addr: &ScAddress) -> [u8; 32] {
     }
 }
 
-/// SDK 22.0.7 has no `Address::to_bytes`; go through the verified
+/// soroban-sdk has no `Address::to_bytes`; go through the verified
 /// `From<&Address> for ScAddress` conversion and read the contract hash.
 pub(crate) fn addr_bytes_of(addr: &soroban_sdk::Address) -> [u8; 32] {
     match ScAddress::from(addr) {
-        ScAddress::Contract(XdrHash(bytes)) => bytes,
+        ScAddress::Contract(ContractId(XdrHash(bytes))) => bytes,
         other => panic!(
             "differential harness: address is not a contract id ({:?})",
             other
@@ -254,7 +254,7 @@ pub fn normalize_executables(
 /// instance-storage PoolMeta map. All other PoolMeta fields, storage keys,
 /// TTLs and unrelated metadata stay byte-exact. Panics when absent/duplicate.
 fn normalize_pool_meta_hash(out: &mut Observation, factory_id: &[u8; 32], expected: [u8; 32]) {
-    let target = ScAddress::Contract(XdrHash(*factory_id));
+    let target = ScAddress::Contract(ContractId(XdrHash(*factory_id)));
     let mut hits = 0usize;
 
     for (key, entry_ttl) in out.snap.ledger.ledger_entries.iter_mut() {

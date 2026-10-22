@@ -38,9 +38,11 @@ mod tests {
     use sep_40_oracle::testutils::Asset;
     use soroban_sdk::{
         map,
-        testutils::{Address as _, Events, Ledger, LedgerInfo},
+        testutils::{Address as _, Ledger, LedgerInfo},
         vec, Address, Env, IntoVal, Symbol,
     };
+
+    use crate::events_testutils::all_events;
 
     #[test]
     fn test_execute_gulp_settles_orphan() {
@@ -48,7 +50,7 @@ mod tests {
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -92,12 +94,12 @@ mod tests {
             storage::set_pool_config(&e, &pool_config);
 
             let pre_balance = underlying_client.balance(&pool);
-            let pre_events = e.events().all().len();
+            let pre_events = all_events(&e).len();
             let token_delta_result = execute_gulp(&e, &underlying);
             assert_eq!(token_delta_result, 0);
 
             // exact orphan event in b-token units as last emitted event
-            let event = vec![&e, e.events().all().last_unchecked()];
+            let event = vec![&e, all_events(&e).last_unchecked()];
             assert_eq!(
                 event,
                 vec![
@@ -109,7 +111,7 @@ mod tests {
                     )
                 ]
             );
-            assert_eq!(e.events().all().len(), pre_events + 1);
+            assert_eq!(all_events(&e).len(), pre_events + 1);
 
             // exactly the pool-owned supply was removed from the reserve cache/store
             let new_reserve_data = storage::get_res_data(&e, &underlying);
@@ -138,7 +140,7 @@ mod tests {
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -178,7 +180,7 @@ mod tests {
         e.mock_all_auths_allowing_non_root_auth();
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -209,12 +211,12 @@ mod tests {
             };
             storage::set_pool_config(&e, &pool_config);
 
-            let pre_events = e.events().all().len();
+            let pre_events = all_events(&e).len();
             let token_delta_result = execute_gulp(&e, &underlying);
             assert_eq!(token_delta_result, 0);
 
             // zero-orphan early return: nothing stored and no orphan event
-            assert_eq!(e.events().all().len(), pre_events);
+            assert_eq!(all_events(&e).len(), pre_events);
             let new_reserve_data = storage::get_res_data(&e, &underlying);
             assert_eq!(new_reserve_data.b_rate, 1_000_000_000_000);
             assert_eq!(new_reserve_data.last_time, 0);
@@ -229,7 +231,7 @@ mod tests {
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -277,7 +279,7 @@ mod tests {
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -332,7 +334,7 @@ mod tests {
         e.mock_all_auths();
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -396,7 +398,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -451,7 +453,7 @@ mod tests {
             let token_delta_result = execute_gulp(&e, &underlying);
             assert_eq!(token_delta_result, 0);
 
-            let event = vec![&e, e.events().all().last_unchecked()];
+            let event = vec![&e, all_events(&e).last_unchecked()];
             assert_eq!(
                 event,
                 vec![

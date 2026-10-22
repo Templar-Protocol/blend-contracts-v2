@@ -25,22 +25,22 @@ env:
 
 jobs:
   blend:
-    name: pool, backstop, pool_factory (Rust 1.81, Stellar CLI 22.6.0)
+    name: pool, backstop, pool_factory (Rust 1.98.0, Stellar CLI 28.1.0)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
-      # Installs 1.81 + wasm32-unknown-unknown from rust-toolchain.toml.
-      - run: rustup toolchain install && rustc --version | grep -q '^rustc 1\.81\.'
-      - uses: stellar/stellar-cli@f4fd838380408dcad3e39f704e8d56d6408c63e2 # v22.6.0
+      # Installs 1.98.0 + wasm32v1-none from rust-toolchain.toml.
+      - run: rustup toolchain install && rustc --version | grep -q '^rustc 1\.98\.0'
+      - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
         with:
-          version: 22.6.0
+          version: 28.1.0
       - run: make build
       - run: |
           mkdir out
-          cp target/wasm32-unknown-unknown/optimized/{pool,backstop,pool_factory}.wasm out/
+          cp target/wasm32v1-none/optimized/{pool,backstop,pool_factory}.wasm out/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: blend
@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
 
   adapter:
-    name: pool_oracle_adapter (Rust 1.89.0, Stellar CLI 26.0.0)
+    name: pool_oracle_adapter (Rust 1.98.0, Stellar CLI 28.1.0)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -58,16 +58,16 @@ jobs:
         with:
           ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
-      - run: |
-          rustup toolchain install 1.89.0 --profile minimal --target wasm32v1-none
-          rustup default 1.89.0-x86_64-unknown-linux-gnu
+      # Installs 1.98.0 + wasm32v1-none from the root rust-toolchain.toml
+      # (adapter is a workspace member; rustup walks up from this directory).
+      - run: rustup toolchain install && rustc --version | grep -q '^rustc 1\.98\.0'
       - uses: taiki-e/install-action@cde8c9e634f4a17bc06b61413ac0ef75450eac46
         with:
           tool: just
-      - uses: stellar/stellar-cli@60f7458e7ecffddf2f2d91dc6d0d2db4fab03ecc # v26.0.0
+      - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
         with:
-          version: 26.0.0
-      # Same CI shim as pool-oracle-adapter.yml: the default toolchain is already 1.89.0.
+          version: 28.1.0
+      # Same CI shim as pool-oracle-adapter.yml: the default toolchain is already 1.98.0.
       - run: |
           mkdir -p "$RUNNER_TEMP/bin"
           printf '#!/usr/bin/env bash\nexec "$@"\n' > "$RUNNER_TEMP/bin/pool-adapter-env"

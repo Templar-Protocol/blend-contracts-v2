@@ -15,6 +15,9 @@ mod dependencies;
 mod emissions;
 mod errors;
 mod events;
+#[path = "../../shared/events_testutils.rs"]
+#[cfg(test)]
+mod events_testutils;
 mod math;
 mod pool;
 mod spec;

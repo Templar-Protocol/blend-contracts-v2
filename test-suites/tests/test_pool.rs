@@ -4,11 +4,12 @@ use pool::{Request, RequestType, ReserveEmissionMetadata};
 use sep_40_oracle::testutils::Asset;
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Events},
+    testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation},
     vec,
     xdr::{ScErrorCode, ScErrorType},
     Address, Error, IntoVal, String, Symbol, Val,
 };
+use test_suites::all_events;
 use test_suites::{
     assertions::assert_approx_eq_abs,
     create_fixture_with_data,
@@ -84,7 +85,7 @@ fn test_pool_user() {
             }
         )
     );
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     let event = vec![&fixture.env, events.get_unchecked(events.len() - 2)];
     let event_data: soroban_sdk::Vec<Val> = vec![
         &fixture.env,
@@ -159,7 +160,7 @@ fn test_pool_user() {
             }
         )
     );
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     let event = vec![&fixture.env, events.get_unchecked(events.len() - 2)];
     let reserve_data = fixture.read_reserve_data(0, TokenIndex::WETH);
     pool_weth_balance -= amount;
@@ -241,7 +242,7 @@ fn test_pool_user() {
             }
         )
     );
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     let event = vec![&fixture.env, events.get_unchecked(events.len() - 2)];
     let reserve_data = fixture.read_reserve_data(0, TokenIndex::XLM);
     pool_xlm_balance += amount;
@@ -312,7 +313,7 @@ fn test_pool_user() {
             }
         )
     );
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     let event = vec![&fixture.env, events.get_unchecked(events.len() - 2)];
     let reserve_data = fixture.read_reserve_data(0, TokenIndex::WETH);
     pool_weth_balance -= amount;
@@ -413,7 +414,7 @@ fn test_pool_user() {
             }
         )
     );
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     // @dev: three transfer events follow the pool events, 1 pool event follows
     let event = vec![&fixture.env, events.get_unchecked(events.len() - 5)];
     let xlm_reserve_data = fixture.read_reserve_data(0, TokenIndex::XLM);
@@ -527,7 +528,7 @@ fn test_pool_config() {
     fixture.jump(604800); // 1 week
 
     pool_fixture.pool.set_reserve(&blnd.address);
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     let event_data: soroban_sdk::Vec<Val> = vec![
         &fixture.env,
         blnd.address.into_val(&fixture.env),
@@ -598,7 +599,7 @@ fn test_pool_config() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -632,7 +633,7 @@ fn test_pool_config() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -663,7 +664,7 @@ fn test_pool_config() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -688,7 +689,7 @@ fn test_pool_config() {
     // Update status (backstop is unhealthy, so this should update to backstop on-ice)
     pool_fixture.pool.update_status();
     assert_eq!(fixture.env.auths().len(), 0);
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -713,7 +714,7 @@ fn test_pool_config() {
     // Update status (backstop is healthy, so this should update to active)
     pool_fixture.pool.update_status();
     assert_eq!(fixture.env.auths().len(), 0);
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![

@@ -33,7 +33,7 @@ use crate::differential::{compare_states, Observation, SideCapture};
 
 fn addr_bytes(sc_addr: &soroban_sdk::xdr::ScAddress) -> Option<[u8; 32]> {
     match sc_addr {
-        soroban_sdk::xdr::ScAddress::Contract(h) => Some(h.0),
+        soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::ContractId(h)) => Some(h.0),
         _ => None,
     }
 }
@@ -323,7 +323,9 @@ pub fn mutate_emissions_entry(obs: &mut Observation, pool: &[u8; 32]) {
         last_modified_ledger_seq: obs.snap.ledger.sequence_number,
         data: LedgerEntryData::ContractData(soroban_sdk::xdr::ContractDataEntry {
             ext: soroban_sdk::xdr::ExtensionPoint::V0,
-            contract: soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::Hash(*pool)),
+            contract: soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::ContractId(
+                soroban_sdk::xdr::Hash(*pool),
+            )),
             key: key_val.clone(),
             durability: soroban_sdk::xdr::ContractDataDurability::Persistent,
             val: emission_data_map(777_777_777),
@@ -332,7 +334,9 @@ pub fn mutate_emissions_entry(obs: &mut Observation, pool: &[u8; 32]) {
     obs.snap.ledger.ledger_entries.push((
         Box::new(soroban_sdk::xdr::LedgerKey::ContractData(
             soroban_sdk::xdr::LedgerKeyContractData {
-                contract: soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::Hash(*pool)),
+                contract: soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::ContractId(
+                    soroban_sdk::xdr::Hash(*pool),
+                )),
                 key: key_val,
                 durability: soroban_sdk::xdr::ContractDataDurability::Persistent,
             },

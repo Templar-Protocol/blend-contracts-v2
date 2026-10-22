@@ -227,6 +227,7 @@ pub fn check_and_handle_backstop_bad_debt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::events_testutils::all_events;
     use crate::{
         auctions::AuctionData,
         storage::{self, PoolConfig, ReserveEmissionData, UserEmissionData},
@@ -239,7 +240,7 @@ mod tests {
     use sep_40_oracle::testutils::Asset;
     use soroban_sdk::{
         map,
-        testutils::{Address as _, Events, Ledger, LedgerInfo},
+        testutils::{Address as _, Ledger, LedgerInfo},
         vec, Address, IntoVal, Symbol,
     };
 
@@ -288,7 +289,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -342,7 +343,7 @@ mod tests {
         let (oracle, oracle_client) = testutils::create_mock_oracle(&e);
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -394,7 +395,7 @@ mod tests {
             storage::set_user_positions(&e, &samwise, &positions);
             storage::set_backstop(&e, &backstop_address);
 
-            let pre_events = e.events().all().len();
+            let pre_events = all_events(&e).len();
             bad_debt(&e, &samwise);
 
             // liabilities are forgiven after same-reserve ordinary supply is
@@ -411,7 +412,7 @@ mod tests {
             assert_eq!(post_backstop_positions.supply.len(), 0);
 
             // Reserve 0 setoff is attributed; only the uncovered reserve 1 liability is socialized.
-            let all_events = e.events().all();
+            let all_events = all_events(&e);
             assert_eq!(all_events.len(), pre_events + 2);
             assert_eq!(
                 vec![&e, all_events.get_unchecked(all_events.len() - 2)],
@@ -488,7 +489,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -530,7 +531,7 @@ mod tests {
             storage::set_user_positions(&e, &samwise, &positions);
             storage::set_backstop(&e, &backstop_address);
 
-            let pre_events = e.events().all().len();
+            let pre_events = all_events(&e).len();
             bad_debt(&e, &samwise);
 
             let post_positions = storage::get_user_positions(&e, &samwise);
@@ -543,7 +544,7 @@ mod tests {
             assert_eq!(pool_positions.supply.get(0).unwrap(), 1);
 
             // defaulted_debt then collateral_orphaned, nothing else
-            let all_events = e.events().all();
+            let all_events = all_events(&e);
             assert_eq!(all_events.len(), pre_events + 2);
             assert_eq!(
                 vec![&e, all_events.get_unchecked(all_events.len() - 2)],
@@ -630,7 +631,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -715,7 +716,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -830,7 +831,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -926,7 +927,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -973,7 +974,7 @@ mod tests {
             storage::set_user_positions(&e, &samwise, &positions);
             storage::set_user_positions(&e, &backstop_address, &backstop_positions);
 
-            let pre_events = e.events().all().len();
+            let pre_events = all_events(&e).len();
             let mut pool = Pool::load(&e);
             let mut user = User::load(&e, &samwise);
 
@@ -996,7 +997,7 @@ mod tests {
 
             // Store reserves; the setoff is attributed and only reserve 1 is socialized.
             pool.store_cached_reserves(&e);
-            let all_events = e.events().all();
+            let all_events = all_events(&e);
             assert_eq!(all_events.len(), pre_events + 2);
             assert_eq!(
                 vec![&e, all_events.get_unchecked(all_events.len() - 2)],
@@ -1092,7 +1093,7 @@ mod tests {
 
         let ledger = LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -1153,7 +1154,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -1217,7 +1218,7 @@ mod tests {
             let mut emissions = storage::get_pool_emissions(&e);
             emissions.set(1, 1_0000000);
             storage::set_pool_emissions(&e, &emissions);
-            let events_before = e.events().all().len();
+            let events_before = all_events(&e).len();
 
             assert!(check_and_handle_user_bad_debt(
                 &e, &mut pool, &samwise, &mut user
@@ -1242,7 +1243,7 @@ mod tests {
             assert_eq!(reserve.data.b_supply, expected_b_supply);
             assert_eq!(reserve.data.d_supply, expected_d_supply);
             assert_eq!(reserve.data.b_rate, expected_b_rate);
-            let all_events = e.events().all();
+            let all_events = all_events(&e);
             assert_eq!(all_events.len(), events_before + 1);
             assert_eq!(
                 vec![&e, all_events.last_unchecked()],
@@ -1352,7 +1353,7 @@ mod tests {
         // missing reserves instead — the fork rejects before touching any of them
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -1415,7 +1416,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -1505,7 +1506,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,
@@ -1595,7 +1596,7 @@ mod tests {
 
         e.ledger().set(LedgerInfo {
             timestamp: 100,
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 1234,
             network_id: Default::default(),
             base_reserve: 10,

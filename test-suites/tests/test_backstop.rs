@@ -2,9 +2,10 @@
 
 use backstop::{BackstopClient, BackstopContract};
 use soroban_sdk::{
-    testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Events},
+    testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation},
     vec, Address, Env, IntoVal, Symbol, Val, Vec,
 };
+use test_suites::all_events;
 use test_suites::{
     create_fixture_with_data,
     test_fixture::{TokenIndex, SCALAR_7},
@@ -96,7 +97,7 @@ fn test_backstop() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     let event_body: Vec<Val> = vec![
         &fixture.env,
         amount.into_val(&fixture.env),
@@ -175,7 +176,7 @@ fn test_backstop() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -224,7 +225,7 @@ fn test_backstop() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     let event_body: Vec<Val> = vec![
         &fixture.env,
         amount.into_val(&fixture.env),
@@ -285,7 +286,7 @@ fn test_backstop() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -335,7 +336,7 @@ fn test_backstop() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -380,7 +381,7 @@ fn test_backstop() {
             }
         )
     );
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     let event_body: Vec<Val> = vec![
         &fixture.env,
         amount.into_val(&fixture.env),

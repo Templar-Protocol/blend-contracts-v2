@@ -12,6 +12,7 @@ use test_suites::{
     create_fixture_with_data,
     test_fixture::{PoolFixture, TestFixture, TokenIndex, SCALAR_7, SCALAR_12},
 };
+use test_suites::all_events;
 
 #[derive(Arbitrary, Debug)]
 pub struct NatI128(
@@ -38,7 +39,7 @@ pub fn verify_contract_result<T>(env: &soroban_sdk::Env, r: &ContractResult<T>) 
                 let msg = "contract failed with InvalidAction - unexpected panic?";
                 eprintln!("{msg}");
                 eprintln!("recent events (10):");
-                for (i, event) in env.events().all().iter().rev().take(10).enumerate() {
+                for (i, event) in all_events(&env).iter().rev().take(10).enumerate() {
                     eprintln!("{i}: {event:?}");
                 }
                 panic!("{msg}");

@@ -1,0 +1,23 @@
+[package]
+name = "moderc3156"
+version = "0.1.0"
+edition = "2021"
+rust-version.workspace = true
+description = "Vendored xycLoans ERC3156 flash loan receiver interface."
+homepage = "https://xycloans.xycloo.com/"
+repository = "https://github.com/xycloo/xycloans"
+authors = ["Tommaso De Ponti <tommaso@xycloans.com>"]
+publish = false
+
+# Vendored verbatim from xycloo/xycloans (moderc3156/src/lib.rs at d9a7ae1).
+# The upstream crate is still built against soroban-sdk 22, so tracking it as a
+# git dependency would put a second soroban-sdk in this workspace's lock. The
+# interface below is byte-identical to upstream; keep it that way if upstream
+# ever ships an sdk-25 release and this copy can be dropped.
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
