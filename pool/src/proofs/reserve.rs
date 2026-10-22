@@ -13091,5 +13091,86 @@ fn astra_grow_debt_output_witness_maximum() {
     );
 }
 
+/// Interest distributed never exceeds interest charged.
+///
+/// `Reserve::load` calls `grow_debt` and feeds its return straight into
+/// `accrue`, so the pair is the only place a reserve's accounted value moves
+/// without a token transfer. Every other accrual harness pins one side of the
+/// book to zero -- `grow_debt` runs at `b_supply == 0`, `accrue` at
+/// `d_supply == 0` -- so the two halves have never met on one reserve. This
+/// runs both live and bounds the supplier and backstop claims by the borrower
+/// obligation that funds them.
+///
+/// `d_supply` is pinned because it is the multiplicand in the debt conversion
+/// and the established cost driver: `astra_grow_debt_exact_delta` leaves it
+/// symbolic and times out past 3500 s.
+fn check_accrual_conserves_value(d_supply: i128) {
+    let b_supply = kani::any::<u8>() as i128;
+    kani::assume(b_supply >= 1); // Reserve::load returns early on a zero b_supply
+    let rate_h = kani::any::<u8>();
+    kani::assume(rate_h >= 100); // d_rate starts at unity and only grows
+    let accrual_h = kani::any::<u8>();
+    kani::assume(accrual_h >= 100); // loan_accrual is a growth factor, never shrinking
+    let take_h = kani::any::<u8>();
+    kani::assume(take_h < 100); // take rate is a percentage in SCALAR_7 points, < 100%
+    let bstop_rate = (take_h as u32 * SCALAR_7 as u32) / 100;
+
+    let mut data = sym_data(
+        hundredths(rate_h),
+        hundredths(kani::any::<u8>()),
+        b_supply,
+        d_supply,
+    );
+    data.backstop_credit = kani::any::<u8>() as i128;
+
+    let owed_before = data.to_asset_from_d_token(&(), d_supply);
+    let held_before = data.to_asset_from_b_token(&(), b_supply);
+    let credit_before = data.backstop_credit;
+
+    let accrued = data.grow_debt(&(), hundredths(accrual_h));
+    data.accrue(&(), bstop_rate, accrued);
+
+    let owed_after = data.to_asset_from_d_token(&(), d_supply);
+    let held_after = data.to_asset_from_b_token(&(), b_supply);
+    let credit_after = data.backstop_credit;
+
+    assert_eq!(accrued, owed_after - owed_before);
+    assert!((held_after - held_before) + (credit_after - credit_before) <= accrued);
+    assert!(owed_after >= owed_before);
+    assert!(held_after >= held_before);
+    assert!(credit_after >= credit_before);
+
+    kani::cover!(credit_after > credit_before);
+    kani::cover!(held_after > held_before);
+}
+
+fn accrual_conserves_value_at_debt<const D_SUPPLY: u8>() {
+    check_accrual_conserves_value(D_SUPPLY as i128);
+}
+
+proof_case!(
+    prove_accrual_conserves_value_debt_000,
+    accrual_conserves_value_at_debt,
+    0
+);
+
+proof_case!(
+    prove_accrual_conserves_value_debt_001,
+    accrual_conserves_value_at_debt,
+    1
+);
+
+proof_case!(
+    prove_accrual_conserves_value_debt_002,
+    accrual_conserves_value_at_debt,
+    2
+);
+
+proof_case!(
+    prove_accrual_conserves_value_debt_255,
+    accrual_conserves_value_at_debt,
+    255
+);
+
 #[path = "reserve_frames.rs"]
 mod frames;

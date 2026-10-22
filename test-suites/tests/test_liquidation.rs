@@ -3,10 +3,10 @@ use cast::i128;
 use pool::{AuctionData, PoolDataKey, Request, RequestType, ReserveConfig};
 use soroban_fixed_point_math::FixedPoint;
 use soroban_sdk::{
-    map,
-    testutils::{Address as AddressTestTrait, Events},
-    vec, Address, Env, Error, FromVal, IntoVal, Symbol, TryFromVal, Val, Vec,
+    map, testutils::Address as AddressTestTrait, vec, Address, Env, Error, FromVal, IntoVal,
+    Symbol, TryFromVal, Val, Vec,
 };
+use test_suites::all_events;
 use test_suites::{
     assertions::{assert_approx_eq_abs, assert_approx_eq_rel},
     create_fixture_with_data,
@@ -251,7 +251,7 @@ fn test_liquidations() {
             .unwrap(),
         1,
     );
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     let event = vec![&fixture.env, events.get_unchecked(events.len() - 1)];
     assert_eq!(
         event,
@@ -307,7 +307,7 @@ fn test_liquidations() {
         pool_fixture
             .pool
             .submit(&frodo, &frodo, &frodo, &fill_requests);
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
     assert_approx_eq_abs(
         frodo_positions_post_fill.collateral.get_unchecked(2),
         weth_lot_amount
@@ -675,7 +675,7 @@ fn test_liquidations() {
     pool_fixture
         .pool
         .submit(&frodo, &frodo, &frodo, &bad_debt_fill_request);
-    let zero_bid_events = fixture.env.events().all();
+    let zero_bid_events = all_events(&fixture.env);
     // At 400 blocks the bid is ZERO despite the requested 100% fill:
     // all residual debt defaults, while the filler only receives collateral.
     let samwise_post_full_fill = pool_fixture.pool.get_positions(&samwise);
@@ -700,6 +700,7 @@ fn test_liquidations() {
     );
     let default_topics: Vec<Val> = (
         Symbol::new(&fixture.env, "defaulted_debt"),
+        samwise.clone(),
         fixture.tokens[TokenIndex::STABLE].address.clone(),
     )
         .into_val(&fixture.env);
@@ -957,7 +958,7 @@ fn test_stale_liquidation_deletion() {
     // delete the auction
     pool_fixture.pool.del_auction(&0u32, &samwise);
     assert!(fixture.env.auths().is_empty());
-    let event = vec![&fixture.env, fixture.env.events().all().last_unchecked()];
+    let event = vec![&fixture.env, all_events(&fixture.env).last_unchecked()];
     assert_eq!(
         event,
         vec![
@@ -1048,7 +1049,7 @@ fn test_bad_debt() {
         .get_unchecked(stable_pool_index);
     let pre_default_sam = pool_fixture.pool.get_reserve(&stable.address);
     pool_fixture.pool.bad_debt(&sam);
-    let events = fixture.env.events().all();
+    let events = all_events(&fixture.env);
 
     let sam_position_post = pool_fixture.pool.get_positions(&sam);
     assert_eq!(sam_position_post.collateral.len(), 0);
@@ -1080,6 +1081,7 @@ fn test_bad_debt() {
                 pool_fixture.pool.address.clone(),
                 (
                     Symbol::new(&fixture.env, "defaulted_debt"),
+                    sam.clone(),
                     stable.address.clone()
                 )
                     .into_val(&fixture.env),

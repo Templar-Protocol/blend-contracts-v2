@@ -10,6 +10,7 @@
 //! Entry point wired by the main runner: `run_stock_controls`.
 use std::path::{Path, PathBuf};
 
+use crate::events_testutils::all_events;
 use crate::{
     create_fixture_with_wasm,
     test_fixture::{TokenIndex, SCALAR_12, SCALAR_7},
@@ -17,20 +18,20 @@ use crate::{
 use backstop::BackstopClient;
 use pool::{FlashLoan, PoolClient, Request, RequestType};
 use soroban_sdk::{
-    testutils::{Address as _, Events as _, MockAuth, MockAuthInvoke},
+    testutils::{Address as _, MockAuth, MockAuthInvoke},
     vec as svec,
     xdr::{
-        ContractEventType, ContractExecutable, Hash, LedgerEntryData, LedgerKey, ScAddress,
-        ScContractInstance, ScVal, ToXdr,
+        ContractEventType, ContractExecutable, ContractId, Hash, LedgerEntryData, LedgerKey,
+        ScAddress, ScContractInstance, ScVal, ToXdr,
     },
     Address, Env, Error, IntoVal,
 };
 
-/// SDK 22.0.7 has no public `Address::contract_id`; go through the verified
+/// soroban-sdk has no public `Address::contract_id`; go through the verified
 /// `From<&Address> for ScAddress` conversion and read the contract hash.
 fn target_bytes(addr: &Address) -> [u8; 32] {
     match soroban_sdk::xdr::ScAddress::from(addr) {
-        soroban_sdk::xdr::ScAddress::Contract(h) => h.0,
+        soroban_sdk::xdr::ScAddress::Contract(ContractId(h)) => h.0,
         other => panic!(
             "stock control target is not a contract address: {:?}",
             other
@@ -112,7 +113,7 @@ fn replace_executable(
     expect_new: &Hash,
 ) {
     let mut matches = 0usize;
-    let target = ScAddress::Contract(Hash(*target_bytes));
+    let target = ScAddress::Contract(ContractId(Hash(*target_bytes)));
     for (key, (entry, _ttl)) in &mut snap.ledger.ledger_entries {
         if let LedgerKey::ContractData(data_key) = key.as_ref() {
             if data_key.contract != target || data_key.key != INSTANCE_KEY {
@@ -199,7 +200,7 @@ fn capture_call(
     result: &impl std::fmt::Debug,
 ) -> Snapshot {
     let snapshot = env.to_snapshot();
-    let events = env.events().all();
+    let events = all_events(&env);
     let auth = env.auths();
     save(root, case, stage, &snapshot);
     std::fs::write(
@@ -963,9 +964,8 @@ fn class6_flash_loan_control(
         result.liabilities.is_empty(),
         "stock flash loan fully repaid"
     );
-    use soroban_sdk::testutils::Events as _;
     assert!(
-        stock.events().all().iter().any(|(id, topics, _)| {
+        all_events(&stock).iter().any(|(id, topics, _)| {
             id == stock_id
                 && topics.get(0).map(|v| v.to_xdr(&stock))
                     == Some(soroban_sdk::Symbol::new(&stock, "flash_loan").to_xdr(&stock))
@@ -1082,7 +1082,7 @@ fn direct_default_control(
     save(root, case, "stock-after", &stock.to_snapshot());
     kc.bad_debt(&sc_address(&fork_env, user));
     // Capture before any further fork-env invocation: the SDK keeps only the last call's events.
-    let fork_events = fork_env.events().all();
+    let fork_events = all_events(&fork_env);
     save(root, case, "fork-after", &fork_env.to_snapshot());
     let assigned = sc.get_positions(&sc_address(&stock, &f.backstop.address));
     assert!(kc
@@ -1140,7 +1140,7 @@ fn direct_default_control(
             };
             assert_eq!(fork.b_rate, (base.b_rate - loss).max(0));
         }
-        // Every setoff is explained by exactly one `debt_setoff(asset)` event carrying
+        // Every setoff is explained by exactly one `debt_setoff(user, asset)` event carrying
         // the burned b-tokens and repaid d-tokens.
         let setoff_event = svec![
             &fork_env,
@@ -1148,6 +1148,7 @@ fn direct_default_control(
                 fork_id.clone(),
                 (
                     soroban_sdk::Symbol::new(&fork_env, "debt_setoff"),
+                    sc_address(&fork_env, user),
                     sc_address(&fork_env, asset),
                 )
                     .into_val(&fork_env),

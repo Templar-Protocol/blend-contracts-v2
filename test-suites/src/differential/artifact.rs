@@ -102,7 +102,7 @@ pub fn scratch_env() -> soroban_sdk::Env {
     e.cost_estimate().budget().reset_unlimited();
     e.ledger().set(LedgerInfo {
         timestamp: 1441065600,
-        protocol_version: 22,
+        protocol_version: 25,
         sequence_number: 150,
         network_id: Default::default(),
         base_reserve: 10,

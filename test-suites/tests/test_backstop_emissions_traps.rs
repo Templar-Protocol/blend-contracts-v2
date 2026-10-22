@@ -2,9 +2,10 @@
 use pool::ReserveEmissionMetadata;
 use soroban_sdk::{
     map,
-    testutils::{Address as _, Events as _, Ledger as _},
+    testutils::{Address as _, Ledger as _},
     vec, Address, Error, InvokeError,
 };
+use test_suites::all_events;
 use test_suites::{
     create_fixture_with_data,
     test_fixture::{TokenIndex, SCALAR_7},
@@ -36,7 +37,7 @@ fn six_traps_preserve_complete_ledger_ttls_and_events() {
                 before,
                 "wasm={wasm}, export={entry}"
             );
-            assert!(e.events().all().is_empty());
+            assert!(all_events(e).is_empty());
             assert!(e.auths().is_empty());
         }
     }

@@ -39,7 +39,7 @@ The `make` command creates an optimized and un-optimized set of WASM contracts. 
 These can be found at the path:
 
 ```
-target/wasm32-unknown-unknown/optimized
+target/wasm32v1-none/optimized
 ```
 
 For help with deployment to a network, please visit the [Blend Utils](https://github.com/blend-capital/blend-utils) repo.

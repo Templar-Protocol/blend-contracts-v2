@@ -34,7 +34,7 @@ impl PoolEvents {
 
     pub fn bad_debt(e: &Env, user: Address, asset: Address, d_tokens: i128) {}
 
-    pub fn defaulted_debt(e: &Env, asset: Address, d_tokens_burnt: i128) {}
+    pub fn defaulted_debt(e: &Env, user: Address, asset: Address, d_tokens_burnt: i128) {}
 
     pub fn supply(e: &Env, asset: Address, from: Address, tokens_in: i128, b_tokens_minted: i128) {}
 
@@ -105,7 +105,14 @@ impl PoolEvents {
 
     pub fn collateral_orphaned(e: &Env, user: Address, asset: Address, b_tokens: i128) {}
 
-    pub fn debt_setoff(e: &Env, asset: Address, b_tokens_burned: i128, d_tokens_repaid: i128) {}
+    pub fn debt_setoff(
+        e: &Env,
+        user: Address,
+        asset: Address,
+        b_tokens_burned: i128,
+        d_tokens_repaid: i128,
+    ) {
+    }
 
     pub fn orphan_settled(e: &Env, asset: Address, b_tokens: i128) {}
 }

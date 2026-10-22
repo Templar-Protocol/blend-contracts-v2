@@ -1,3 +1,8 @@
+// The event topics and data below are part of the audited contract surface:
+// downstream monitoring decodes these exact bytes. soroban-sdk 25 deprecates
+// `events().publish` in favour of `#[contractevent]`, which would move the
+// topics into generated code, so the audited calls stay as they are.
+#![allow(deprecated)]
 #[cfg(not(feature = "certora"))]
 use soroban_sdk::{Address, Env, Symbol, Vec};
 
@@ -164,23 +169,30 @@ impl PoolEvents {
 
     /// Emitted when bad debt is defaulted
     ///
-    /// - topics - `["defaulted_debt", asset: Address]`
+    /// - topics - `["defaulted_debt", user: Address, asset: Address]`
     /// - data - `[d_tokens_burnt: i128]`
     ///
     /// ### Arguments
+    /// * user - The address whose liability was defaulted
     /// * asset - The asset with defaulted debt
     /// * d_tokens_burnt - The amount of defaulted d_tokens
-    pub fn defaulted_debt(e: &Env, asset: Address, d_tokens_burnt: i128) {
-        let topics = (Symbol::new(e, "defaulted_debt"), asset);
+    pub fn defaulted_debt(e: &Env, user: Address, asset: Address, d_tokens_burnt: i128) {
+        let topics = (Symbol::new(e, "defaulted_debt"), user, asset);
         e.events().publish(topics, d_tokens_burnt);
     }
 
-    /// Topics: `["debt_setoff", asset]`; data: `(b_tokens_burned, d_tokens_repaid)`.
+    /// Topics: `["debt_setoff", user, asset]`; data: `(b_tokens_burned, d_tokens_repaid)`.
     ///
     /// Emitted when a defaulting user's own noncollateral supply in the debt reserve is
     /// burned to repay that reserve's liability before any residual is defaulted.
-    pub fn debt_setoff(e: &Env, asset: Address, b_tokens_burned: i128, d_tokens_repaid: i128) {
-        let topics = (Symbol::new(e, "debt_setoff"), asset);
+    pub fn debt_setoff(
+        e: &Env,
+        user: Address,
+        asset: Address,
+        b_tokens_burned: i128,
+        d_tokens_repaid: i128,
+    ) {
+        let topics = (Symbol::new(e, "debt_setoff"), user, asset);
         e.events()
             .publish(topics, (b_tokens_burned, d_tokens_repaid));
     }

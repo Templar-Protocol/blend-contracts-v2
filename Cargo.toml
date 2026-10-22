@@ -7,7 +7,9 @@ members = [
     "mocks/mock-pool",
     "mocks/mock-pool-factory",
     "mocks/moderc3156",
+    "mocks/moderc3156-iface",
     "pool-factory",
+    "pool-oracle-adapter",
     "test-suites"
 ]
 
@@ -25,45 +27,72 @@ panic = "abort"
 codegen-units = 1
 lto = true
 
+[profile.release-soroban]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+debug = false
+panic = "abort"
+strip = "symbols"
+overflow-checks = false
+
+[profile.release-soroban.package."*"]
+overflow-checks = false
+
+[profile.release-soroban-checked]
+inherits = "release-soroban"
+overflow-checks = true
+
+[profile.release-soroban-checked.package."*"]
+overflow-checks = false
+
+[workspace.package]
+rust-version = "1.98"
+
 [workspace.dependencies.soroban-sdk]
-version = "22.0.7"
+version = "=25.3.0"
 
 [workspace.dependencies.soroban-fixed-point-math]
-version = "1.3.0"
+version = "1.5.0"
 
 [workspace.dependencies.cast]
 version = "0.3.0"
 default-features = false
 
 [workspace.dependencies.sep-40-oracle]
-version = "1.2.0"
+version = "1.4.0"
 
 [workspace.dependencies.sep-41-token]
-version = "1.2.0"
+version = "1.4.0"
 
 [workspace.dependencies.blend-contract-sdk]
-version = "1.22.0"
+version = "2.25.0"
 
+# The xycLoans ERC3156 flash-loan interface (an 8-line contractclient trait) is
+# vendored at mocks/moderc3156-iface instead of tracked as a git dependency on
+# xycloo/xycloans: upstream is still built against soroban-sdk 22 (main is at
+# 22.0.1 as of 2026-10-22), which cannot coexist with the single soroban-sdk
+# 25 graph this workspace needs.
 [workspace.dependencies.moderc3156]
-git = "https://github.com/xycloo/xycloans"
-rev = "d9a7ae1"
+path = "mocks/moderc3156-iface"
 
 [workspace.dependencies.cvlr]
-git = "https://github.com/Certora/cvlr.git"
-# Pinned to the revisions behind the June 2025 Certora FV report. Later cvlr
-# requires soroban-sdk 26, which this workspace does not use.
-rev = "919957b622d8ebb5e2e0430a6df9ea1e470f00d7"
+version = "=0.5.0"
 default-features = false
 
+# Certora's soroban support, pinned to the last revision before cvlr-soroban
+# moved to soroban-sdk 26 (2d87d923dcad). It resolves cvlr-asserts/nondet/log
+# from crates.io, so `cvlr` above is pinned to the matching published 0.5.0
+# release; that keeps the cvlr graph a single copy in Cargo.lock.
 [workspace.dependencies.cvlr-soroban]
 git = "https://github.com/Certora/cvlr-soroban.git"
-rev = "69a49e15c496b695cd15a01bb06d811294d0f954"
+rev = "d5f435831695"
 
 [workspace.dependencies.cvlr-soroban-macros]
 git = "https://github.com/Certora/cvlr-soroban.git"
-rev = "69a49e15c496b695cd15a01bb06d811294d0f954"
+rev = "d5f435831695"
 
 [workspace.dependencies.cvlr-soroban-derive]
 git = "https://github.com/Certora/cvlr-soroban.git"
-rev = "69a49e15c496b695cd15a01bb06d811294d0f954"
+rev = "d5f435831695"
 

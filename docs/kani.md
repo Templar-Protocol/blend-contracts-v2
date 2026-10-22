@@ -4,39 +4,35 @@ This PR keeps the code that is reviewed and merged: production arithmetic seams 
 
 ## Toolchain
 
-**Kani 0.67.0 is required.** Not a preference — the suite does not build under
-0.68.0.
+**Kani 0.68.0** is required on this tree. It bundles rustc 1.100.0-nightly,
+which clears the workspace's `rust-version = "1.98"` floor;
+`cargo kani -p pool --only-codegen` compiles every harness with 0 errors
+(about 7 minutes cold). Kani 0.67.0 bundles rustc 1.93.0-nightly and refuses
+to plan the graph:
 
-| | ethnum 1.5.0 | ethnum 1.5.3 |
-|---|---|---|
-| Kani 0.67.0 | **builds** | — |
-| Kani 0.68.0 | `E0512` in `ethnum` | builds |
-| Production on Rust 1.81 | builds | `from_str_radix` not const-stable |
-
-`ethnum` reaches the build through `soroban-env-common` →
-`soroban-sdk-macros`. Kani 0.68.0 bundles a newer rustc that rejects
-`ethnum` 1.5.0's `mem::transmute(())` with `E0512`, so every harness fails
-before compiling. Bumping to `ethnum` 1.5.3 fixes that but needs a const
-`from_str_radix`, which is not stable on the `rust-toolchain.toml` pin of
-1.81, so it breaks the production build instead. There is no version of
-`ethnum` that satisfies both, and `devenv.nix` already records the same
-`E0512` problem for building `stellar-cli`.
-
-Pinning Kani to 0.67.0 resolves it without touching the lockfile or the
-production toolchain, and it is the version the published campaign ran under
-(`integrated-execution-receipt.json`: "kissat (Kani 0.67.0)").
-
-```sh
-# Run from OUTSIDE this repository, or with a newer cargo: kani-verifier
-# requires edition2024, which the repo's pinned cargo 1.81 cannot parse.
-cd /tmp && cargo install --locked kani-verifier --version 0.67.0 --force
-cargo-kani setup   # only if ~/.kani/kani-0.67.0 is absent
-
-cargo kani --version   # expect cargo-kani 0.67.0
+```text
+$ cargo kani -p pool --only-codegen
+error: rustc 1.93.0-nightly is not supported by the following packages:
+  moderc3156@0.1.0 requires rustc 1.98
+  pool@2.0.0 requires rustc 1.98
 ```
 
-Verified on this tree: `cargo kani -p pool --lib` compiles the crate,
-`ethnum` included, in about 28 seconds.
+The published campaign ran under Kani 0.67.0 on the pre-upgrade tree
+(soroban-sdk 22, Rust 1.81; `integrated-execution-receipt.json`:
+"kissat (Kani 0.67.0)"). 0.68.0 was unusable there: its rustc rejected
+`ethnum` 1.5.0 (`E0512`), and `ethnum` 1.5.3 needed a const `from_str_radix`
+that Rust 1.81 lacked. The soroban-sdk 25.3.0 lock carries `ethnum` 1.5.3,
+which removes that bind. The proofs have since been re-run under 0.68.0 on
+this tree; the results are recorded in "Kani 0.68.0 rerun (2026-10-22)" below
+and supersede the 0.67.0 tables in this document as the current evidence.
+No CI job runs Kani.
+
+```sh
+cd /tmp && cargo install --locked kani-verifier --version 0.68.0 --force
+cargo-kani setup   # only if ~/.kani/kani-0.68.0 is absent
+
+cargo kani --version   # expect cargo-kani 0.68.0
+```
 
 ## Tracked proof surface
 
@@ -127,6 +123,11 @@ Publishing atomically creates the `kani-run-*` tag at the full commit SHA before
 This is a custody/integrity tool for a trusted operator with `gh` publication authority, not a cryptographic execution attestation. Run it with exclusive authority over `kani-run-*` tags, or protect that tag pattern against force updates; a concurrent writer can otherwise move any ordinary Git ref. Use an external signed attestation if proof authenticity must survive a malicious publishing operator.
 
 ## Property-mapped reruns on this checkout
+
+These ran on the pre-upgrade tree under Kani 0.67.0. Every row below has been
+re-run with Kani 0.68.0 on the current tree; that campaign is recorded in
+"Kani 0.68.0 rerun (2026-10-22)" and its tables supersede the ones here. The
+commands are otherwise unchanged.
 
 Kani 0.67.0, `--solver kissat`, against this tree rather than the published
 campaign commit. These harnesses discharge the arithmetic obligations behind the
@@ -259,6 +260,54 @@ included, which is what reaches the saturation branch). Certora's
 `bounded_reserve` spans supplies to 1e18 and rates `SCALAR_12` to 1e15,
 excluding `b_rate` below `SCALAR_12`. Neither establishes the range for
 production-scale supplies at post-default rates.
+
+### Accrual value conservation
+
+`Reserve::load` is the only place a reserve's accounted value moves without a
+token transfer: it calls `grow_debt` and feeds the return straight into
+`accrue`. Every accrual harness above drives one half of that pair with the
+other half's book pinned to zero -- `grow_debt` at `b_supply == 0`, `accrue` at
+`d_supply == 0` and `d_rate == 0` -- so the two halves had never met on one
+reserve. These run both live.
+
+| Property | Harness | Verdict | Covers | Time (s) |
+| --- | --- | --- | --- | --- |
+| No-free-money | `prove_accrual_conserves_value_debt_000` | SUCCESSFUL | 0 of 2 | 33.82 |
+| No-free-money | `prove_accrual_conserves_value_debt_001` | SUCCESSFUL | 2 of 2 | 434.52 |
+| No-free-money | `prove_accrual_conserves_value_debt_002` | SUCCESSFUL | 2 of 2 | 688.85 |
+| No-free-money | `prove_accrual_conserves_value_debt_255` | SUCCESSFUL | 2 of 2 | 7334.77 |
+
+The claim is `(held_after - held_before) + (credit_after - credit_before) <=
+accrued` together with `accrued == owed_after - owed_before`: the supplier and
+backstop claims rise by no more than the borrower obligation that funds them.
+`d_supply` is pinned. Every other input is symbolic over a `u8`-derived grid
+rather than the full `i128` range: `b_supply` spans 1 to 255 and the prior
+backstop credit 0 to 255; `b_rate`, `d_rate` and `loan_accrual` are hundredths
+of unity, so `b_rate` covers 0 to 2.55x and the two growth factors 1.00x to
+2.55x in 0.01 steps; the take rate is whole percentage points, 0% to 99%.
+Intermediate rates, rates above 2.55x unity, and take rates off a percentage
+point are therefore not covered.
+
+**`debt_000` is a vacuous pass and is not evidence for the property.** Zero of
+its two covers are satisfied: at `d_supply == 0` there is no debt, `accrued` is
+0, `accrue` takes its no-op branch and every assertion holds trivially. An
+unsatisfied `kani::cover!` does not fail a harness, so the row reports
+SUCCESSFUL regardless. It is kept as the boundary case. The three remaining
+rows satisfy both covers, so the backstop-credit branch and the supplier-rate
+branch are reached in each.
+
+`d_supply` is pinned because it is the multiplicand in the debt conversion and
+the established cost driver -- `astra_grow_debt_exact_delta` leaves it symbolic
+and times out past 3500 s. Pinning `b_supply` instead does not help: at
+`b_supply == 1`, where the `accrue` divisor is 1, the harness still reached
+1800 s with no verdict. `debt_255` needs a budget above 7200 s; at 1800 s it
+reports no verdict, which is a resource limit and not a refutation.
+
+Scope: three debt levels, 1, 2 and 255, at `u8` width. The property is not
+established for symbolic `d_supply`, and **solvency proper is not addressed** --
+assets-cover-liabilities needs the pool's token balance, which lives outside
+`ReserveData` and is not reachable from Kani.
+
 
 ### Supply cap
 
@@ -564,9 +613,96 @@ placing
 a new one in the cap-guard or paired-decrease case above still needs a
 reader.
 
+## Kani 0.68.0 rerun (2026-10-22)
+
+Every harness in the four tables above was re-run on this checkout with Kani
+0.68.0 (bundled rustc 1.100.0-nightly, CBMC 6.11.0) on commit `886e26f`,
+using the documented command form with `--solver kissat` and
+`-Z unstable-options --harness-timeout <n>s`; two harnesses ran concurrently
+against separate `--target-dir` slots. Wall times include per-invocation
+driver overhead and were measured on a shared host, so they are not comparable
+with the 0.67.0 numbers (some are faster, some slower); verdicts, not timings, are the claim. No counterexample trace
+and no CBMC crash appeared anywhere: the only non-PASS verdicts are the two
+budget cases below.
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_auction_timing_modifiers` | SUCCESSFUL | 7.42 |
+| `prove_auction_quote_partition` | SUCCESSFUL | 12.50 |
+| `prove_auction_discount_bounds` | SUCCESSFUL | 13.49 |
+| `prove_orphan_collateral_decision` | SUCCESSFUL | 3.43 |
+| `prove_setoff_guarded_parametric` | SUCCESSFUL | 8.41 |
+| `prove_setoff_guarded_witnesses` | SUCCESSFUL | 7.28 |
+| `prove_setoff_exact_policy_split_and_conditions` | SUCCESSFUL | 2271.20 |
+
+| Property | Harness | Verdict | Time (s) |
+| --- | --- | --- | --- |
+| No-free-money | `prove_b_token_forward_floor` | SUCCESSFUL | 9.94 |
+| No-free-money | `prove_d_token_forward_ceil` | SUCCESSFUL | 12.82 |
+| No-free-money | `prove_b_token_inverse_rounding` | SUCCESSFUL | 384.63 |
+| No-free-money | `prove_d_token_inverse_rounding` | SUCCESSFUL | 382.33 |
+| No-free-money | `prove_b_round_trip_down_conservative` | SUCCESSFUL | 12.95 |
+| No-free-money | `prove_b_round_trip_up_conservative` | SUCCESSFUL | 65.24 |
+| No-free-money | `prove_d_round_trip_down_conservative` | SUCCESSFUL | 13.69 |
+| No-free-money | `prove_d_round_trip_up_conservative` | SUCCESSFUL | 70.77 |
+| Cap predicate | `prove_supply_cap_strictness` | SUCCESSFUL | 5.12 |
+| Utilization | `prove_utilization_and_action_predicates` | SUCCESSFUL | 4.47 |
+| Utilization | `prove_utilization_range_and_branches` | SUCCESSFUL | 932.95 |
+| Accrual safety | `astra_grow_debt_rate_monotonic` | SUCCESSFUL | 16.01 |
+| Accrual safety | `astra_grow_debt_nonnegative_delta` | SUCCESSFUL | 105.64 |
+| Accrual safety | `prove_accrue_split_and_zero_take_rate` | SUCCESSFUL | 1109.20 |
+| Accrual safety | `astra_grow_debt_exact_delta_composed` | SUCCESSFUL | 399.71 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_000` | SUCCESSFUL | 7.62 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_001` | SUCCESSFUL | 12.31 |
+| Accrual safety | `astra_grow_debt_exact_delta_supply_255` | SUCCESSFUL | 378.72 |
+| Accrual safety | `astra_grow_debt_exact_delta` | TIMEOUT | 3605.83 |
+| Accrual safety | `prove_grow_debt_nonnegative_interest` | TIMEOUT | 3605.25 |
+
+| Property | Harness | Verdict | Covers | Time (s) |
+| --- | --- | --- | --- | --- |
+| No-free-money | `prove_accrual_conserves_value_debt_000` | SUCCESSFUL | 0 of 2 | 12.47 |
+| No-free-money | `prove_accrual_conserves_value_debt_001` | SUCCESSFUL | 2 of 2 | 212.36 |
+| No-free-money | `prove_accrual_conserves_value_debt_002` | SUCCESSFUL | 2 of 2 | 260.05 |
+| No-free-money | `prove_accrual_conserves_value_debt_255` | SUCCESSFUL | 2 of 2 | 3094.58 |
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_burn_then_add_is_supply_neutral` | SUCCESSFUL | 5.85 |
+| `prove_supply_credit_monotonic` | SUCCESSFUL | 41.78 |
+| `prove_supply_credit_no_inflation_h001` | SUCCESSFUL | 6.34 |
+| `prove_supply_credit_no_inflation_h255` | SUCCESSFUL | 11.42 |
+| `prove_supply_credit_no_inflation_h100` | SUCCESSFUL | 11.13 |
+| `prove_supply_cap_decides_on_post_state` | SUCCESSFUL | 33.07 |
+
+### Reading the two timeouts
+
+Both are resource limits on the same harness shapes the 0.67.0 campaign also
+could not discharge, not refutations, and they change no conclusion recorded
+above:
+
+- `astra_grow_debt_exact_delta` exited 1 at the 3600 s harness budget with
+  `CBMC timed out` and no trace. Exactly as before, the fully-symbolic exact
+  delta over the production seam is intractable here; the instrumented seam,
+  the composed harness, and the fixed supplies 000/001/255 all verify.
+- `prove_grow_debt_nonnegative_interest` likewise exited at its 3600 s budget
+  with `CBMC timed out` and no trace, matching its 0.67.0 TIMEOUT. Its
+  conjuncts each verify standalone (`astra_grow_debt_rate_monotonic`,
+  `astra_grow_debt_nonnegative_delta`).
+
+`prove_setoff_exact_policy_split_and_conditions` again needs a budget above
+1800 s (2271 s at 7200 s), and `prove_accrual_conserves_value_debt_255`
+again completes only with a budget above 1800 s — it verified in 3095 s,
+faster than the 7335 s the 0.67.0 run recorded. Cover counts are unchanged
+from the 0.67.0 campaign, including the vacuous `debt_000` pass (0 of 2).
+
+The 0.68.0 run reproduces the 0.67.0 campaign's verdicts, cover counts and
+failure modes on the soroban-sdk 25.3.0 / Rust 1.98 tree: 35 SUCCESSFUL, the same
+2 budget-limited TIMEOUTs, no counterexamples, no tool crashes, no harness
+required a change. Timings differ in both directions and are not part of the claim.
+
 ## Claim boundary
 
-The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the property-mapped reruns recorded above.
+The released 3,197/3,197 result applies exactly to commit `753b1ae`. It is not a full-inventory result for the rebased or file-separated PR tree; current validation remains the native suite plus the Kani 0.68.0 rerun recorded above, which supersedes the 0.67.0 property-mapped tables.
 
 - Do not weaken a proof obligation, expected cover count, or production behavior to obtain a green verdict.
 - Do not substitute a different contract, tolerance, or historical waiver.

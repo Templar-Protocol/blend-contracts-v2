@@ -1,12 +1,13 @@
 //! Bounded public-client replay for the external ADR0008 property runner.
 //! Every sequence registers the compile-time optimized Wasm, never native contracts.
+use crate::events_testutils::all_events;
 use crate::{
     create_fixture_with_data,
     test_fixture::{TestFixture, TokenIndex, SCALAR_7},
 };
 use pool::{PoolState, PositionData, Request, RequestType, ReserveEmissionMetadata};
 use soroban_sdk::{
-    testutils::{Address as _, Events as _, Ledger as _},
+    testutils::{Address as _, Ledger as _},
     vec,
     xdr::{ScErrorCode, ScErrorType, ToXdr},
     Address, Error, IntoVal, InvokeError, Symbol, Val,
@@ -134,7 +135,7 @@ fn traps(f: &TestFixture<'_>, user: &Address) {
                 before,
                 "entry trap changed ledger/TTL"
             );
-            assert!(e.events().all().is_empty(), "entry trap emitted events");
+            assert!(all_events(e).is_empty(), "entry trap emitted events");
             assert!(e.auths().is_empty(), "entry trap recorded authorization");
         }};
     }
@@ -718,7 +719,8 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                                     .clone();
                                 expected_events.push_back((
                                     pool.address.clone(),
-                                    (Symbol::new(e, "defaulted_debt"), asset).into_val(e),
+                                    (Symbol::new(e, "defaulted_debt"), user.clone(), asset)
+                                        .into_val(e),
                                     defaulted.into_val(e),
                                 ));
                             }
@@ -752,10 +754,10 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                             }
                         }
                         let cash_before = settlement_cash(&f);
-                        let pre_events = e.events().all().len() as usize;
+                        let pre_events = all_events(e).len() as usize;
                         pool.bad_debt(user);
                         let actual_events: std::vec::Vec<_> =
-                            e.events().all().iter().skip(pre_events).collect();
+                            all_events(e).iter().skip(pre_events).collect();
                         let wanted_events: std::vec::Vec<_> = expected_events.iter().collect();
                         assert_eq!(actual_events.len(), wanted_events.len());
                         for (actual, expected) in actual_events.into_iter().zip(wanted_events) {
@@ -1078,7 +1080,12 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                                     .asset;
                                 expected_events.push_back((
                                     pool.address.clone(),
-                                    (Symbol::new(e, "defaulted_debt"), asset.clone()).into_val(e),
+                                    (
+                                        Symbol::new(e, "defaulted_debt"),
+                                        victim.clone(),
+                                        asset.clone(),
+                                    )
+                                        .into_val(e),
                                     defaulted.into_val(e),
                                 ));
                             }
@@ -1169,10 +1176,10 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                                 (Symbol::new(e, "fill_auction"), 0u32, victim.clone()).into_val(e),
                                 (user.clone(), 100i128, filled).into_val(e),
                             ));
-                            let pre_events = e.events().all().len() as usize;
+                            let pre_events = all_events(e).len() as usize;
                             pool.submit(user, user, user, &fill);
                             let post_events: std::vec::Vec<_> =
-                                e.events().all().iter().skip(pre_events).collect();
+                                all_events(e).iter().skip(pre_events).collect();
                             let wanted_events: std::vec::Vec<_> = expected_events.iter().collect();
                             assert_eq!(post_events.len(), wanted_events.len());
                             for (actual, expected) in post_events.into_iter().zip(wanted_events) {
@@ -1243,7 +1250,7 @@ pub fn replay_generated(operations: &[(u8, u8, u8, u64, u32)]) {
                         ))),
                     );
                     assert_eq!(e.to_ledger_snapshot(), before);
-                    assert!(e.events().all().is_empty());
+                    assert!(all_events(e).is_empty());
                     e.mock_all_auths();
                     f.backstop.donate(user, &pool.address, &amount);
                     assert_eq!(e.auths()[0].0, *user);

@@ -1,9 +1,9 @@
 { pkgs, lib, inputs, ... }:
 
 let
-  # The repo's pinned toolchain. Also used to build the Stellar CLI below:
-  # stellar-cli 22.6.0 depends on ethnum 1.5.0, which fails to compile on
-  # current rustc (E0512), so nixpkgs' rustPlatform cannot build it.
+  # The repo's pinned toolchain, also used to build the Stellar CLI below:
+  # stellar-cli declares a rust-version newer than nixpkgs' stable rustc, so
+  # it is built with the toolchain the repo itself pins.
   rustPkgs = import inputs.nixpkgs {
     inherit (pkgs.stdenv.hostPlatform) system;
     overlays = [ (import inputs.rust-overlay) ];
@@ -14,24 +14,28 @@ let
     rustc = toolchain;
   };
 
-  # `make build` and `make differential` need `stellar contract optimize`.
-  # stellar-cli is not packaged in nixpkgs; build the pinned release from
-  # crates.io. Version and `opt` feature match the ADR-0008 release evidence.
+  # `make build` and `make differential` need `stellar contract optimize`, which
+  # refuses to run unless the CLI was built with `additional-libs` (it is what
+  # pulls in wasm-opt). stellar-cli is not packaged in nixpkgs; build the pinned
+  # release from crates.io.
   stellar-cli = rustPlatform.buildRustPackage rec {
     pname = "stellar-cli";
-    version = "22.6.0";
+    version = "28.1.0";
 
     src = pkgs.fetchCrate {
       inherit pname version;
-      hash = "sha256-R+De07wD+R0lbooqA6ULqkxvUqE8gzlRQfKBdGfbnJ4=";
+      hash = "sha256-8RT4IqnlM7h3WpchhB+eVJ6vTqHd4e+nKCbt/ffTQPY=";
     };
 
-    cargoHash = "sha256-GR8OU+ZV++WRqqWcJYz2RKqOLqYhhe+oVZokvgAgDZg=";
+    cargoHash = "sha256-hVRxXU+ChsabKG1HqDcN1yeVZxkA7ylbZxJY2uEPCqw=";
 
-    buildFeatures = [ "opt" ];
+    buildFeatures = [ "additional-libs" ];
 
-    nativeBuildInputs = with pkgs; [ pkg-config cmake perl ];
-    buildInputs = with pkgs; [ openssl systemd dbus ];
+    # additional-libs brings in binaryen (cmake), hidapi (libudev, from systemd)
+    # and the secret-service keyring backend (dbus). HTTP/TLS is rustls, so no
+    # openssl.
+    nativeBuildInputs = with pkgs; [ pkg-config cmake ];
+    buildInputs = with pkgs; [ dbus systemd ];
 
     # Upstream tests want a live network.
     doCheck = false;

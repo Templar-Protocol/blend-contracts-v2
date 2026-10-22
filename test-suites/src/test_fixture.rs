@@ -86,7 +86,7 @@ impl TestFixture<'_> {
 
         e.ledger().set(LedgerInfo {
             timestamp: 1441065600, // Sept 1st, 2015 (backstop epoch)
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: 150,
             network_id: Default::default(),
             base_reserve: 10,
@@ -110,15 +110,15 @@ impl TestFixture<'_> {
             (
                 Address::try_from_val(
                     &e,
-                    &soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::Hash(
-                        RUNTIME_BACKSTOP_ID,
+                    &soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::ContractId(
+                        soroban_sdk::xdr::Hash(RUNTIME_BACKSTOP_ID),
                     )),
                 )
                 .unwrap(),
                 Address::try_from_val(
                     &e,
-                    &soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::Hash(
-                        RUNTIME_FACTORY_ID,
+                    &soroban_sdk::xdr::ScAddress::Contract(soroban_sdk::xdr::ContractId(
+                        soroban_sdk::xdr::Hash(RUNTIME_FACTORY_ID),
                     )),
                 )
                 .unwrap(),
@@ -357,7 +357,7 @@ impl TestFixture<'_> {
     pub fn jump(&self, time: u64) {
         self.env.ledger().set(LedgerInfo {
             timestamp: self.env.ledger().timestamp().saturating_add(time),
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: self.env.ledger().sequence(),
             network_id: Default::default(),
             base_reserve: 10,
@@ -371,7 +371,7 @@ impl TestFixture<'_> {
         let blocks = time / 5;
         self.env.ledger().set(LedgerInfo {
             timestamp: self.env.ledger().timestamp().saturating_add(time),
-            protocol_version: 22,
+            protocol_version: 25,
             sequence_number: self.env.ledger().sequence().saturating_add(blocks as u32),
             network_id: Default::default(),
             base_reserve: 10,

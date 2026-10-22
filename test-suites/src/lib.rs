@@ -11,7 +11,10 @@ pub mod adr8_properties;
 pub mod adr8_stock_controls;
 pub mod assertions;
 pub mod differential;
+#[path = "../../shared/events_testutils.rs"]
+pub mod events_testutils;
 pub mod moderc3156;
 pub mod snapshot;
 pub mod test_fixture;
+pub use events_testutils::all_events;
 pub mod token;

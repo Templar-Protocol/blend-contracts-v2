@@ -20,17 +20,19 @@ harness rather than a parallel invention.
 | Harness | `Certora/blend-contracts-v2@certora`, tip `f53fb33` |
 | Verified against | `blend-capital/blend-contracts-v2@996e09e` |
 | Work period | 2025-02-03 to 2025-03-13 |
-| `cvlr` | `919957b622d8ebb5e2e0430a6df9ea1e470f00d7` (0.3.2) |
-| `cvlr-soroban` | `69a49e15c496b695cd15a01bb06d811294d0f954` (0.3.0) |
+| `cvlr` (port, soroban-sdk 22) | `919957b622d8ebb5e2e0430a6df9ea1e470f00d7` (0.3.2) |
+| `cvlr-soroban` (port, soroban-sdk 22) | `69a49e15c496b695cd15a01bb06d811294d0f954` (0.3.0) |
 
 `996e09e` is a clean ancestor of this fork's `main`, so the harness ports onto
 our tree rather than needing a reimplementation.
 
-Both cvlr revisions are pinned. `cvlr-soroban` 0.3.0 requires `cvlr` 0.3 from
-git *without* a rev, so it would otherwise resolve against cvlr's moving
-default branch (now 0.6.x) and fail; the pinned revisions are recorded in
-`Cargo.lock`. Current `cvlr-soroban` requires soroban-sdk 26, which this
-workspace does not use.
+**Current pins (soroban-sdk 25.3.0).** `cvlr` is crates.io `0.5.0`;
+`cvlr-soroban` (with `-macros` and `-derive`) is
+`d5f435831695b78826a1384a2fd69ba0cce1a67b` (0.4.0), the last revision before it
+moved to soroban-sdk 26 (`2d87d923dcad`). That revision resolves
+`cvlr-asserts`, `cvlr-nondet` and `cvlr-log` from crates.io, so `cvlr` is
+pinned to the matching published release, which keeps the cvlr graph a single
+copy in `Cargo.lock`. Both are pinned in the root `Cargo.toml`.
 
 ## Running the rules
 
@@ -50,7 +52,7 @@ certoraSorobanProver confs/supply_cap_collateral.conf   # HALTED, kept to reprod
 ```
 
 Each conf invokes `pool/certora_build.py`, which runs `just build` (building
-pool-factory, backstop, and pool for `wasm32-unknown-unknown` with
+pool-factory, backstop, and pool for `wasm32v1-none` with
 `--features certora`) and reports the wasm path to the prover. The working
 directory must be `pool/`: `build_script` is resolved with `shutil.which`
 against the current directory, not against the conf's own directory.
