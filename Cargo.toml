@@ -10,6 +10,9 @@ members = [
     "pool-factory",
     "test-suites"
 ]
+# Standalone crate: soroban-sdk 25 needs Rust >= 1.88, this workspace pins 1.81
+# (the audited Blend build). It has its own Cargo.lock and rust-toolchain.toml.
+exclude = ["pool-oracle-adapter"]
 
 [profile.release-with-logs]
 inherits = "release"
