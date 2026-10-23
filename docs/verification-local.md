@@ -87,10 +87,11 @@ Exercised controls include:
   proof launch. Altered verifier/compiler components and stale/conflicting LLBC
   receipts are covered by fail-closed regression fixtures.
 
-### Observed checkpoint checks
+### Verification checkpoints
 
-- `make verify-local`: PASS; 13 Python regression tests, five Kani harnesses with
-  all 21 covers, nine Verus functions, and both required mutation failures.
+- `make verify-local` rerun at `3df0fe2`: PASS in 67.96 seconds wall time;
+  13 Python regression tests, five Kani harnesses with all 21 covers, nine Verus
+  functions, and both required mutation failures.
 - Reviewed Charon and Aeneas reproduction: both exit zero, matching Wasm target and
   source hashes; extraction/translation only, not a Lean theorem.
 - `python3 scripts/verify_local.py --seconds 900 -- env CARGO_BUILD_JOBS=1 cargo test -p pool math::tests::rounding_keeps_i256_fallback -- --exact`:
@@ -99,10 +100,38 @@ Exercised controls include:
 - `cargo fmt --all --check`: PASS. Selected proof/experiment/local-host files also
   passed `rustfmt --edition 2021 --config skip_children=true --check`.
 
-These local checks were executed at checkpoint `2d9e3e0`; they did not rerun the
-full workspace suite/build or submit hosted proofs. Existing pool compilation
-warnings were retained, not suppressed. Subsequent PR CI results are tracked
-separately on [PR #39](https://github.com/Templar-Protocol/precept/pull/39).
+The production fixture, extraction reproduction and formatting checks above were
+executed at `2d9e3e0`; the local proof gate was subsequently rerun at `3df0fe2`.
+The changes between these checkpoints are confined to documentation, with no
+proof source, selected feature, inventory, tool pin or locked dependency changes.
+Existing pool compilation warnings were retained, not suppressed. The full
+workspace suite/build was not rerun locally.
+
+[PR CI run 39985476042](https://github.com/Templar-Protocol/precept/actions/runs/39985476042)
+also completed successfully for head `3df0fe2`. It checked out PR merge candidate
+`d2215c0d6a70cdb26493c30f44e3a748d037f737`: all 20 default-feature Kani harnesses
+passed, alongside proof code generation, build/tests, formatting and fuzz-build.
+These CI results and the local `local-contracts`/oracle/Verus results above are
+separate, source-identified checks.
+
+### Proof-input freshness audit
+
+The original proof changes are covered by the local rerun: the replacement
+zero-debt harness and the callee/caller contract mode both pass on their recorded
+domains. The default-feature cap caller and other CI-selected proofs also pass
+in the PR CI run identified above.
+
+The reviewed Charon and Aeneas receipts still match all 78 recorded source/build
+inputs, all 60 dependency source files, and their generated artifact hashes.
+The LLBC also passes the driver's current-source and Wasm-target admission check,
+so those extraction/translation results did not require regeneration.
+
+The published Kani campaigns remain attributed to their original commits, and
+the archived Certora results retain their recorded target/configuration. This PR
+does not change the production kernels, Certora specification sources or locked
+workspace/toolchain inputs; its package feature addition is proof-only. No hosted
+Certora job was submitted. Existing compiler failures and timeout records remain
+recorded outcomes of the explicitly unproved pilots, not claimed passing results.
 
 
 ## Verified additions
