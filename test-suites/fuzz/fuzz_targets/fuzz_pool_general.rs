@@ -148,9 +148,30 @@ impl Asserts for TestFixture<'_> {
                         ),
                     ))
                 });
-                let Ok(Some((supply_base, liabilities_base))) = totals else {
-                    eprintln!("INVARIANT UNEVALUABLE: reserve total exceeds i128; {state}");
-                    return false;
+                let (supply_base, liabilities_base) = match totals {
+                    Ok(Some(bases)) => bases,
+                    Ok(None) => {
+                        eprintln!(
+                            "INVARIANT UNEVALUABLE: supply plus backstop credit exceeds \
+                             i128; {state}"
+                        );
+                        return false;
+                    }
+                    // Overflow is the expected cause, but the host can reject a
+                    // conversion for other reasons, so report what it said rather
+                    // than assuming.
+                    Err(panic) => {
+                        let why = panic
+                            .downcast_ref::<&str>()
+                            .map(|s| s.to_string())
+                            .or_else(|| panic.downcast_ref::<String>().cloned())
+                            .unwrap_or_else(|| "panic payload of unknown type".to_string());
+                        eprintln!(
+                            "INVARIANT UNEVALUABLE: totalling the reserve panicked \
+                             ({why}); {state}"
+                        );
+                        return false;
+                    }
                 };
 
                 let (Some(next_supply), Some(next_liabilities)) = (
