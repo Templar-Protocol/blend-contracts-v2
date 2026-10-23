@@ -3,8 +3,9 @@
 All seven of the safety invariants this protocol commits to are backed by
 machine-checked proof, and across the whole campaign — two independent provers
 and a fuzzer — **no counterexample has ever been produced and no rule has ever
-been violated.** Where a prover could not finish, it ran out of time; it never
-found a way to break a property.
+been violated.** Where a prover did not finish it either exhausted its budget
+or returned undecided, and those are different things; in neither case did it
+find a way to break a property.
 
 What each proof covers differs, and this document is explicit about it rather
 than leaving it to the footnotes. Every invariant is proven over a stated scope
