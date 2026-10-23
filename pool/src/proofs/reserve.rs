@@ -13171,3 +13171,6 @@ proof_case!(
     accrual_conserves_value_at_debt,
     255
 );
+
+#[path = "reserve_frames.rs"]
+mod frames;

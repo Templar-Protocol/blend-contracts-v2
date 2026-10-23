@@ -153,7 +153,11 @@ cargo kani -p pool --lib \
 ```
 
 The module segment follows the harness's production parent, so
-`prove_supply_cap_strictness` is `pool::actions::verification::…`. To recover
+`prove_supply_cap_strictness` is `pool::actions::verification::…`. The frame
+harnesses are the one exception: `proofs/reserve_frames.rs` is attached from
+`proofs/reserve.rs` so it can reuse `sym_data` and `hundredths`, which puts
+them at `pool::reserve::verification::frames::…`. A selector built from the
+rule above matches nothing for them, silently. To recover
 the exact selector for any harness, `cargo kani -p pool --lib list --format json`
 writes every fully qualified name to `kani-list.json` (gitignored); `--format
 pretty` is the default and prints instead.
@@ -324,7 +328,10 @@ check anywhere near it: `ReserveData::accrue` recomputes `b_rate` upward as
 interest accrues, and `total_supply` is
 `floor(b_supply * b_rate / SCALAR_12)`, so the total grows with time alone and
 passes the cap if the cap is close. `test_accrual_carries_total_supply_past_cap`
-exercises it.
+exercises it, and `prove_accrue_moves_only_rate_and_credit` establishes the
+other half: accrual moves `b_rate` and `backstop_credit` and no other field,
+so it raises the accounted total without issuing shares and is excluded from
+the cap guard rather than counted as a writer of `b_supply`.
 
 The cap itself cannot move under a live pool, which is what confines the
 exclusion to accrual. `execute_set_reserve` admits a metadata change on a
@@ -346,9 +353,15 @@ reserve.config.supply_cap)` and panicking on failure, with only
 `pool.cache_reserve(reserve)` between the test and the return. Neither the test
 nor the cache write touches `b_supply`.
 
-**The uncapped increase paths cancel.** Exactly two sites raise `b_supply` in
-production — `User::add_collateral` and `User::add_supply`, both
-`reserve.data.b_supply += amount`. Their production callers are:
+**The uncapped increase paths cancel.** One production function raises
+`b_supply`: `ReserveData::mint_supply`, the mirror of `burn_supply`. It is
+`pub(super)`, so rustc confines its callers to `pool/src/pool`, and
+`User::add_collateral` and `User::add_supply` are the only two that call it.
+That bounds the callers of the method, not the writers of the field: under
+`#[contracttype]` `b_supply` stays `pub`, so a bare field write elsewhere in
+`pool/src/pool` would still compile, and it is
+`test_b_supply_writers_are_enumerated` rather than the compiler that pins its
+absence. Their own production callers are:
 
 | Caller | Why the cap is not evaded |
 | --- | --- |
@@ -361,6 +374,53 @@ production — `User::add_collateral` and `User::add_supply`, both
 The last two are position transfers between users, not new supply. They are
 safe only because an equal decrease precedes the increase on the same reserve,
 which `prove_burn_then_add_is_supply_neutral` pins.
+
+**Each mutator moves only the field it names.** `impl ReserveData` has exactly
+four `&mut self` methods, so these four harnesses are the whole mutator
+surface rather than a sample. Each runs over a reserve whose every field is
+symbolic, and the field list is recovered by exhaustive destructuring, so a
+new `ReserveData` field fails to compile here instead of dropping silently
+out of all four frames.
+
+The Certora suite already covers part of this at the handler level and more
+strongly: `add_supply_increases_b_supply`,
+`add_collateral_increases_b_supply`, `remove_supply_decreases_b_supply` and
+`remove_collateral_decreases_b_supply` drive the real handlers over a nondet
+`Reserve`, a nondet `User` and a symbolic `Env`, and each asserts the
+`b_supply` delta and that `d_supply` is untouched. What is new here is the
+other five fields, and the frames on `accrue` and `grow_debt`, which neither
+suite covered.
+
+`Reserve::load` writes `ir_mod` and `last_time` itself, outside these four
+methods and behind an `Env`, so it is not framed here.
+
+The accrue frame carries two `cover!`s. `bstop_rate` is a percentage in
+`SCALAR_7` points, so a `u8` domain for it floors every credit to zero:
+`floor(255 * 255 / SCALAR_7) == 0`, and the `backstop_credit` half of the frame
+would hold without the branch that moves it ever running. Both report
+SATISFIED today. An unsatisfied cover does **not** fail the harness, though:
+`kani` exits 0 with one present, verified by planting
+`kani::cover!(amount > 1000)` against a `u8` amount. The covers are a
+diagnostic in the harness output; what enforces them is
+`scripts/kani_release.py`, which compares `N of M cover properties
+satisfied` against each inventory entry's `expected_covers`. These two are
+not in that inventory, so nothing currently fails if the domain regresses.
+
+| Harness | Verdict | Time (s) |
+| --- | --- | --- |
+| `prove_mint_supply_frame` | SUCCESSFUL | 0.14 |
+| `prove_burn_supply_frame` | SUCCESSFUL | 0.14 |
+| `prove_accrue_moves_only_rate_and_credit` | SUCCESSFUL | 1.55 |
+| `prove_grow_debt_moves_only_d_rate` | SUCCESSFUL | 0.50 |
+
+`mint_supply` and `burn_supply` each move `b_supply` by exactly their
+argument. `burn_supply`'s harness leaves `amount` unbounded by `b_supply`
+because the method makes no such check: `remove_collateral` and
+`remove_supply` validate the user's position, not the reserve total, so the
+missing premise is the global invariant that positions sum to `b_supply`,
+which nothing here proves. `accrue` divides by `b_supply` to recompute
+`b_rate` without checking it is non-zero, so its harness assumes
+`b_supply > 0`.
 
 **The arithmetic cannot evade the check.** The guard is tested on
 `to_asset_from_b_token(b_supply)` after `to_b_token_down(amount)` has been

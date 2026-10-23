@@ -290,6 +290,12 @@ impl ReserveData {
         }
     }
 
+    /// Mint supply shares directly. The two add paths consume this instead of a
+    /// bare field increment; the cap guard in `apply_supply` is the policy.
+    pub(super) fn mint_supply(&mut self, amount: i128) {
+        self.b_supply += amount;
+    }
+
     /// Burn supply shares directly. Settlement consumes this instead of a
     /// bare field decrement; no additional guard or policy.
     pub(super) fn burn_supply(&mut self, amount: i128) {

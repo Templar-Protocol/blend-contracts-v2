@@ -154,7 +154,7 @@ impl User {
         self.positions
             .collateral
             .set(reserve.config.index, balance + amount);
-        reserve.data.b_supply += amount;
+        reserve.data.mint_supply(amount);
     }
 
     /// Remove collateral from the position expressed in blendTokens. Accrues emissions
@@ -193,7 +193,7 @@ impl User {
         self.positions
             .supply
             .set(reserve.config.index, balance + amount);
-        reserve.data.b_supply += amount;
+        reserve.data.mint_supply(amount);
     }
 
     /// Remove supply from the position expressed in blendTokens. Accrues emissions
@@ -476,12 +476,11 @@ mod tests {
         (inc, dec, set)
     }
 
-    /// The supply-cap argument in `docs/kani.md` enumerates every production
-    /// writer of `b_supply` and shows each is either behind the cap guard or
-    /// paired with an equal decrease on the same reserve. That enumeration is a
-    /// reading of the code; this pins it. If a count below changes, the new
-    /// site has to be checked against the same two cases before the supply-cap
-    /// claim still holds.
+    /// `ReserveData::{mint_supply, burn_supply}` are the only production mutators
+    /// of `b_supply` -- `initialize_reserve` also writes it, as a struct-literal
+    /// field this scan does not count. This pins the remaining gap: that nothing
+    /// bypasses them with a bare field write, which the `pub` field of a
+    /// `#[contracttype]` still permits.
     #[test]
     fn test_b_supply_writers_are_enumerated() {
         let src_root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src"));
@@ -513,7 +512,7 @@ mod tests {
             found.iter().map(|(p, c)| (p.as_str(), *c)).collect();
         assert_eq!(
             found,
-            [("pool/reserve.rs", (0, 1, 0)), ("pool/user.rs", (2, 0, 0))],
+            [("pool/reserve.rs", (1, 1, 0))],
             "a new b_supply writer must be checked against the cap guard and \
              paired-decrease cases in docs/kani.md before the supply-cap claim holds"
         );
