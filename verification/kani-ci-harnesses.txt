@@ -21,6 +21,8 @@ pool::reserve::verification::prove_d_round_trip_down_conservative
 pool::reserve::verification::prove_d_round_trip_up_conservative
 pool::reserve::verification::prove_utilization_and_action_predicates
 pool::reserve::verification::astra_grow_debt_rate_monotonic
+pool::reserve::verification::astra_grow_debt_exact_delta_supply_000
+pool::reserve::verification::astra_grow_debt_exact_delta_supply_001
 pool::actions::verification::prove_supply_cap_strictness
 pool::actions::verification::prove_burn_then_add_is_supply_neutral
 pool::actions::verification::prove_supply_credit_monotonic

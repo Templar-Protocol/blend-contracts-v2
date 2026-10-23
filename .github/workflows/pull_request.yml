@@ -137,6 +137,15 @@ jobs:
           grep -E 'Trace for|Counterexample' "$log" && echo "::error::a counterexample was produced"
           exit 1
         fi
+        # Kani reports SUCCESSFUL even when a kani::cover! is unreachable, which
+        # makes the pass vacuous -- docs/kani.md records a 0-of-2 case. The
+        # verdict alone is therefore not enough.
+        covers_bad=$(grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4' | wc -l || true)
+        if [ "${covers_bad:-0}" -ne 0 ]; then
+          echo "::error::$covers_bad harness(es) left a cover unsatisfied; a SUCCESSFUL verdict with an unreachable cover proves nothing"
+          grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4'
+          exit 1
+        fi
         echo "::notice::$passed/$verdicts SUCCESSFUL"
 
   fuzz-build:

@@ -92,6 +92,11 @@ jobs:
           exit 1
         fi
         if grep -qF 'VERIFICATION:- SUCCESSFUL' "$log"; then
+          # A SUCCESSFUL verdict with an unreachable kani::cover! is vacuous.
+          if grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4' | grep -q .; then
+            echo "::error::$HARNESS verified but left a cover unsatisfied, so the pass is vacuous"
+            exit 1
+          fi
           echo "::notice::$HARNESS SUCCESSFUL"
           exit 0
         fi
