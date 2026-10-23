@@ -1,0 +1,145 @@
+name: verification-full
+
+# The harnesses that take minutes to hours. The per-PR set in pull_request.yml
+# covers only what runs under 70 s, so without this nothing re-checks the
+# expensive obligations after the campaign recorded in docs/kani.md.
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      harness_timeout:
+        description: Per-harness budget, e.g. 10800s
+        required: false
+        default: 10800s
+
+jobs:
+
+  harnesses:
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.read.outputs.list }}
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        persist-credentials: false
+    - id: read
+      run: |
+        set -uo pipefail
+        list=$(grep -v '^#' verification/kani-full-harnesses.txt \
+          | grep -v '^[[:space:]]*$' \
+          | jq -R -s -c 'split("\n") | map(select(length > 0))')
+        echo "list=$list" >> "$GITHUB_OUTPUT"
+        echo "::notice::$(jq -r 'length' <<<"$list") harnesses scheduled"
+
+  kani:
+    needs: harnesses
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        harness: ${{ fromJSON(needs.harnesses.outputs.list) }}
+    env:
+      KANI_VERSION: 0.68.0
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        persist-credentials: false
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
+    - run: rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+      with:
+        version: 28.1.0
+    - run: make build
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: |
+          ~/.cargo/bin/cargo-kani
+          ~/.cargo/bin/kani-driver
+          ~/.kani
+        key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
+    # The cache restores cargo-kani without cargo's install record, so a plain
+    # cargo install refuses to overwrite it ("binary already exists"). Skip when
+    # the cached binary is already the right version; force it when it is not.
+    - run: |
+        if ! cargo-kani --version 2>/dev/null | grep -qF "$KANI_VERSION"; then
+          cargo install --locked kani-verifier --version "$KANI_VERSION" --force
+        fi
+    - run: test -d "$HOME/.kani/kani-$KANI_VERSION" || cargo-kani setup
+    # sccache, which stellar/actions/rust-cache installs as RUSTC_WRAPPER, probes
+    # the compiler with -E and kani-compiler rejects it, so it cannot wrap Kani.
+    # Cleared here rather than job-wide so make build and the install keep it.
+    - run: echo "RUSTC_WRAPPER=" >> "$GITHUB_ENV"
+    - name: Verify ${{ matrix.harness }}
+      env:
+        HARNESS: ${{ matrix.harness }}
+        BUDGET: ${{ github.event.inputs.harness_timeout || '10800s' }}
+      run: |
+        set -uo pipefail
+        log="$RUNNER_TEMP/kani.log"
+        cargo kani -p pool --lib --exact --harness "$HARNESS" \
+          --solver kissat -Z unstable-options --harness-timeout "$BUDGET" \
+          2>&1 | tee "$log"
+        # A FAILED verdict means one of three different things and the exit
+        # status separates none of them, so the log is the source of truth.
+        # See "Property-mapped reruns on this checkout" in docs/kani.md.
+        if [ "$(grep -cE 'VERIFICATION:-' "$log" || true)" -ne 1 ]; then
+          echo "::error::$HARNESS did not match exactly one harness"
+          exit 1
+        fi
+        if grep -qF 'VERIFICATION:- SUCCESSFUL' "$log"; then
+          # A SUCCESSFUL verdict with an unreachable kani::cover! is vacuous.
+          if grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4' | grep -q .; then
+            echo "::error::$HARNESS verified but left a cover unsatisfied, so the pass is vacuous"
+            exit 1
+          fi
+          echo "::notice::$HARNESS SUCCESSFUL"
+          exit 0
+        fi
+        grep -qF 'CBMC timed out' "$log" && echo "::error::$HARNESS exhausted its $BUDGET budget (no counterexample)"
+        grep -qE 'Trace for|Counterexample' "$log" && echo "::error::$HARNESS was refuted -- counterexample printed"
+        grep -qE 'invariant violation|failed with status' "$log" && echo "::error::$HARNESS crashed CBMC"
+        exit 1
+
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        persist-credentials: false
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
+    - run: rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+      with:
+        version: 28.1.0
+    - run: make build
+    - run: rustup toolchain install --profile minimal "$(sed -n 's/^channel = "\(.*\)"/\1/p' test-suites/fuzz/rust-toolchain.toml)"
+    - run: cargo install --locked cargo-fuzz --version 0.13.2
+    - run: cargo fuzz run fuzz_pool_general -- -max_total_time=3600 -print_final_stats=1
+      working-directory: test-suites/fuzz
+    # A crash is only actionable with the input that produced it, and the corpus
+    # is not persisted, so the reproducer cannot be regenerated from a rerun.
+    - if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: fuzz-crash-${{ github.run_id }}
+        path: |
+          test-suites/fuzz/artifacts/
+          test-suites/fuzz/corpus/
+        if-no-files-found: warn
+        retention-days: 30
+
+  complete:
+    if: always()
+    needs: [harnesses, kani, fuzz]
+    runs-on: ubuntu-latest
+    steps:
+    # A failed harnesses job skips kani, and a skipped job's result is neither
+    # failure nor cancelled, so complete would otherwise pass with nothing verified.
+    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+      run: exit 1

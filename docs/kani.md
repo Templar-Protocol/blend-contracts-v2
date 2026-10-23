@@ -25,7 +25,17 @@ that Rust 1.81 lacked. The soroban-sdk 25.3.0 lock carries `ethnum` 1.5.3,
 which removes that bind. The proofs have since been re-run under 0.68.0 on
 this tree; the results are recorded in "Kani 0.68.0 rerun (2026-10-22)" below
 and supersede the 0.67.0 tables in this document as the current evidence.
-No CI job runs Kani.
+Three CI jobs cover the proof surface, all required by the `complete` gate in
+`.github/workflows/pull_request.yml`: `kani-codegen` compiles every harness
+(`--only-codegen`), which is what catches a harness that has stopped building;
+`kani-proofs` verifies the set in `verification/kani-ci-harnesses.txt`, every
+harness the 0.68.0 tables record under 70 s; and `fuzz-build` builds and
+briefly runs the libFuzzer target, which lives in its own workspace and so is
+compiled by nothing else. The expensive harnesses run weekly from
+`.github/workflows/verification-full.yml`, listed in
+`verification/kani-full-harnesses.txt`. Both jobs read verdicts from the log
+rather than the exit status, for the reason given under "Property-mapped
+reruns" below.
 
 ```sh
 cd /tmp && cargo install --locked kani-verifier --version 0.68.0 --force

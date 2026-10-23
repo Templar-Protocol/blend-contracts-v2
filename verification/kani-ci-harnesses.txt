@@ -1,0 +1,29 @@
+# Harnesses run on every pull request.
+#
+# Selection criterion: every harness the "Kani 0.68.0 rerun" tables in
+# docs/kani.md record under 70 s. The expensive ones (minutes to hours) run in
+# the scheduled full campaign instead -- see .github/workflows/verification-full.yml.
+#
+# A selector that no longer names exactly one harness fails the job, so this
+# file also pins the fully qualified paths against module moves.
+
+auctions::auction::verification::prove_auction_timing_modifiers
+auctions::auction::verification::prove_auction_quote_partition
+auctions::auction::verification::prove_auction_discount_bounds
+pool::bad_debt::verification::prove_orphan_collateral_decision
+pool::bad_debt::verification::prove_setoff_guarded_parametric
+pool::bad_debt::verification::prove_setoff_guarded_witnesses
+pool::reserve::verification::prove_b_token_forward_floor
+pool::reserve::verification::prove_d_token_forward_ceil
+pool::reserve::verification::prove_b_round_trip_down_conservative
+pool::reserve::verification::prove_b_round_trip_up_conservative
+pool::reserve::verification::prove_d_round_trip_down_conservative
+pool::reserve::verification::prove_d_round_trip_up_conservative
+pool::reserve::verification::prove_utilization_and_action_predicates
+pool::reserve::verification::astra_grow_debt_rate_monotonic
+pool::reserve::verification::astra_grow_debt_exact_delta_supply_000
+pool::reserve::verification::astra_grow_debt_exact_delta_supply_001
+pool::actions::verification::prove_supply_cap_strictness
+pool::actions::verification::prove_burn_then_add_is_supply_neutral
+pool::actions::verification::prove_supply_credit_monotonic
+pool::actions::verification::prove_supply_cap_decides_on_post_state

@@ -108,12 +108,12 @@ impl Asserts for TestFixture<'_> {
                 let asset_to_base = pool_state.load_price(&self.env, &reserve.asset);
                 supply += asset_to_base
                     .fixed_mul_floor(
-                        reserve.total_supply() + reserve.backstop_credit,
+                        reserve.total_supply(&self.env) + reserve.data.backstop_credit,
                         reserve.scalar,
                     )
                     .unwrap();
                 liabilities += asset_to_base
-                    .fixed_mul_ceil(reserve.total_liabilities(), reserve.scalar)
+                    .fixed_mul_ceil(reserve.total_liabilities(&self.env), reserve.scalar)
                     .unwrap();
             }
         });
@@ -130,7 +130,7 @@ impl Asserts for TestFixture<'_> {
             let mut pool_state = PoolState::load(&self.env);
             let data =
                 PositionData::calculate_from_positions(&self.env, &mut pool_state, &positions);
-            assert!(data.as_health_factor() > data.scalar);
+            assert!(data.as_health_factor(&self.env) > data.scalar);
         });
     }
 }

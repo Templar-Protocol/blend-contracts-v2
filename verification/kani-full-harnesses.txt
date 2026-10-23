@@ -1,0 +1,23 @@
+# Harnesses run by the scheduled full campaign, not on pull requests: each takes
+# minutes to hours. Times are the "Kani 0.68.0 rerun" figures in docs/kani.md and
+# are indicative only -- they were measured on a shared host.
+#
+# Deliberately absent, because docs/kani.md records both as budget-limited rather
+# than refuted and neither has ever produced a counterexample or a CBMC crash:
+#   pool::reserve::verification::astra_grow_debt_exact_delta          (3600 s budget)
+#   pool::reserve::verification::prove_grow_debt_nonnegative_interest (3600 s budget)
+# What stands in for them is scheduled instead: the composed harness and the
+# _supply_255 instance below, and _supply_000 / _supply_001 in the per-PR set.
+# Those three drive the production grow_debt seam, so a regression specific to
+# the real implementation is caught rather than only the instrumented form.
+
+pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+pool::reserve::verification::prove_b_token_inverse_rounding
+pool::reserve::verification::prove_d_token_inverse_rounding
+pool::reserve::verification::prove_utilization_range_and_branches
+pool::reserve::verification::astra_grow_debt_nonnegative_delta
+pool::reserve::verification::prove_accrue_split_and_zero_take_rate
+pool::reserve::verification::astra_grow_debt_exact_delta_composed
+pool::reserve::verification::astra_grow_debt_exact_delta_supply_255
+pool::reserve::verification::prove_supply_claims_bounded_by_tokens_in
+pool::reserve::verification::prove_withdraw_tokens_out_bounded_by_claims_released
