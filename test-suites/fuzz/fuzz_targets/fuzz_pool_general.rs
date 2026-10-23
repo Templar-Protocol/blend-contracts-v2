@@ -1,7 +1,7 @@
 #![allow(unused)]
 #![no_main]
 
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::{FixedPoint, SorobanFixedPoint};
 use fuzz_common::{
     verify_contract_result, Borrow, ClaimPool, NatI128, PassTime, Repay, Supply, Withdraw,
 };
@@ -96,10 +96,9 @@ impl Command {
 impl Asserts for TestFixture<'_> {
     /// Assert the pool has not lent out more funds than it has.
     ///
-    /// Converting a reserve to base value can exceed `i128` while the pool
-    /// itself is behaving, and a panic there is indistinguishable from a real
-    /// violation. Such an input is out of this check's domain, so it is
-    /// reported and skipped rather than failing the run.
+    /// Every quantity here can exceed `i128` while the pool itself is behaving,
+    /// and a panic from that is indistinguishable from a real violation. Such an
+    /// input is outside this check's domain, so it is reported and skipped.
     fn assert_invariants(&self) {
         let pool_fixture = &self.pools[0];
 
@@ -110,23 +109,44 @@ impl Asserts for TestFixture<'_> {
             for (token_index, _reserve_index) in pool_fixture.reserves.iter() {
                 let asset = &self.tokens[token_index.clone()];
                 let reserve = pool_state.load_reserve(&self.env, &asset.address, false);
-                let asset_to_base = pool_state.load_price(&self.env, &reserve.asset);
-                let reserve_supply =
-                    reserve.total_supply(&self.env) + reserve.data.backstop_credit;
-                let reserve_liabilities = reserve.total_liabilities(&self.env);
+                let price = pool_state.load_price(&self.env, &reserve.asset);
+                let state = format!(
+                    "token {:?}: price={price} scalar={} b_rate={} d_rate={} \
+                     b_supply={} d_supply={} credit={}",
+                    token_index,
+                    reserve.scalar,
+                    reserve.data.b_rate,
+                    reserve.data.d_rate,
+                    reserve.data.b_supply,
+                    reserve.data.d_supply,
+                    reserve.data.backstop_credit,
+                );
 
-                let supply_base = asset_to_base.fixed_mul_floor(reserve_supply, reserve.scalar);
-                let liabilities_base =
-                    asset_to_base.fixed_mul_ceil(reserve_liabilities, reserve.scalar);
-                let (Some(supply_base), Some(liabilities_base)) = (supply_base, liabilities_base)
-                else {
-                    eprintln!(
-                        "INVARIANT UNEVALUABLE: base conversion exceeds i128 for token {:?}:                          price={asset_to_base} scalar={} b_rate={} d_rate={}                          supply={reserve_supply} liabilities={reserve_liabilities}",
-                        token_index,
-                        reserve.scalar,
-                        reserve.data.b_rate,
-                        reserve.data.d_rate,
-                    );
+                // total_supply, total_liabilities and the I256-backed conversions
+                // production uses all panic rather than returning None when a
+                // result exceeds i128, so the panic is what has to be classified.
+                let totals = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let held = reserve
+                        .total_supply(&self.env)
+                        .checked_add(reserve.data.backstop_credit)?;
+                    let owed = reserve.total_liabilities(&self.env);
+                    Some((
+                        SorobanFixedPoint::fixed_mul_floor(
+                            &price,
+                            &self.env,
+                            &held,
+                            &reserve.scalar,
+                        ),
+                        SorobanFixedPoint::fixed_mul_ceil(
+                            &price,
+                            &self.env,
+                            &owed,
+                            &reserve.scalar,
+                        ),
+                    ))
+                }));
+                let Ok(Some((supply_base, liabilities_base))) = totals else {
+                    eprintln!("INVARIANT UNEVALUABLE: reserve total exceeds i128; {state}");
                     return false;
                 };
 
@@ -135,8 +155,8 @@ impl Asserts for TestFixture<'_> {
                     liabilities.checked_add(liabilities_base),
                 ) else {
                     eprintln!(
-                        "INVARIANT UNEVALUABLE: base totals exceed i128 after token {:?}:                          supply={supply}+{supply_base} liabilities={liabilities}+{liabilities_base}",
-                        token_index,
+                        "INVARIANT UNEVALUABLE: base totals exceed i128 at {state}; \
+                         running supply={supply}+{supply_base} liabilities={liabilities}+{liabilities_base}"
                     );
                     return false;
                 };
