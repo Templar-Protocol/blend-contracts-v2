@@ -8,6 +8,12 @@ on:
     branches:
       - main
 
+# No job here writes to the repository: they check formatting, build, test, run
+# provers and build the fuzz target. Without this, GITHUB_TOKEN takes the
+# repository default, which can be write.
+permissions:
+  contents: read
+
 jobs:
 
   complete:
@@ -38,8 +44,6 @@ jobs:
 
   kani-codegen:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     env:
       KANI_VERSION: 0.68.0
     steps:
@@ -78,8 +82,6 @@ jobs:
 
   kani-proofs:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     env:
       KANI_VERSION: 0.68.0
       HARNESS_TIMEOUT: 600s
@@ -150,8 +152,6 @@ jobs:
 
   fuzz-build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       with:
