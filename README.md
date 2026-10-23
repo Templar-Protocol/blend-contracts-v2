@@ -12,6 +12,11 @@ To learn more about the Blend Protocol, visit the docs:
 
 Conducted audits can be viewed in the `audits` folder.
 
+## Formal verification
+
+[`VERIFICATION.md`](VERIFICATION.md) gives the status of the seven safety
+invariants, what each one means, and the assumptions it is proven under.
+
 ## Getting Started
 
 Build the contracts with:

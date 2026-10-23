@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-    - uses: stellar/actions/rust-cache@main
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
     - run: rustup toolchain install
     - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
       with:
@@ -42,7 +42,7 @@ jobs:
       KANI_VERSION: 0.68.0
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-    - uses: stellar/actions/rust-cache@main
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
     - run: rustup toolchain install
     - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
       with:
@@ -73,7 +73,7 @@ jobs:
       HARNESS_TIMEOUT: 600s
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-    - uses: stellar/actions/rust-cache@main
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
     - run: rustup toolchain install
     - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
       with:
@@ -123,7 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-    - uses: stellar/actions/rust-cache@main
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
     - run: rustup toolchain install
     - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
       with:

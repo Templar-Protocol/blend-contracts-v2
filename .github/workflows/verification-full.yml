@@ -3,6 +3,9 @@ name: verification-full
 # The harnesses that take minutes to hours. The per-PR set in pull_request.yml
 # covers only what runs under 70 s, so without this nothing re-checks the
 # expensive obligations after the campaign recorded in docs/kani.md.
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: '0 3 * * 0'
@@ -42,7 +45,7 @@ jobs:
       KANI_VERSION: 0.68.0
     steps:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-    - uses: stellar/actions/rust-cache@main
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
     - run: rustup toolchain install
     - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
       with:
@@ -89,8 +92,10 @@ jobs:
 
   complete:
     if: always()
-    needs: [kani]
+    needs: [harnesses, kani]
     runs-on: ubuntu-latest
     steps:
-    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+    # A failed harnesses job skips kani, and a skipped job's result is neither
+    # failure nor cancelled, so complete would otherwise pass with nothing verified.
+    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
       run: exit 1
