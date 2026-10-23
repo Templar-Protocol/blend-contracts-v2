@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "description": "Merry supplies six-decimal STABLE collateral, borrows seven-decimal XLM, partially repays then overpays with refund and withdraws the entire capped collateral. A second WETH/STABLE position and negative repay exercise the other user's command variants.",
+  "input": {
+    "sam_xlm_balance": 0,
+    "sam_weth_balance": 0,
+    "sam_stable_balance": 0,
+    "merry_xlm_balance": 10000000000,
+    "merry_weth_balance": 2000000000,
+    "merry_stable_balance": 2000000000,
+    "commands": [
+      {"merry_supply": {"amount": 1000000000, "token": "stable"}},
+      {"merry_borrow": {"amount": 1000000000, "token": "xlm"}},
+      {"merry_repay": {"amount": 100000000, "token": "xlm"}},
+      {"merry_repay": {"amount": 2000000000, "token": "xlm"}},
+      {"merry_withdraw": {"amount": 2000000000, "token": "stable"}},
+      {"merry_supply": {"amount": 1000000000, "token": "weth"}},
+      {"merry_borrow": {"amount": 100000000, "token": "stable"}},
+      {"merry_repay": {"amount": -1, "token": "stable"}},
+      {"merry_claim_pool": {}},
+      {"merry_repay": {"amount": 200000000, "token": "stable"}}
+    ]
+  },
+  "expected": [
+    {"accepted": true, "positions_changed": true, "collateral_empty": false, "liabilities_empty": true},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": false},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": false},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": true},
+    {"accepted": true, "positions_changed": true, "collateral_empty": true},
+    {"accepted": true, "positions_changed": true, "collateral_empty": false},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": false},
+    {"accepted": false, "positions_changed": false, "liabilities_empty": false},
+    {"accepted": true, "positions_changed": false},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": true}
+  ]
+}

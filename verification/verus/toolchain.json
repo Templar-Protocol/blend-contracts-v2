@@ -2,77 +2,54 @@
   "schema_version": 1,
   "scope": "Universal mathematical-int model only; not source-connected production arithmetic or handler verification.",
   "verus": {
-    "version": "0.2026.10.23.dccae1d",
-    "release_kind": "rolling prerelease pinned by full source commit and archive SHA-256",
-    "commit": "dccae1df5fcbe663628af781c8b211123ad9d928",
-    "release_url": "https://github.com/verus-lang/verus/releases/tag/release/rolling/0.2026.10.23.dccae1d",
-    "download_url": "https://github.com/verus-lang/verus/releases/download/release/rolling/0.2026.10.23.dccae1d/verus-0.2026.10.23.dccae1d-x86-linux.zip",
-    "archive_sha256": "cc3eca6b31cc560ee1298f8917bdbc62c40ab346412f8de0fa8c2eb528da2699",
-    "archive_hash_observed_matches_github_release_digest": true,
-    "installation": "/tmp/blend-verification-tools/verus/verus-x86-linux",
-    "executable": "/tmp/blend-verification-tools/verus/verus-x86-linux/verus",
+    "version": "0.2026.10.18.7d82994",
+    "release_kind": "Non-rolling release pinned by full source commit and archive SHA-256",
+    "commit": "7d829946231d6413a398f6e4160cdfe951261dad",
+    "release_url": "https://github.com/verus-lang/verus/releases/tag/release/0.2026.10.18.7d82994",
+    "download_url": "https://github.com/verus-lang/verus/releases/download/release/0.2026.10.18.7d82994/verus-0.2026.10.18.7d82994-x86-linux.zip",
+    "archive_sha256": "e9af03732d4bdd32b93a8fcf471706739c24c1473fa5086618d96c47237845dd",
     "executable_sha256": "1208c995c8e5244577693eba311d34bc2050c4acf984e10c4c7baf2003abff14",
-    "rust_verify_sha256": "777dffda9cfccfc1c67c10a6e1f6fb35ba06ec905230cd5b89fad28ceceb1d82",
-    "version_evidence": "Pinned verifier JSON reports version 0.2026.10.23.dccae1d and commit dccae1df5fcbe663628af781c8b211123ad9d928.",
-    "install_instructions_url": "https://github.com/verus-lang/verus/blob/dccae1df5fcbe663628af781c8b211123ad9d928/INSTALL.md"
+    "rust_verify_sha256": "e2342d0af6cb8ebd538c729b2e4246354c2d791c215c1348a8fc3f8a32c727dc",
+    "install_instructions_url": "https://github.com/verus-lang/verus/blob/7d829946231d6413a398f6e4160cdfe951261dad/INSTALL.md"
   },
   "libraries": {
-    "source_commit": "dccae1df5fcbe663628af781c8b211123ad9d928",
+    "source_commit": "7d829946231d6413a398f6e4160cdfe951261dad",
     "vstd_version": "0.0.0-2026-10-18-0147",
     "verus_builtin_macros_version": "0.0.0-2026-10-18-0147",
     "verus_builtin_version": "0.0.0-2026-10-11-0230",
     "verus_state_machines_macros_version": "0.0.0-2026-10-18-0147",
-    "package_manifest_url": "https://raw.githubusercontent.com/verus-lang/verus/dccae1df5fcbe663628af781c8b211123ad9d928/source/vstd/Cargo.toml",
-    "div_mod_source_url": "https://raw.githubusercontent.com/verus-lang/verus/dccae1df5fcbe663628af781c8b211123ad9d928/source/vstd/arithmetic/div_mod.rs",
-    "mul_source_url": "https://raw.githubusercontent.com/verus-lang/verus/dccae1df5fcbe663628af781c8b211123ad9d928/source/vstd/arithmetic/mul.rs",
-    "bundled_vstd_vir_sha256": "e13db791520a7e4a570e262b1456e6e61a70b097ae4d6b5d07017dabc7284b47",
-    "bundled_builtin_macros_sha256": "c9d051d548bf235215513cf5912f95dba17d444872df715d10695721ce5a1047",
-    "bundled_state_machines_macros_sha256": "e7a689347154ad5d4f16017ae7066a9e976cefa7b78535918a724102292dbb3e",
-    "bundled_builtin_rlib_sha256": "724f85a05f106757b43be2bc9a4a82f3dfff5d9855f858be3b49f0d05c1d92b1",
-    "bundled_libvstd_rlib_sha256": "645441e73b8b2b21acce0cad1c1cdbd189111ca5685aff5ae8d5fa98b0aa5a5c"
+    "package_manifest_url": "https://raw.githubusercontent.com/verus-lang/verus/7d829946231d6413a398f6e4160cdfe951261dad/source/vstd/Cargo.toml",
+    "div_mod_source_url": "https://raw.githubusercontent.com/verus-lang/verus/7d829946231d6413a398f6e4160cdfe951261dad/source/vstd/arithmetic/div_mod.rs",
+    "mul_source_url": "https://raw.githubusercontent.com/verus-lang/verus/7d829946231d6413a398f6e4160cdfe951261dad/source/vstd/arithmetic/mul.rs",
+    "bundled_vstd_vir_sha256": "6d80fc68c876099b6075e8a58d4b01da4cf1a289afb450bae1096ab78083a97e",
+    "bundled_builtin_macros_sha256": "7dd8d3582475869d19b245fa4971d413bba1167d97160a0a1cb43c4d58e8b625",
+    "bundled_state_machines_macros_sha256": "910b5df56b2e094ca092773c6e54c61c8e8d79e385fc32bee236bb62de00eb3e",
+    "bundled_builtin_rlib_sha256": "96865522e598c543c9152699078a9fabe74dbc51f79ccd4d8e67976ce7d21422",
+    "bundled_libvstd_rlib_sha256": "5377d2a76c3a731c9a123e454ebf28f08a317a4203cc89e68930242a17e5907a"
   },
   "solver": {
     "name": "Z3",
     "version": "4.16.0 - 64 bit",
-    "version_evidence": "Bundled z3 --version reported 4.16.0. The pinned solver subsequently verified the mathematical model and rejected the intended mutation through Verus.",
-    "executable": "/tmp/blend-verification-tools/verus/verus-x86-linux/z3",
     "sha256": "e583c4186a45e72411fa2cb2048401eed03f0f8e5f24694676a8f6271a50b765",
     "download_url": "https://github.com/Z3Prover/z3/releases/download/z3-4.16.0/z3-4.16.0-x64-glibc-2.39.zip",
-    "upstream_pin_url": "https://raw.githubusercontent.com/verus-lang/verus/dccae1df5fcbe663628af781c8b211123ad9d928/source/tools/get-z3.sh",
-    "installation_origin": "Bundled in the hash-checked Verus release archive; not separately downloaded."
+    "upstream_pin_url": "https://raw.githubusercontent.com/verus-lang/verus/7d829946231d6413a398f6e4160cdfe951261dad/source/tools/get-z3.sh"
   },
   "rust": {
     "toolchain": "1.99.1-x86_64-unknown-linux-gnu",
     "commit": "58cf8f9c35b355199727627d07ae34a4e2846d67",
     "commit_date": "2026-10-13",
     "llvm_version": "23.1.1",
-    "rustup_home": "/tmp/blend-verification-tools/verus/rustup",
-    "cargo_home": "/tmp/blend-verification-tools/verus/cargo",
-    "installed_components": ["rustc", "rust-std", "cargo", "rustc-dev", "llvm-tools", "rustfmt"],
+    "installed_components": [
+      "rustc",
+      "rust-std",
+      "cargo",
+      "rustc-dev",
+      "llvm-tools",
+      "rustfmt"
+    ],
     "rustc_sha256": "b53b780f77f952062f8ca8a3b70aef2390b1e45ad91939be94afdc9543026853",
     "release_manifest_url": "https://static.rust-lang.org/dist/channel-rust-1.99.1.toml",
     "published_release_manifest_sha256": "fb152be80975c194aa5fc684b2aec3a6e14e2b855efe2faa4e5f8ae6e590f463",
-    "local_rustup_reserialized_manifest_sha256": "48419307eb32e389a25ac360b6bccd4d196f3c4f35ce9d67a223319eff017c6c",
-    "install_diagnostic": "All six components installed successfully under the bounded systemd unit, then rustup returned 1 because its optional self-update step expected rustup in the isolated CARGO_HOME. No toolchain reinstall was performed. Subsequently disabled auto-self-update in the isolated RUSTUP_HOME. rustup run with both isolated homes successfully reported the pinned rustc --version --verbose.",
-    "global_rustup_toolchains_changed": false,
-    "reproduction_setup": [
-      "env RUSTUP_HOME=/tmp/blend-verification-tools/verus/rustup rustup set auto-self-update disable",
-      "env RUSTUP_HOME=/tmp/blend-verification-tools/verus/rustup CARGO_HOME=/tmp/blend-verification-tools/verus/cargo rustup toolchain install 1.99.1 --profile minimal --component rustc-dev --component llvm-tools --component rustfmt"
-    ],
-    "reproduction_setup_containment": "Wrap toolchain installation in scripts/verify_local.py --seconds 600 -- followed by the explicit install command; preparation observed a 2.2G memory peak."
-  },
-  "parent_commands": {
-    "acceptance": "make verify-local",
-    "implementation": "scripts/verify_verus.py runs both verdicts through scripts/verify_local.py::contained under the shared lock, after checking all listed frontend hashes and the compiler identity.",
-    "generate_negative": "python3 verification/verus/negative_control.py target/verification-local/verus-negative/supply_delta.rs",
-    "working_directory": "Repository root",
-    "run_order": "Executed positive first with --no-cheating --num-threads 1 --time --output-json, then generated and verified the negative copy with the same options. Both verdicts passed their respective acceptance gates."
-  },
-  "acceptance": {
-    "positive": "Require all three arbitrary-int theorems, quotient helpers, domain_witnesses, and ceil_mint_counterexample to verify with zero errors. Treat syntax, dependency, process, timeout, or unknown outcomes as undecided, not proof.",
-    "negative": "Require genuine assertion failures in exactly supply_delta and ceil_mint_counterexample for the ceil-mint mutation. At B=1,R=1500000000000,A=1 the claims delta is 2 > 1. A syntax/VIR error, unknown or nonzero exit alone is insufficient.",
-    "witnesses": "B=8,A=3 at R=Q/2,Q,3Q/2,Q+1, plus zero amounts and empty supply; these do not restrict the symbolic theorem domains.",
-    "forbidden_target_escapes": ["assume", "external_body", "unchecked target axioms"],
-    "production_bridge": "Open: no conclusion about production i128/I256 arithmetic, Rust dispatch, host calls, runtime, handlers, or end-to-end solvency."
+    "local_rustup_reserialized_manifest_sha256": "48419307eb32e389a25ac360b6bccd4d196f3c4f35ce9d67a223319eff017c6c"
   }
 }

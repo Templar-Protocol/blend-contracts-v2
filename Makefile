@@ -61,13 +61,30 @@ kani-release:
 		--run-dir "$(KANI_RELEASE_RUN_DIR)" \
 		--output-dir "$(KANI_RELEASE_OUTPUT_DIR)" $(if $(KANI_RELEASE_DRY_RUN),--dry-run)
 
-.PHONY: verify-local
+.PHONY: verify-local verify-local-codegen fuzz-replay fuzz-test fuzz-lint fuzz-build
 verify-local:
-	python3 -m unittest scripts/test_verify_local.py scripts/test_kani_release.py scripts/test_verification_tools.py
+	python3 -m unittest scripts/test_verify_local.py scripts/test_kani_release.py \
+		scripts/test_verification_tools.py scripts/test_proof_ci.py
 	python3 scripts/verify_local.py
+
+verify-local-codegen:
+	python3 scripts/verify_local.py --codegen
+
+fuzz-replay:
+	@cd test-suites/fuzz && cargo run --quiet --locked --release --bin replay_pool_general -- regression-seeds
+
+fuzz-test:
+	cd test-suites/fuzz && cargo test --locked --lib
+
+fuzz-lint:
+	cargo clippy --locked --manifest-path test-suites/fuzz/Cargo.toml --all-targets -- -D warnings
+
+fuzz-build:
+	cd test-suites/fuzz && cargo fuzz build fuzz_pool_general
 
 fmt:
 	cargo fmt --all
+	cargo fmt --manifest-path test-suites/fuzz/Cargo.toml --all
 
 clean:
 	cargo clean

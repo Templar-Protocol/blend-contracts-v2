@@ -9,7 +9,7 @@ on:
       - main
 
 # No job here writes to the repository: they check formatting, build, test, run
-# provers and build the fuzz target. Without this, GITHUB_TOKEN takes the
+# provers and replay/build the fuzz target. Without this, GITHUB_TOKEN takes the
 # repository default, which can be write.
 permissions:
   contents: read
@@ -18,10 +18,10 @@ jobs:
 
   complete:
     if: always()
-    needs: [fmt, build-and-test, kani-codegen, kani-proofs, fuzz-build]
+    needs: [fmt, build-and-test, kani-codegen, kani-proofs, local-verification]
     runs-on: ubuntu-latest
     steps:
-    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
       run: exit 1
 
   fmt:
@@ -30,6 +30,7 @@ jobs:
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
     - run: rustup toolchain install
     - run: cargo fmt --all --check
+    - run: cargo fmt --manifest-path test-suites/fuzz/Cargo.toml --all -- --check
 
   build-and-test:
     runs-on: ubuntu-latest
@@ -118,57 +119,30 @@ jobs:
       run: |
         set -uo pipefail
         mapfile -t harnesses < <(grep -v '^#' verification/kani-ci-harnesses.txt | grep -v '^[[:space:]]*$')
-        echo "::notice::verifying ${#harnesses[@]} harnesses"
-        args=()
-        for h in "${harnesses[@]}"; do args+=(--harness "$h"); done
-        log="$RUNNER_TEMP/kani-ci.log"
-        cargo kani -p pool --lib --exact "${args[@]}" \
-          --solver kissat -Z unstable-options --harness-timeout "$HARNESS_TIMEOUT" \
-          2>&1 | tee "$log"
-        # The exit status cannot distinguish a refutation from a budget or a CBMC
-        # crash, so the verdicts are read from the log. See docs/verification/kani.md.
-        verdicts=$(grep -cE 'VERIFICATION:-' "$log" || true)
-        passed=$(grep -cF 'VERIFICATION:- SUCCESSFUL' "$log" || true)
-        if [ "$verdicts" -ne "${#harnesses[@]}" ]; then
-          echo "::error::expected ${#harnesses[@]} verdicts, got $verdicts -- a selector matched the wrong number of harnesses"
+        if [ "${#harnesses[@]}" -eq 0 ]; then
+          echo "::error::empty PR harness selection"
           exit 1
         fi
-        if [ "$passed" -ne "${#harnesses[@]}" ]; then
-          echo "::error::$((verdicts - passed)) harness(es) did not verify"
-          grep -F 'CBMC timed out' "$log" && echo "::error::at least one was a budget, not a refutation"
-          grep -E 'Trace for|Counterexample' "$log" && echo "::error::a counterexample was produced"
-          exit 1
-        fi
-        # Kani can report SUCCESSFUL with unreachable kani::cover! properties.
-        # Reject reported unsatisfied covers; missing cover summaries are not detected.
-        covers_bad=$(grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4' | wc -l || true)
-        if [ "${covers_bad:-0}" -ne 0 ]; then
-          echo "::error::$covers_bad harness(es) left a cover unsatisfied; a SUCCESSFUL verdict with an unreachable cover proves nothing"
-          grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4'
-          exit 1
-        fi
-        echo "::notice::$passed/$verdicts SUCCESSFUL"
+        mkdir -p "$RUNNER_TEMP/kani-ci"
+        for h in "${harnesses[@]}"; do
+          log="$RUNNER_TEMP/kani-ci/${h//::/_}.log"
+          cargo kani -p pool --lib --exact --harness "$h" \
+            --solver kissat -Z unstable-options --harness-timeout "$HARNESS_TIMEOUT" \
+            2>&1 | tee "$log"
+          result=("${PIPESTATUS[@]}")
+          if [ "${result[1]}" -ne 0 ]; then exit 1; fi
+          python3 scripts/check_kani_ci.py \
+            --selection verification/kani-ci-harnesses.txt --harness "$h" \
+            --log "$log" --exit-code "${result[0]}" || exit 1
+        done
+    - name: Retain per-harness proof logs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: kani-pr-logs-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/kani-ci/
+        if-no-files-found: warn
+        retention-days: 14
 
-  fuzz-build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      with:
-        persist-credentials: false
-    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
-    - run: rustup toolchain install
-    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
-      with:
-        version: 28.1.0
-    - run: make build
-    # test-suites/fuzz is its own workspace with its own toolchain pin and lock,
-    # so nothing else in CI compiles it and it rots silently.
-    - run: rustup toolchain install --profile minimal "$(sed -n 's/^channel = "\(.*\)"/\1/p' test-suites/fuzz/rust-toolchain.toml)"
-    - run: cargo install --locked cargo-fuzz --version 0.13.2
-    # Build only. The corpus is not persisted between runs, so a timed fuzz run
-    # explores a different path every time and finds crashes intermittently --
-    # useful, but not a pass/fail gate. It runs in verification-full.yml, which
-    # keeps the reproducer. Building is deterministic and catches the rot this
-    # job exists for.
-    - run: cargo fuzz build fuzz_pool_general
-      working-directory: test-suites/fuzz
+  local-verification:
+    uses: ./.github/workflows/verification-local.yml

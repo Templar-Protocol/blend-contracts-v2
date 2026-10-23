@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "description": "After fixture accrual lifts rates above unity, a one-base-unit borrow mints one debt token. Repaying one rounds the burn to zero and rejects; repaying three clears it with a capped two-unit payment and one-unit refund. A one-unit collateral withdrawal succeeds, a capped withdrawal clears the position, and a one-unit supply rounds its mint to zero and rejects.",
+  "input": {
+    "sam_xlm_balance": 0,
+    "sam_weth_balance": 2000000000,
+    "sam_stable_balance": 1000000000,
+    "merry_xlm_balance": 0,
+    "merry_weth_balance": 0,
+    "merry_stable_balance": 1000000000,
+    "commands": [
+      {"sam_supply": {"amount": 1000000000, "token": "weth"}},
+      {"sam_borrow": {"amount": 1, "token": "stable"}},
+      {"sam_repay": {"amount": 1, "token": "stable"}},
+      {"sam_repay": {"amount": 3, "token": "stable"}},
+      {"sam_withdraw": {"amount": 1, "token": "weth"}},
+      {"sam_withdraw": {"amount": 2000000000, "token": "weth"}},
+      {"sam_supply": {"amount": 1, "token": "weth"}},
+      {"merry_supply": {"amount": 100000000, "token": "stable"}},
+      {"merry_withdraw": {"amount": -1, "token": "stable"}},
+      {"merry_claim_pool": {}}
+    ]
+  },
+  "expected": [
+    {"accepted": true, "positions_changed": true, "wallet_delta": -1000000000, "collateral_empty": false, "liabilities_empty": true},
+    {"accepted": true, "positions_changed": true, "wallet_delta": 1, "liabilities_empty": false},
+    {"accepted": false, "positions_changed": false, "wallet_delta": 0, "liabilities_empty": false},
+    {"accepted": true, "positions_changed": true, "wallet_delta": -2, "liabilities_empty": true},
+    {"accepted": true, "positions_changed": true, "wallet_delta": 1, "collateral_empty": false},
+    {"accepted": true, "positions_changed": true, "collateral_empty": true},
+    {"accepted": false, "positions_changed": false, "collateral_empty": true},
+    {"accepted": true, "positions_changed": true, "collateral_empty": false},
+    {"accepted": false, "positions_changed": false, "collateral_empty": false},
+    {"accepted": true, "positions_changed": false}
+  ]
+}

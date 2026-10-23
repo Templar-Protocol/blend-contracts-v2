@@ -23,6 +23,12 @@ SWAP = 0
 TASKS = 256
 CPU_PERCENT = 200
 MAX_SECONDS = 3600
+# Transient services inherit their manager's environment, not the invoking shell.
+# Keep required tool/build settings explicit without importing CI credentials.
+WORKER_ENVIRONMENT = (
+    "PATH", "CARGO_BUILD_JOBS", "CARGO_HOME", "RUSTUP_HOME", "RUSTC_WRAPPER",
+    "VERUS_HOME", "XDG_CACHE_HOME",
+)
 # Keep the acceptance contract independent of the editable execution inventory.
 REQUIRED_HARNESSES = {
     "pool::reserve::verification::prove_accrual_conserves_value_debt_000",
@@ -75,6 +81,7 @@ def contained(command, seconds, log):
         f"--property=CPUQuota={CPU_PERCENT}%", "--property=OOMPolicy=kill",
         "--property=KillMode=control-group", "--property=TimeoutStopSec=5s",
         f"--property=RuntimeMaxSec={seconds}s",
+        *(f"--setenv={name}={os.environ[name]}" for name in WORKER_ENVIRONMENT if name in os.environ),
         sys.executable, str(Path(__file__).resolve()), "_worker", *command,
     ]
     with ExitStack() as cleanup:
@@ -144,12 +151,31 @@ def load_inventory():
     return entries
 
 
-def run_inventory():
+def checked_inventory():
     entries = load_inventory()
     version = subprocess.run(["cargo", "kani", "--version"], capture_output=True,
                              text=True, check=True, timeout=15)
     if "Kani Rust Verifier 0.68.0 (cargo plugin)" not in version.stdout:
         raise ValueError("Kani 0.68.0 is required")
+    return entries
+
+
+def codegen_inventory():
+    entries = checked_inventory()
+    for target in dict.fromkeys(entry["target"] for entry in entries):
+        log = OUTPUT / f"{target}-codegen.log"
+        command = ["env", "RUSTC_WRAPPER=", "cargo", "kani",
+                   *TARGETS[target], "--lib", "--only-codegen", "--exact"]
+        for entry in entries:
+            if entry["target"] == target:
+                command.extend(["--harness", entry["harness"]])
+        if contained(command, 1800, log) != 0:
+            raise ValueError(f"proof compilation failed: {target}; log={log}")
+        print(f"{target}: proof compilation complete; log={log}", flush=True)
+
+
+def run_inventory():
+    entries = checked_inventory()
     for entry in entries:
         harness = entry["harness"]
         log = OUTPUT / f"{entry['target']}_{harness.replace('::', '_')}.log"
@@ -177,9 +203,13 @@ def main():
         os.execvp(sys.argv[2], sys.argv[2:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seconds", type=int, default=900)
+    parser.add_argument("--codegen", action="store_true",
+                        help="compile each proof configuration before the per-harness deadlines")
     parser.add_argument("command", nargs=argparse.REMAINDER,
                         help="optional experimental command after --; default runs the proof inventory")
     args = parser.parse_args()
+    if args.codegen and args.command:
+        parser.error("--codegen cannot be combined with an experimental command")
     OUTPUT.mkdir(parents=True, exist_ok=True)
     with (OUTPUT / "run.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -191,7 +221,10 @@ def main():
             result = contained(command, args.seconds, log)
             print(f"experiment: exit={result}; log={log}", flush=True)
             return result
-        run_inventory()
+        if args.codegen:
+            codegen_inventory()
+        else:
+            run_inventory()
     return 0
 
 

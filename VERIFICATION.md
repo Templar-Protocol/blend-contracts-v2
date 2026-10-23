@@ -112,7 +112,7 @@ what makes each claim checkable.
 | --- | --- |
 | Kani (bounded model checking) | Historical full inventory: 110 proof harnesses plus 1,678 generated fixed-parameter instances; [campaign `753b1ae`](https://github.com/Templar-Protocol/blend-contracts-v2/releases/tag/kani-run-753b1ae-2026-09-15) passed 3,197/3,197 obligations at that source commit, not the latest checkout. The Kani 0.68.0 property-mapped rerun at `886e26f` recorded 35 SUCCESSFUL, 2 budget-limited and 0 counterexamples; the separate supply/withdrawal solvency pair also passed. |
 | Certora Sunbeam | Archived auditor-rule-set reproduction: 24 SUCCESS, 2 UNKNOWN, **0 VIOLATED**. Fork-specific additions: oracle circuit breaker 13/13, utilization guards/witnesses 9/10. Raw verdicts and source provenance are indexed in [`verification/certora/README.md`](verification/certora/README.md). |
-| Fuzzing | A libFuzzer target exercises request sequences against a full pool fixture. When all totals are evaluable, the sum of floor-rounded price valuations of `(supplier claims + credit)` must strictly exceed the sum of ceil-rounded price valuations of debt. Unevaluable totals are logged and skipped. |
+| Fuzzing | Mutation fuzzing and deterministic committed-seed replay share the full pool-fixture execution path. When totals fit i128, floor-rounded price valuations of `(supplier claims + credit)` must strictly exceed ceil-rounded price valuations of debt. Exact arithmetic preflight identifies numeric range exclusions; unexpected valuation failures are not skipped. This is not a cash-aware solvency proof. |
 | Local strengthening | `make verify-local` passed five Kani harnesses with all 21 required covers, plus nine Verus proof functions: three unbounded-integer supply/withdrawal theorems, four helpers and two witnesses. The local set includes the repaired zero-debt proof, checked contract consumption, and the production first-read price guard and decimals validation/cache/reset under modeled host interfaces. The ceil-mint negative control detected both intended failures. |
 | Production arithmetic extraction | Charon/Aeneas extracted and translated the actual reserve conversions, dispatch and checked-i128/I256 branches: 23 transparent functions and 22 opaque functions. SDK/arithmetic refinement and Lean theorem checking remain open; translation is not a theorem verdict. |
 | Third-party audit | See [`audits/`](audits/). Formal verification complements an audit; it does not replace one. |
@@ -185,12 +185,21 @@ insufficient.
 ## Continuous enforcement
 
 The [PR workflow](.github/workflows/pull_request.yml) compiles the pool proof
-surface, re-verifies the [fast selection](verification/kani-ci-harnesses.txt),
-and builds/exercises the fuzz target through its aggregate gate. The
-[weekly/manual workflow](.github/workflows/verification-full.yml) runs the
-[expensive selection](verification/kani-full-harnesses.txt), not the entire
-historical inventory. Current coverage is determined by those selections and the
-separate [local acceptance inventory](verification/local-proofs.json).
+surface and re-verifies the [fast selection](verification/kani-ci-harnesses.txt).
+Its [reusable local gate](.github/workflows/verification-local.yml) additionally
+runs the complete existing [local proof inventory](verification/local-proofs.json),
+Verus proofs/negative control, deterministic fuzz-seed replay, fuzz regressions,
+strict fuzz-package lint and mutation-target build. The aggregate gate rejects
+failed or skipped jobs.
+
+Both Kani selections require the exact per-harness cover counts in
+[`kani-expected-covers.json`](verification/kani-expected-covers.json), including
+intentional zero-cover harnesses. Missing, unexpected or unsatisfied covers fail.
+The [weekly/manual workflow](.github/workflows/verification-full.yml) runs the
+[expensive selection](verification/kani-full-harnesses.txt) and a bounded mutation
+campaign; successful corpus growth is cached and failures retain reproducers.
+It is not the entire historical inventory. Manual `scope=local` runs the same
+proof/replay gate as PR CI without the expensive weekly campaign.
 
 ## Reproducing this
 
@@ -202,6 +211,7 @@ From the repository root, prepare Wasm imports once or after their inputs change
 
 ```sh
 python3 scripts/verify_local.py --seconds 900 -- env CARGO_BUILD_JOBS=1 make build
+make verify-local-codegen
 make verify-local
 ```
 
@@ -211,6 +221,23 @@ not just prover exit zero. Proofs run serially under a 4 GiB process-tree memory
 limit, zero swap, 256 tasks, CPU quota at most 200%, bounded runtimes and
 whole-unit cleanup. Missing containment or failed cleanup is an error.
 Logs are in `target/verification-local/`.
+On a cold cache, `verify-local-codegen` compiles each configuration under a
+separate bounded deadline; it does not verify assertions or relax proof deadlines.
+
+For fuzz regressions, use the standalone
+[fuzz toolchain](test-suites/fuzz/rust-toolchain.toml) and the same Wasm imports:
+
+```sh
+python3 scripts/verify_local.py --seconds 1800 -- make fuzz-lint
+python3 scripts/verify_local.py --seconds 1800 -- make fuzz-test
+python3 scripts/verify_local.py --seconds 1800 -- make fuzz-replay
+python3 scripts/verify_local.py --seconds 1800 -- make fuzz-build
+```
+
+Replay reads [reviewed JSON seeds](test-suites/fuzz/regression-seeds), checks
+acceptance, persisted positions and selected wallet deltas, and rejects
+unevaluable checks. Direct `make fuzz-replay` emits JSON Lines on stdout;
+the containment wrapper captures stdout/stderr in its reported log.
 
 The tool guides describe other Kani selections and authorized Certora operation.
 Certora requires hosted infrastructure and explicit submission authorization;

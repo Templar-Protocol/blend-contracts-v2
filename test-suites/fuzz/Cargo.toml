@@ -11,7 +11,11 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 soroban-fixed-point-math = "1.5.0"
 soroban-sdk = { version = "=25.3.0", features = ["testutils"] }
-extension-trait = "1"
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dependencies.test-suites]
 path = ".."
@@ -26,6 +30,9 @@ members = ["."]
 
 [profile.release]
 debug = 1
+# Keep native release replay checked like `make build`, independently of the
+# flags cargo-fuzz supplies for mutation builds.
+overflow-checks = true
 
 [lib]
 name = "fuzz_common"
@@ -34,5 +41,11 @@ path = "lib.rs"
 [[bin]]
 name = "fuzz_pool_general"
 path = "fuzz_targets/fuzz_pool_general.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "replay_pool_general"
+path = "replay_pool_general.rs"
 test = false
 doc = false

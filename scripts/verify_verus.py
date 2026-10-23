@@ -31,9 +31,14 @@ def report(path):
     return json.JSONDecoder(object_pairs_hook=unique_object).raw_decode(text[start + 1:])[0]
 
 
-def verify(contained, output):
-    pin = json.loads((ROOT / "verification/verus/toolchain.json").read_text())
-    home = Path(os.environ.get("VERUS_HOME", "/tmp/blend-verification-tools/verus"))
+def tool_home(pin):
+    cache = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+    default = cache / "blend-verification-tools/verus" / pin["verus"]["version"]
+    return Path(os.environ.get("VERUS_HOME", str(default)))
+
+
+def checked_toolchain(pin, home):
+    """Authenticate the isolated verifier, libraries and compiler before use."""
     require_directory(home.parent, "Verus tool parent", recursive=False)
     home = require_directory(home, "Verus home")
     bundle = home / "verus-x86-linux"
@@ -53,13 +58,36 @@ def verify(contained, output):
     for path, digest in hashes.items():
         if hash_file(path) != digest:
             raise ValueError(f"pinned verifier/library mismatch: {path}")
+    toolchain = home / "rustup/toolchains" / pin["rust"]["toolchain"]
+    manifest = toolchain / "lib/rustlib/multirust-channel-manifest.toml"
+    if hash_file(manifest) != pin["rust"]["local_rustup_reserialized_manifest_sha256"]:
+        raise ValueError("pinned Verus Rust installation manifest mismatch")
+    target = pin["rust"]["toolchain"].split("-", 1)[1]
+    aliases = {"llvm-tools": "llvm-tools-preview", "rustfmt": "rustfmt-preview"}
+    expected = {f"{aliases.get(name, name)}-{target}"
+                for name in pin["rust"]["installed_components"]}
+    components = (toolchain / "lib/rustlib/components").read_text().splitlines()
+    if len(components) != len(expected) or set(components) != expected:
+        raise ValueError("pinned Verus Rust components mismatch")
     compiler = subprocess.run(
         ["env", "RUSTUP_AUTO_INSTALL=0", f"RUSTUP_HOME={home / 'rustup'}", f"CARGO_HOME={home / 'cargo'}",
          "rustup", "run", pin["rust"]["toolchain"], "rustc", "--version", "--verbose"],
         capture_output=True, text=True, timeout=15, check=True,
     )
-    if f"commit-hash: {pin['rust']['commit']}" not in compiler.stdout:
+    identity = dict(line.split(": ", 1) for line in compiler.stdout.splitlines() if ": " in line)
+    if (identity.get("commit-hash") != pin["rust"]["commit"]
+            or identity.get("release") != pin["rust"]["toolchain"].split("-", 1)[0]
+            or identity.get("host") != target
+            or identity.get("commit-date") != pin["rust"]["commit_date"]
+            or identity.get("LLVM version") != pin["rust"]["llvm_version"]):
         raise ValueError("pinned Verus compiler identity mismatch")
+    return bundle
+
+
+def verify(contained, output):
+    pin = json.loads((ROOT / "verification/verus/toolchain.json").read_text())
+    home = tool_home(pin)
+    bundle = checked_toolchain(pin, home)
     command = [
         "env", "RUSTUP_AUTO_INSTALL=0", f"RUSTUP_HOME={home / 'rustup'}", f"CARGO_HOME={home / 'cargo'}",
         f"VERUS_Z3_PATH={bundle / 'z3'}", str(bundle / "verus"),

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "description": "Sam supplies WETH collateral, borrows and partially repays STABLE, accrues one hour, caps a full repayment with refund, clears collateral, then supplies and partially withdraws XLM. Claims are accepted with zero emissions; a negative borrow is rejected.",
+  "input": {
+    "sam_xlm_balance": 10000000000,
+    "sam_weth_balance": 2000000000,
+    "sam_stable_balance": 1000000000,
+    "merry_xlm_balance": 0,
+    "merry_weth_balance": 0,
+    "merry_stable_balance": 0,
+    "commands": [
+      {"sam_supply": {"amount": 1000000000, "token": "weth"}},
+      {"sam_borrow": {"amount": 100000000, "token": "stable"}},
+      {"sam_repay": {"amount": 10000000, "token": "stable"}},
+      {"pass_time": {"amount": 3600}},
+      {"sam_repay": {"amount": 200000000, "token": "stable"}},
+      {"sam_withdraw": {"amount": 2000000000, "token": "weth"}},
+      {"sam_supply": {"amount": 1000000000, "token": "xlm"}},
+      {"sam_withdraw": {"amount": 100000000, "token": "xlm"}},
+      {"sam_claim_pool": {}},
+      {"sam_borrow": {"amount": -1, "token": "stable"}}
+    ]
+  },
+  "expected": [
+    {"accepted": true, "positions_changed": true, "collateral_empty": false, "liabilities_empty": true},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": false},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": false},
+    {"accepted": null, "positions_changed": false},
+    {"accepted": true, "positions_changed": true, "liabilities_empty": true},
+    {"accepted": true, "positions_changed": true, "collateral_empty": true},
+    {"accepted": true, "positions_changed": true, "collateral_empty": false},
+    {"accepted": true, "positions_changed": true, "collateral_empty": false},
+    {"accepted": true, "positions_changed": false},
+    {"accepted": false, "positions_changed": false, "liabilities_empty": true}
+  ]
+}
