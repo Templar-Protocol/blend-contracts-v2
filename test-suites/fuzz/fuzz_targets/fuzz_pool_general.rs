@@ -125,7 +125,10 @@ impl Asserts for TestFixture<'_> {
                 // total_supply, total_liabilities and the I256-backed conversions
                 // production uses all panic rather than returning None when a
                 // result exceeds i128, so the panic is what has to be classified.
-                let totals = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                // libfuzzer-sys installs a panic hook that aborts at the panic
+                // site, so plain catch_unwind never runs; fuzz_catch_panic
+                // suppresses that hook for the duration of the call.
+                let totals = fuzz_catch_panic(|| {
                     let held = reserve
                         .total_supply(&self.env)
                         .checked_add(reserve.data.backstop_credit)?;
@@ -144,7 +147,7 @@ impl Asserts for TestFixture<'_> {
                             &reserve.scalar,
                         ),
                     ))
-                }));
+                });
                 let Ok(Some((supply_base, liabilities_base))) = totals else {
                     eprintln!("INVARIANT UNEVALUABLE: reserve total exceeds i128; {state}");
                     return false;
