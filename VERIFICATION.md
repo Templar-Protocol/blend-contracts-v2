@@ -1,15 +1,22 @@
 # Formal verification status
 
-Every one of the seven safety invariants this protocol commits to carries
-machine-checked proof. Across the whole campaign — two independent provers, and
-a fuzzer — **no counterexample has ever been produced and no rule has ever been
-violated.** Where a prover could not finish, it ran out of time; it never found
-a way to break a property.
+All seven of the safety invariants this protocol commits to are backed by
+machine-checked proof, and across the whole campaign — two independent provers
+and a fuzzer — **no counterexample has ever been produced and no rule has ever
+been violated.** Where a prover could not finish, it ran out of time; it never
+found a way to break a property.
 
-Each invariant is proven under stated assumptions, and the assumptions differ in
-strength. This document gives the invariants in plain language, the exact
-assumption class for each, and where to find the underlying evidence. It is the
-entry point; the per-tool detail lives in [`docs/kani.md`](docs/kani.md),
+What each proof covers differs, and this document is explicit about it rather
+than leaving it to the footnotes. Every invariant is proven over a stated scope
+and under stated assumptions. Two are proven against a faithful model rather
+than the live component. Solvency is the partial one: it covers three of the
+seven ways the reserve book can change, and it bounds how those three move the
+pool's position rather than establishing the `assets >= liabilities` inequality
+outright. Two individual results are vacuous — they pass without exercising
+their property — and both are named below rather than counted as wins.
+
+This is the entry point; the per-tool detail lives in
+[`docs/kani.md`](docs/kani.md),
 [`docs/formal-verification.md`](docs/formal-verification.md) and
 [`verification/certora/README.md`](verification/certora/README.md).
 
@@ -53,13 +60,16 @@ what makes each claim checkable.
 
 ## Where each row's gap lies
 
-- **Solvency** is the thinnest row and the most important, so it is stated
+- **Solvency** is the partial row and the most important, so it is stated
   precisely. The reserve book changes in seven ways; three are proven — deposit,
   withdrawal (on its uncapped path) and interest accrual. Borrowing, repayment,
   a default absorbed into the exchange rate, and the backstop-credit payout are
-  not yet covered. The pool's actual token balance is also not a modelled
-  quantity: the proofs bound the change in what the pool owes against the amount
-  moved, and the final step to the solvency inequality is arithmetic.
+  not covered. The pool's token balance is not a modelled quantity and no
+  initially-solvent starting state is established, so what these proofs give is
+  that the three covered transitions cannot degrade the pool's position — each
+  bounds the change in what the pool owes by the amount of value moved. They do
+  not establish the absolute `assets >= liabilities` inequality, which would
+  need both the balance modelled and a base case.
 - **No free money** and **health factor monotonicity** are proven about the
   conversion and ratio arithmetic that every action routes through, not about the
   handlers that call it.
