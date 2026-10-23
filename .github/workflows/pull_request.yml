@@ -12,7 +12,7 @@ jobs:
 
   complete:
     if: always()
-    needs: [fmt, build-and-test]
+    needs: [fmt, build-and-test, kani-codegen, kani-proofs, fuzz-build]
     runs-on: ubuntu-latest
     steps:
     - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
@@ -35,3 +35,98 @@ jobs:
       with:
         version: 28.1.0
     - run: make test
+
+  kani-codegen:
+    runs-on: ubuntu-latest
+    env:
+      KANI_VERSION: 0.68.0
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+    - uses: stellar/actions/rust-cache@main
+    - run: rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+      with:
+        version: 28.1.0
+    # contractimport! reads target/wasm32v1-none/release/backstop.wasm at compile
+    # time, so the proof surface does not compile without the wasm on disk.
+    - run: make build
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: |
+          ~/.cargo/bin/cargo-kani
+          ~/.cargo/bin/kani-driver
+          ~/.kani
+        key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
+    - run: cargo install --locked kani-verifier --version "$KANI_VERSION"
+    - run: test -d "$HOME/.kani/kani-$KANI_VERSION" || cargo-kani setup
+    - run: cargo kani --version
+    - run: cargo kani -p pool --lib --only-codegen
+
+  kani-proofs:
+    runs-on: ubuntu-latest
+    env:
+      KANI_VERSION: 0.68.0
+      HARNESS_TIMEOUT: 600s
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+    - uses: stellar/actions/rust-cache@main
+    - run: rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+      with:
+        version: 28.1.0
+    - run: make build
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: |
+          ~/.cargo/bin/cargo-kani
+          ~/.cargo/bin/kani-driver
+          ~/.kani
+        key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
+    - run: cargo install --locked kani-verifier --version "$KANI_VERSION"
+    - run: test -d "$HOME/.kani/kani-$KANI_VERSION" || cargo-kani setup
+    - name: Verify the per-PR harness set
+      run: |
+        set -uo pipefail
+        mapfile -t harnesses < <(grep -v '^#' verification/kani-ci-harnesses.txt | grep -v '^[[:space:]]*$')
+        echo "::notice::verifying ${#harnesses[@]} harnesses"
+        args=()
+        for h in "${harnesses[@]}"; do args+=(--harness "$h"); done
+        log="$RUNNER_TEMP/kani-ci.log"
+        cargo kani -p pool --lib --exact "${args[@]}" \
+          --solver kissat -Z unstable-options --harness-timeout "$HARNESS_TIMEOUT" \
+          2>&1 | tee "$log"
+        # The exit status cannot distinguish a refutation from a budget or a CBMC
+        # crash, so the verdicts are read from the log. See docs/kani.md.
+        verdicts=$(grep -cE 'VERIFICATION:-' "$log" || true)
+        passed=$(grep -cF 'VERIFICATION:- SUCCESSFUL' "$log" || true)
+        if [ "$verdicts" -ne "${#harnesses[@]}" ]; then
+          echo "::error::expected ${#harnesses[@]} verdicts, got $verdicts -- a selector matched the wrong number of harnesses"
+          exit 1
+        fi
+        if [ "$passed" -ne "${#harnesses[@]}" ]; then
+          echo "::error::$((verdicts - passed)) harness(es) did not verify"
+          grep -F 'CBMC timed out' "$log" && echo "::error::at least one was a budget, not a refutation"
+          grep -E 'Trace for|Counterexample' "$log" && echo "::error::a counterexample was produced"
+          exit 1
+        fi
+        echo "::notice::$passed/$verdicts SUCCESSFUL"
+
+  fuzz-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+    - uses: stellar/actions/rust-cache@main
+    - run: rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+      with:
+        version: 28.1.0
+    - run: make build
+    # test-suites/fuzz is its own workspace with its own toolchain pin and lock,
+    # so nothing else in CI compiles it and it rots silently.
+    - run: rustup toolchain install --profile minimal "$(sed -n 's/^channel = "\(.*\)"/\1/p' test-suites/fuzz/rust-toolchain.toml)"
+    - run: cargo install --locked cargo-fuzz --version 0.13.2
+    - run: cargo fuzz build fuzz_pool_general
+      working-directory: test-suites/fuzz
+    - name: Smoke-run the fuzz target
+      run: cargo fuzz run fuzz_pool_general -- -max_total_time=120 -print_final_stats=1
+      working-directory: test-suites/fuzz

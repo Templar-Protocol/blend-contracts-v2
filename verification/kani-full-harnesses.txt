@@ -1,0 +1,17 @@
+# Harnesses run by the scheduled full campaign, not on pull requests: each takes
+# minutes to hours. Times are the "Kani 0.68.0 rerun" figures in docs/kani.md and
+# are indicative only -- they were measured on a shared host.
+#
+# Deliberately absent, because docs/kani.md records both as budget-limited rather
+# than refuted and neither has ever produced a counterexample or a CBMC crash:
+#   pool::reserve::verification::astra_grow_debt_exact_delta          (3600 s budget)
+#   pool::reserve::verification::prove_grow_debt_nonnegative_interest (3600 s budget)
+# Their conjuncts and fixed-supply instances verify and are listed below.
+
+pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
+pool::reserve::verification::prove_b_token_inverse_rounding
+pool::reserve::verification::prove_d_token_inverse_rounding
+pool::reserve::verification::prove_utilization_range_and_branches
+pool::reserve::verification::astra_grow_debt_nonnegative_delta
+pool::reserve::verification::prove_accrue_split_and_zero_take_rate
+pool::reserve::verification::astra_grow_debt_exact_delta_composed
