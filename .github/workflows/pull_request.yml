@@ -166,8 +166,10 @@ jobs:
     # so nothing else in CI compiles it and it rots silently.
     - run: rustup toolchain install --profile minimal "$(sed -n 's/^channel = "\(.*\)"/\1/p' test-suites/fuzz/rust-toolchain.toml)"
     - run: cargo install --locked cargo-fuzz --version 0.13.2
+    # Build only. The corpus is not persisted between runs, so a timed fuzz run
+    # explores a different path every time and finds crashes intermittently --
+    # useful, but not a pass/fail gate. It runs in verification-full.yml, which
+    # keeps the reproducer. Building is deterministic and catches the rot this
+    # job exists for.
     - run: cargo fuzz build fuzz_pool_general
-      working-directory: test-suites/fuzz
-    - name: Smoke-run the fuzz target
-      run: cargo fuzz run fuzz_pool_general -- -max_total_time=120 -print_final_stats=1
       working-directory: test-suites/fuzz

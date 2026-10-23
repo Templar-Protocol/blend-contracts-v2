@@ -105,9 +105,38 @@ jobs:
         grep -qE 'invariant violation|failed with status' "$log" && echo "::error::$HARNESS crashed CBMC"
         exit 1
 
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        persist-credentials: false
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6 # main as of 2026-10-23
+    - run: rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd # v28.1.0
+      with:
+        version: 28.1.0
+    - run: make build
+    - run: rustup toolchain install --profile minimal "$(sed -n 's/^channel = "\(.*\)"/\1/p' test-suites/fuzz/rust-toolchain.toml)"
+    - run: cargo install --locked cargo-fuzz --version 0.13.2
+    - run: cargo fuzz run fuzz_pool_general -- -max_total_time=3600 -print_final_stats=1
+      working-directory: test-suites/fuzz
+    # A crash is only actionable with the input that produced it, and the corpus
+    # is not persisted, so the reproducer cannot be regenerated from a rerun.
+    - if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: fuzz-crash-${{ github.run_id }}
+        path: |
+          test-suites/fuzz/artifacts/
+          test-suites/fuzz/corpus/
+        if-no-files-found: warn
+        retention-days: 30
+
   complete:
     if: always()
-    needs: [harnesses, kani]
+    needs: [harnesses, kani, fuzz]
     runs-on: ubuntu-latest
     steps:
     # A failed harnesses job skips kani, and a skipped job's result is neither
