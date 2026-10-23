@@ -15,3 +15,5 @@ pool::reserve::verification::prove_utilization_range_and_branches
 pool::reserve::verification::astra_grow_debt_nonnegative_delta
 pool::reserve::verification::prove_accrue_split_and_zero_take_rate
 pool::reserve::verification::astra_grow_debt_exact_delta_composed
+pool::reserve::verification::prove_supply_claims_bounded_by_tokens_in
+pool::reserve::verification::prove_withdraw_tokens_out_bounded_by_claims_released
