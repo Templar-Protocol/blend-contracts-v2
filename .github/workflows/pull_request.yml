@@ -124,7 +124,7 @@ jobs:
           --solver kissat -Z unstable-options --harness-timeout "$HARNESS_TIMEOUT" \
           2>&1 | tee "$log"
         # The exit status cannot distinguish a refutation from a budget or a CBMC
-        # crash, so the verdicts are read from the log. See docs/fv-kani.md.
+        # crash, so the verdicts are read from the log. See docs/verification/fv-kani.md.
         verdicts=$(grep -cE 'VERIFICATION:-' "$log" || true)
         passed=$(grep -cF 'VERIFICATION:- SUCCESSFUL' "$log" || true)
         if [ "$verdicts" -ne "${#harnesses[@]}" ]; then
@@ -138,7 +138,7 @@ jobs:
           exit 1
         fi
         # Kani can report SUCCESSFUL with unreachable kani::cover! properties.
-        # Require the reachability checks as well; see VERIFICATION.md.
+        # Reject reported unsatisfied covers; missing cover summaries are not detected.
         covers_bad=$(grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4' | wc -l || true)
         if [ "${covers_bad:-0}" -ne 0 ]; then
           echo "::error::$covers_bad harness(es) left a cover unsatisfied; a SUCCESSFUL verdict with an unreachable cover proves nothing"

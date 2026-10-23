@@ -1,9 +1,9 @@
 # Kani operational guide
 
-Use [`../VERIFICATION.md`](../VERIFICATION.md) for authoritative results, proof
+Use [`VERIFICATION.md`](../../VERIFICATION.md) for authoritative results, proof
 assumptions, scopes and limitations. This guide explains how to run and maintain
 Kani proofs; a historical receipt does not establish a result for a new checkout.
-Use the [shared local gate](../VERIFICATION.md#reproducing-this) to run the
+Use the [shared local gate](../../VERIFICATION.md#reproducing-this) to run the
 combined Kani/Verus acceptance set.
 
 ## Toolchain
@@ -19,7 +19,7 @@ cargo kani --version
 
 ## Preparation and execution
 
-Run from the repository root after the [shared Wasm preparation](../VERIFICATION.md#reproducing-this).
+Run from the repository root after the [shared Wasm preparation](../../VERIFICATION.md#reproducing-this).
 `contractimport!` consumes built Wasm at compile time. Clear `RUSTC_WRAPPER` for
 Kani: the `sccache` compiler probe is incompatible with `kani-compiler`.
 
@@ -42,8 +42,8 @@ include `pool::reserve::verification::frames::`, not just `verification::`.
 Prefer Kani's harness timeout to an external kill, which may leave no verdict.
 
 The required PR jobs in
-[`pull_request.yml`](../.github/workflows/pull_request.yml) compile the pool proof
-surface and verify [`kani-ci-harnesses.txt`](../verification/kani-ci-harnesses.txt)
+[`pull_request.yml`](../../.github/workflows/pull_request.yml) compile the pool proof
+surface and verify [`kani-ci-harnesses.txt`](../../verification/kani-ci-harnesses.txt)
 with Kissat and a 600-second per-harness budget. To select that same subset in Bash
 (after preparation):
 
@@ -57,8 +57,8 @@ python3 scripts/verify_local.py --seconds 3600 -- env RUSTC_WRAPPER= \
 ```
 
 The weekly/manual
-[`verification-full.yml`](../.github/workflows/verification-full.yml) selects
-[`kani-full-harnesses.txt`](../verification/kani-full-harnesses.txt), one exact
+[`verification-full.yml`](../../.github/workflows/verification-full.yml) selects
+[`kani-full-harnesses.txt`](../../verification/kani-full-harnesses.txt), one exact
 harness per matrix job, with a default 10800-second budget. Despite the filename,
 this is the expensive selected subset, not the complete released inventory.
 The CI workflows also enforce verdict counts and reject unsatisfied reported
@@ -91,12 +91,12 @@ them. Reuse the production arithmetic seams; audit any alternate proof arithmeti
 against the runtime implementation before transferring a result.
 
 When changing supply accounting, review the post-mint guards in
-[`actions.rs`](../pool/src/pool/actions.rs), the mint/burn callers and paired
-position-transfer decreases in [`user.rs`](../pool/src/pool/user.rs), and the
+[`actions.rs`](../../pool/src/pool/actions.rs), the mint/burn callers and paired
+position-transfer decreases in [`user.rs`](../../pool/src/pool/user.rs), and the
 writer-enumeration tests. Accrual can raise accounted supply above the configured
 cap without minting shares: maintain the action-admission boundary, not a global
 cap invariant. The supplier-side delta harnesses in
-[`reserve.rs`](../pool/src/proofs/reserve.rs) drive mutators, not token settlement;
+[`reserve.rs`](../../pool/src/proofs/reserve.rs) drive mutators, not token settlement;
 use `VERIFICATION.md` for their domains and the remaining induction obligations.
 Writer enumeration is syntactic: alias writes and struct-literal initialization
 need separate review. Preserve frame assertions and nontrivial covers when adding

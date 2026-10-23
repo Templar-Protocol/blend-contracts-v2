@@ -19,9 +19,9 @@ harness now has a verified, reachable zero-growth proof.
 
 This is the authoritative report for verification status, claim scopes and
 limitations. Operational instructions are separate:
-[`fv-kani.md`](docs/fv-kani.md),
-[`fv-certora.md`](docs/fv-certora.md) and
-[`fv-verus.md`](docs/fv-verus.md). Archived Certora verdicts remain in
+[`fv-kani.md`](docs/verification/fv-kani.md),
+[`fv-certora.md`](docs/verification/fv-certora.md) and
+[`fv-verus.md`](docs/verification/fv-verus.md). Archived Certora verdicts remain in
 [`verification/certora/`](verification/certora/).
 
 ## The seven invariants
@@ -196,7 +196,7 @@ separate [local acceptance inventory](verification/local-proofs.json).
 
 Use the repository [Rust/Wasm toolchain](rust-toolchain.toml) and Stellar CLI
 28.1.0, as pinned in the PR workflow. For local acceptance, also provision the
-pinned [Kani](docs/fv-kani.md#toolchain) and [Verus](docs/fv-verus.md#toolchain) tools.
+pinned [Kani](docs/verification/fv-kani.md#toolchain) and [Verus](docs/verification/fv-verus.md#toolchain) tools.
 Linux, Python 3.11+, a user systemd manager and working cgroup-v2 limits are required.
 From the repository root, prepare Wasm imports once or after their inputs change:
 

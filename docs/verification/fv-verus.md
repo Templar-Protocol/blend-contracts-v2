@@ -1,14 +1,14 @@
 # Verus operational guide
 
-[`VERIFICATION.md`](../VERIFICATION.md) owns proof results, mathematical domains
+[`VERIFICATION.md`](../../VERIFICATION.md) owns proof results, mathematical domains
 and the production-refinement boundary. This guide covers the pinned Verus tools
-and their invocation through the [shared local gate](../VERIFICATION.md#reproducing-this).
+and their invocation through the [shared local gate](../../VERIFICATION.md#reproducing-this).
 
 ## Toolchain
 
 Use Linux and Python 3.11+. Provision the Verus release, bundled solver/libraries
 and isolated Rust compiler pinned in
-[`verification/verus/toolchain.json`](../verification/verus/toolchain.json).
+[`verification/verus/toolchain.json`](../../verification/verus/toolchain.json).
 That file contains the download URLs, checksums and Rust setup commands; do not
 substitute a newer release or the workspace compiler.
 
@@ -28,8 +28,8 @@ Tool installation is explicit; verification does not install a missing toolchain
 ## Execution and verdicts
 
 Run `make verify-local` from the repository root after the shared prerequisites
-are satisfied. [`scripts/verify_verus.py`](../scripts/verify_verus.py) selects
-[`supply_delta.rs`](../verification/verus/supply_delta.rs), enables `--no-cheating`,
+are satisfied. [`scripts/verify_verus.py`](../../scripts/verify_verus.py) selects
+[`supply_delta.rs`](../../verification/verus/supply_delta.rs), enables `--no-cheating`,
 uses one verifier thread and checks the structured JSON result against the exact
 required function set and pinned commit.
 
