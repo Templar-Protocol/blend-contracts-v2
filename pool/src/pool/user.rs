@@ -514,7 +514,7 @@ mod tests {
             found,
             [("pool/reserve.rs", (1, 1, 0))],
             "a new b_supply writer must be checked against the cap guard and \
-             paired-decrease cases in docs/kani.md before the supply-cap claim holds"
+             paired-decrease cases in docs/fv-kani.md before the supply-cap claim holds"
         );
     }
 

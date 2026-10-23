@@ -1,7 +1,7 @@
 # Formal verification status
 
 All seven of the safety invariants this protocol commits to are backed by
-machine-checked proof, and across the whole campaign — two independent provers
+machine-checked proof, and across the whole campaign — three independent provers
 and a fuzzer — **no counterexample has ever been produced and no rule has ever
 been violated.** Where a prover did not finish it either exhausted its budget
 or returned undecided, and those are different things; in neither case did it
@@ -17,12 +17,12 @@ outright. Two vacuous results are documented below: the Certora user-health
 execution rule remains vacuous; the formerly vacuous Kani zero-debt accrual
 harness now has a verified, reachable zero-growth proof.
 
-This is the entry point; the per-tool detail lives in
-[`docs/kani.md`](docs/kani.md),
-[`docs/formal-verification.md`](docs/formal-verification.md) and
-[`verification/certora/README.md`](verification/certora/README.md).
-Additional local proof results, their scopes and the remaining strengthening
-work are documented in [`docs/verification-local.md`](docs/verification-local.md).
+This is the authoritative report for verification status, claim scopes and
+limitations. Operational instructions are separate:
+[`fv-kani.md`](docs/fv-kani.md),
+[`fv-certora.md`](docs/fv-certora.md) and
+[`fv-verus.md`](docs/fv-verus.md). Archived Certora verdicts remain in
+[`verification/certora/`](verification/certora/).
 
 ## The seven invariants
 
@@ -76,39 +76,83 @@ what makes each claim checkable.
   bounds the change in what the pool owes by the amount of value moved. They do
   not establish the absolute `assets >= liabilities` inequality, which would
   need both the balance modelled and a base case.
+  The supply/uncapped-withdrawal bounds use supplies and amounts 0–255 and
+  positive supplier rates in hundredths up to 2.55×; withdrawal assumes enough
+  shares exist to burn. Positive-debt conservation is checked at debt supplies
+  1, 2 and 255, with supplier supply 1–255, prior credit 0–255, supplier rates
+  0–2.55×, debt/growth rates 1–2.55× in hundredths, and take rates 0–99 whole
+  percent. These are reserve-mutator results, not token-settlement or user/global
+  share-total invariants. The [proof bodies](pool/src/proofs/reserve.rs) define
+  the exact domains.
 - **No free money** and **health factor monotonicity** are proven about the
   conversion and ratio arithmetic that every action routes through, not about the
   handlers that call it.
-- **Borrow cap** is proven at the action level over the restricted domain; the
-  same bound at production width is undecided by both provers, across thirteen
-  measurements.
-- **Liquidation correctness** and the **oracle circuit breaker** are proven more
-  narrowly than their names suggest — see the **S** and **T** notes above.
+- **Borrow cap** is proven at the supply-action admission boundary over the
+  restricted domain, not as a permanent `total_supply <= cap` invariant:
+  accrual can legitimately increase valued supply above the cap. Paired
+  decreases account for share transfers that do not mint net supply. The
+  production-width supply-handler obligations remain undecided. Certora's
+  utilization results cover four guard implications and five witnesses over
+  supplies 0–10^18, rates 10^12–10^15 and `max_util < 10^7`; they exclude
+  post-default supplier rates below unity and the actual submit utilization
+  loop. `utilization_in_range` remains budget-limited. See
+  [cap rules](pool/src/spec/cap_rules.rs) and [Kani proofs](pool/src/proofs/actions.rs).
+- **Liquidation correctness** covers auction arithmetic and decisions, not full
+  liquidation settlement.
+- **Oracle circuit breaker** establishes six first-read guard properties and
+  seven reachability checks. The production guard is exercised with empty
+  caches and a globally fixed arbitrary modeled feed response; feed accuracy,
+  per-call response changes and arbitrary cache histories are outside that
+  result. The [rules](pool/src/spec/oracle_rules.rs) independently encode the
+  86,400-second boundary, which must stay aligned with production.
 
 ## Evidence
 
 | | |
 | --- | --- |
-| Kani (bounded model checking) | Published inventory: 110 proof harnesses plus 1,678 generated fixed-parameter instances. The campaign at `753b1ae` passed 3,197/3,197 obligations. The Kani 0.68.0 property-mapped rerun at `886e26f` recorded 35 SUCCESSFUL, 2 budget-limited and 0 counterexamples; the separate supply/withdrawal solvency pair also passed. See [`docs/kani.md`](docs/kani.md) for the source-scoped records. |
-| Certora Sunbeam | The auditor's rule set replicated: 24 SUCCESS, 2 UNKNOWN, **0 VIOLATED**. Beyond it: oracle circuit breaker 13/13, utilization caps 9/10. |
+| Kani (bounded model checking) | Historical full inventory: 110 proof harnesses plus 1,678 generated fixed-parameter instances; [campaign `753b1ae`](https://github.com/Templar-Protocol/blend-contracts-v2/releases/tag/kani-run-753b1ae-2026-09-15) passed 3,197/3,197 obligations at that source commit, not the latest checkout. The Kani 0.68.0 property-mapped rerun at `886e26f` recorded 35 SUCCESSFUL, 2 budget-limited and 0 counterexamples; the separate supply/withdrawal solvency pair also passed. |
+| Certora Sunbeam | Archived auditor-rule-set reproduction: 24 SUCCESS, 2 UNKNOWN, **0 VIOLATED**. Fork-specific additions: oracle circuit breaker 13/13, utilization guards/witnesses 9/10. Raw verdicts and source provenance are indexed in [`verification/certora/README.md`](verification/certora/README.md). |
 | Fuzzing | A libFuzzer target exercises request sequences against a full pool fixture. When all totals are evaluable, the sum of floor-rounded price valuations of `(supplier claims + credit)` must strictly exceed the sum of ceil-rounded price valuations of debt. Unevaluable totals are logged and skipped. |
-| Local strengthening | `make verify-local` passed five Kani harnesses with all 21 required covers, plus nine Verus proof functions: three unbounded-integer supply/withdrawal theorems, four helpers and two witnesses. The local set includes the repaired zero-debt proof and checked contract consumption, and verifies the production oracle guards under modeled host interfaces. The ceil-mint negative control detected both intended failures. |
-| Production arithmetic extraction | Charon/Aeneas successfully extracted and translated the actual reserve conversions, dispatch and checked-i128/I256 branches: 23 transparent functions and 22 opaque functions. Proving the resulting SDK/arithmetic refinement obligations is the next step; this translation result is recorded separately from theorem verdicts. |
+| Local strengthening | `make verify-local` passed five Kani harnesses with all 21 required covers, plus nine Verus proof functions: three unbounded-integer supply/withdrawal theorems, four helpers and two witnesses. The local set includes the repaired zero-debt proof, checked contract consumption, and the production first-read price guard and decimals validation/cache/reset under modeled host interfaces. The ceil-mint negative control detected both intended failures. |
+| Production arithmetic extraction | Charon/Aeneas extracted and translated the actual reserve conversions, dispatch and checked-i128/I256 branches: 23 transparent functions and 22 opaque functions. SDK/arithmetic refinement and Lean theorem checking remain open; translation is not a theorem verdict. |
 | Third-party audit | See [`audits/`](audits/). Formal verification complements an audit; it does not replace one. |
 
 The local acceptance set strengthens and rechecks selected existing results; it is
-not a disjoint count to add to the published inventory. Detailed verified scopes
-and further strengthening goals are recorded in
-[`docs/verification-local.md`](docs/verification-local.md). Intentional failures
-of the mutated arithmetic model are negative controls, not protocol
-counterexamples.
+not a disjoint count to add to the published inventory. Its additional scopes are:
+
+- The [Verus theorems](verification/verus/supply_delta.rs) quantify over unbounded
+  mathematical integers: nonnegative supplies/amounts and positive rates;
+  uncapped withdrawal requires sufficient shares, and capped withdrawal burns
+  at most the existing supply. They are not restricted to the Kani numeric grid.
+  Their production checked-i128/I256 refinement remains a separate obligation.
+- The [checked supply contract and caller](pool/src/proofs/actions.rs) share the
+  0–255/hundredths domain. The contract is consumed by the cap-decision proof,
+  but the arithmetic sequence is a transcription, not the live admission,
+  utilization and persistence path.
+- The [local oracle harness](verification/local-host/lib.rs) compiles unchanged
+  production `Pool` code with modeled maps, invocation-constant time, arbitrary
+  feed responses and aborts. The accepted first-read and decimals/cache/reset
+  rules cover the exercised two-key footprint, not arbitrary collection
+  histories or the expanded price-cache/reset obligation.
+
+Kani's proof arithmetic uses checked-i128 `FixedPoint`; the runtime `Env`
+implementation also has an I256 fallback. Certora uses instrumented pool builds
+and summaries; the health-execution dependency gaps are detailed below.
+Its configurations use optimistic loop bounds (one by default, two for health
+and supply-cap configurations). Host/runtime correctness, authorization
+enforcement, ledger atomicity and deployment behavior are not established by
+these proofs. Intentional failures of the mutated arithmetic model are negative
+controls, not protocol counterexamples.
 
 ### What a passing verdict does not always mean
 
-Two Certora rules return UNKNOWN and two Kani harnesses exhaust their budget.
-Neither is a violation: UNKNOWN means the prover could not decide, and a budget
-exhaustion means it ran out of time. In both cases the property's components
-verify independently.
+The Certora builder/flash-loan health obligations remain undecided; the archive
+contains UNKNOWN and TIMEOUT verdicts for them. Kani's
+`astra_grow_debt_exact_delta` and `prove_grow_debt_nonnegative_interest` exhaust
+their budget. Neither outcome is a violation. The related component proofs,
+including composed and fixed-supply checked-arithmetic accrual proofs, remain
+valid within their own domains; instrumented arithmetic results are not
+interchangeable with production checked-arithmetic results.
 
 More importantly, a SUCCESS verdict can be *vacuous* — satisfied without ever
 exercising the property it names. Two such results were identified; the zero-debt
@@ -120,13 +164,18 @@ case has now been repaired. Both original outcomes remain visible below:
   This is distinct from the Kani health-monotonicity proofs in the table above.
   The vacuous rule is inherited verbatim from the auditor's harness and is also
   a limitation of the June 2025 report's Verified status.
+  The builder summary's soundness remains UNKNOWN, and the passing transfer
+  summary checks concern position entries, not token conservation. Existing
+  builder sanity rules call the summarized wrapper, so they do not repair this
+  execution rule's reachability.
 - **`prove_accrual_conserves_value_debt_000`** (Kani) historically satisfied 0
   of its 2 positive-growth reachability checks. The replacement zero-debt proof
   establishes zero accrued value and unchanged supplier claims/credit, with
   **4/4 covers satisfied** under Kani 0.68.0. This is an exhaustive checked-i128
-  kernel result on the documented grid; production I256 refinement is a separate
-  strengthening goal. See [`docs/verification-local.md`](docs/verification-local.md)
-  for the local acceptance command and exact domain.
+  kernel result on the grid defined in the
+  [harness](pool/src/proofs/reserve.rs): zero debt, supplier supply/credit 0–255,
+  supplier rates 0–2.55× and debt/growth rates 1–2.55× in hundredths. Production
+  I256 refinement remains separate.
 
 Proof verdicts and reachability outcomes are recorded together so meaningful
 passes remain distinguishable from vacuous ones. The local acceptance set enforces
@@ -135,17 +184,36 @@ insufficient.
 
 ## Continuous enforcement
 
-Verification is not a one-off report. Every pull request must pass three jobs
-before it can merge: one that compiles every proof harness, one that re-verifies
-the fast harness set, and one that builds and exercises the fuzz target. The
-expensive harnesses re-run weekly. Before these existed, a proof could silently
-stop compiling — which happened, and is why they exist.
+The [PR workflow](.github/workflows/pull_request.yml) compiles the pool proof
+surface, re-verifies the [fast selection](verification/kani-ci-harnesses.txt),
+and builds/exercises the fuzz target through its aggregate gate. The
+[weekly/manual workflow](.github/workflows/verification-full.yml) runs the
+[expensive selection](verification/kani-full-harnesses.txt), not the entire
+historical inventory. Current coverage is determined by those selections and the
+separate [local acceptance inventory](verification/local-proofs.json).
 
 ## Reproducing this
 
-All of it runs from a clean checkout; nothing here depends on a hosted service
-except the Certora runs, which carry job IDs and archived result JSON in
-[`verification/certora/`](verification/certora/). `docs/kani.md` gives the exact
-command form, the toolchain versions, and how to read a verdict — including why
-a `FAILED` line must be distinguished from a timeout and from a prover crash
-before it is called a finding.
+Use the repository [Rust/Wasm toolchain](rust-toolchain.toml) and Stellar CLI
+28.1.0, as pinned in the PR workflow. For local acceptance, also provision the
+pinned [Kani](docs/fv-kani.md#toolchain) and [Verus](docs/fv-verus.md#toolchain) tools.
+Linux, Python 3.11+, a user systemd manager and working cgroup-v2 limits are required.
+From the repository root, prepare Wasm imports once or after their inputs change:
+
+```sh
+python3 scripts/verify_local.py --seconds 900 -- env CARGO_BUILD_JOBS=1 make build
+make verify-local
+```
+
+The gate runs regression tests, the exact local Kani inventory and the Verus
+proofs/negative control. It requires complete verdicts, covers and witnesses,
+not just prover exit zero. Proofs run serially under a 4 GiB process-tree memory
+limit, zero swap, 256 tasks, CPU quota at most 200%, bounded runtimes and
+whole-unit cleanup. Missing containment or failed cleanup is an error.
+Logs are in `target/verification-local/`.
+
+The tool guides describe other Kani selections and authorized Certora operation.
+Certora requires hosted infrastructure and explicit submission authorization;
+it is not part of the local gate. Optional Charon/Aeneas extraction uses the
+[pinned driver commands](verification/extraction/evaluation.json), separately
+from theorem acceptance.

@@ -13206,10 +13206,8 @@ proof_case!(
 /// Supplying raises the pool's obligation by no more than the tokens it takes
 /// in, and never lowers it.
 ///
-/// The `mint_supply` half of the solvency induction in `docs/kani.md`. Both
-/// bounds at a symbolic rate generalise `supply_credit_no_inflation`, which
-/// needs the rate fixed; that is the shape the supply-cap section recorded as
-/// budget-exhausted at 900 s.
+/// The `mint_supply` transition bound described in VERIFICATION.md. A symbolic
+/// rate generalises the fixed-rate `supply_credit_no_inflation` proofs.
 #[kani::proof]
 fn prove_supply_claims_bounded_by_tokens_in() {
     let b_supply = kani::any::<u8>() as i128;

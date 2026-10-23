@@ -1,8 +1,7 @@
 name: verification-full
 
-# The harnesses that take minutes to hours. The per-PR set in pull_request.yml
-# covers only what runs under 70 s, so without this nothing re-checks the
-# expensive obligations after the campaign recorded in docs/kani.md.
+# Expensive harnesses from verification/kani-full-harnesses.txt run weekly.
+# The per-PR selection is maintained in verification/kani-ci-harnesses.txt.
 permissions:
   contents: read
 
@@ -86,7 +85,7 @@ jobs:
           2>&1 | tee "$log"
         # A FAILED verdict means one of three different things and the exit
         # status separates none of them, so the log is the source of truth.
-        # See "Property-mapped reruns on this checkout" in docs/kani.md.
+        # See "Reading verdicts" in docs/fv-kani.md.
         if [ "$(grep -cE 'VERIFICATION:-' "$log" || true)" -ne 1 ]; then
           echo "::error::$HARNESS did not match exactly one harness"
           exit 1

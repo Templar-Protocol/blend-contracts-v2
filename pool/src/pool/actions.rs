@@ -2430,7 +2430,7 @@ mod tests {
 
     /// Interest accrual carries a reserve past its supply cap with no cap check
     /// in the path, so `total_supply <= supply_cap` is not a standing invariant.
-    /// The cap governs supply actions only; see docs/kani.md.
+    /// The cap governs supply actions only; see VERIFICATION.md.
     #[test]
     fn test_accrual_carries_total_supply_past_cap() {
         let e = Env::default();

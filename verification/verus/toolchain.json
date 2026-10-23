@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "scope": "Universal mathematical-int model only; not source-connected production arithmetic or handler verification.",
-  "preparation_execution": "Preparing worker installed pinned tools without running proofs. Parent subsequently verified all nine mathematical proof functions and observed genuine assertion failures for the ceil-mint mutation; see docs/verification-local.md.",
   "verus": {
     "version": "0.2026.10.23.dccae1d",
     "release_kind": "rolling prerelease pinned by full source commit and archive SHA-256",
