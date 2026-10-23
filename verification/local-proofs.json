@@ -1,0 +1,37 @@
+[
+  {
+    "target": "pool",
+    "harness": "pool::reserve::verification::prove_accrual_conserves_value_debt_000",
+    "expected_covers": 4,
+    "seconds": 900,
+    "depends_on": []
+  },
+  {
+    "target": "contracts",
+    "harness": "pool::actions::verification::prove_supply_chain_contract",
+    "expected_covers": 3,
+    "seconds": 300,
+    "depends_on": []
+  },
+  {
+    "target": "contracts",
+    "harness": "pool::actions::verification::prove_supply_cap_decides_on_post_state",
+    "expected_covers": 2,
+    "seconds": 300,
+    "depends_on": ["pool::actions::verification::prove_supply_chain_contract"]
+  },
+  {
+    "target": "oracle",
+    "harness": "prove_price_boundary_and_rejection",
+    "expected_covers": 8,
+    "seconds": 180,
+    "depends_on": []
+  },
+  {
+    "target": "oracle",
+    "harness": "prove_decimals_boundary_and_cache",
+    "expected_covers": 4,
+    "seconds": 180,
+    "depends_on": []
+  }
+]

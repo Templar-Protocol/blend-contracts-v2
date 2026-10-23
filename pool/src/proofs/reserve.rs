@@ -13148,11 +13148,42 @@ fn accrual_conserves_value_at_debt<const D_SUPPLY: u8>() {
     check_accrual_conserves_value(D_SUPPLY as i128);
 }
 
-proof_case!(
-    prove_accrual_conserves_value_debt_000,
-    accrual_conserves_value_at_debt,
-    0
-);
+/// Zero debt has a reachable zero-growth path, including empty/zero-rate supply.
+#[kani::proof]
+fn prove_accrual_conserves_value_debt_000() {
+    let b_supply = kani::any::<u8>() as i128;
+    let rate_h = kani::any::<u8>();
+    let accrual_h = kani::any::<u8>();
+    kani::assume(rate_h >= 100);
+    kani::assume(accrual_h >= 100);
+    let mut data = sym_data(
+        hundredths(rate_h),
+        hundredths(kani::any::<u8>()),
+        b_supply,
+        0,
+    );
+    data.backstop_credit = kani::any::<u8>() as i128;
+    let before = data.clone();
+    let claims_before = data.to_asset_from_b_token(&(), b_supply);
+
+    let accrued = data.grow_debt(&(), hundredths(accrual_h));
+    data.accrue(&(), kani::any(), accrued);
+
+    assert_eq!(accrued, 0);
+    assert_eq!(data.to_asset_from_d_token(&(), data.d_supply), 0);
+    assert_eq!(
+        data.to_asset_from_b_token(&(), data.b_supply),
+        claims_before
+    );
+    assert_eq!(data.b_supply, before.b_supply);
+    assert_eq!(data.d_supply, before.d_supply);
+    assert_eq!(data.b_rate, before.b_rate);
+    assert_eq!(data.backstop_credit, before.backstop_credit);
+    kani::cover!(data.b_supply == 0);
+    kani::cover!(data.b_supply > 0 && data.b_rate == 0);
+    kani::cover!(claims_before > 0);
+    kani::cover!(data.d_rate > before.d_rate);
+}
 
 proof_case!(
     prove_accrual_conserves_value_debt_001,
@@ -13175,10 +13206,8 @@ proof_case!(
 /// Supplying raises the pool's obligation by no more than the tokens it takes
 /// in, and never lowers it.
 ///
-/// The `mint_supply` half of the solvency induction in `docs/kani.md`. Both
-/// bounds at a symbolic rate generalise `supply_credit_no_inflation`, which
-/// needs the rate fixed; that is the shape the supply-cap section recorded as
-/// budget-exhausted at 900 s.
+/// The `mint_supply` transition bound described in VERIFICATION.md. A symbolic
+/// rate generalises the fixed-rate `supply_credit_no_inflation` proofs.
 #[kani::proof]
 fn prove_supply_claims_bounded_by_tokens_in() {
     let b_supply = kani::any::<u8>() as i128;

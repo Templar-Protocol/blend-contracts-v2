@@ -1,15 +1,11 @@
-# Harnesses run by the scheduled full campaign, not on pull requests: each takes
-# minutes to hours. Times are the "Kani 0.68.0 rerun" figures in docs/kani.md and
-# are indicative only -- they were measured on a shared host.
+# Expensive harnesses run by the scheduled full campaign, not on pull requests.
 #
-# Deliberately absent, because docs/kani.md records both as budget-limited rather
-# than refuted and neither has ever produced a counterexample or a CBMC crash:
-#   pool::reserve::verification::astra_grow_debt_exact_delta          (3600 s budget)
-#   pool::reserve::verification::prove_grow_debt_nonnegative_interest (3600 s budget)
-# What stands in for them is scheduled instead: the composed harness and the
-# _supply_255 instance below, and _supply_000 / _supply_001 in the per-PR set.
-# Those three drive the production grow_debt seam, so a regression specific to
-# the real implementation is caught rather than only the instrumented form.
+# The two direct grow-debt harnesses below remain budget-limited, not refuted;
+# their status is recorded in VERIFICATION.md. They are not scheduled:
+#   pool::reserve::verification::astra_grow_debt_exact_delta
+#   pool::reserve::verification::prove_grow_debt_nonnegative_interest
+# The composed harness and fixed-supply instances exercise production grow_debt:
+# _supply_255 is below; _supply_000 and _supply_001 are in the per-PR selection.
 
 pool::bad_debt::verification::prove_setoff_exact_policy_split_and_conditions
 pool::reserve::verification::prove_b_token_inverse_rounding

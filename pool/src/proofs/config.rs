@@ -67,3 +67,7 @@ fn prove_disable_only_transition() {
     assert!(is_disable_only(&enabled, &disabled));
     assert!(!is_disable_only(&disabled, &enabled));
 }
+
+#[cfg(feature = "testutils")]
+#[path = "../../../verification/experiments/initializer.rs"]
+mod initializer_experiment;

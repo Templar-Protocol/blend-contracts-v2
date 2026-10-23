@@ -1,5 +1,6 @@
 /target
 /pool-oracle-adapter/target
+/verification/local-host/target
 .DS_Store
 **/.DS_Store
 
@@ -22,3 +23,6 @@ devenv.local.nix
 
 # Kani harness listing output.
 kani-list.json
+
+# Local verification runner bytecode.
+__pycache__/

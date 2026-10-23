@@ -1,8 +1,7 @@
 # Harnesses run on every pull request.
 #
-# Selection criterion: every harness the "Kani 0.68.0 rerun" tables in
-# docs/kani.md record under 70 s. The expensive ones (minutes to hours) run in
-# the scheduled full campaign instead -- see .github/workflows/verification-full.yml.
+# Fast selection; expensive harnesses run in the scheduled full campaign.
+# See verification/kani-full-harnesses.txt and .github/workflows/verification-full.yml.
 #
 # A selector that no longer names exactly one harness fails the job, so this
 # file also pins the fully qualified paths against module moves.

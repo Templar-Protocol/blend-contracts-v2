@@ -205,6 +205,23 @@ class KaniReleaseTest(unittest.TestCase):
         )[0]
         self.assertEqual("COMPILE_FAILURE", verdict)
 
+    def test_missing_covers_are_not_semantic_failures(self):
+        record = {
+            "expected_covers": 4,
+            "signal": None,
+            "execution_error": None,
+            "exit": 0,
+        }
+        log = (
+            b"4 of 5 cover properties satisfied\n"
+            b"VERIFICATION:- SUCCESSFUL\n"
+            b"Complete - 1 successfully verified harnesses, 0 failures, 1 total.\n"
+        )
+        verdict, covers, covers_passed, _, _ = KANI_RELEASE.parse_log(record, log)
+        self.assertEqual("VALIDATION_FAILURE", verdict)
+        self.assertEqual([[4, 5]], covers)
+        self.assertFalse(covers_passed)
+
     def test_command_reports_process_failures(self):
         with mock.patch.object(KANI_RELEASE.subprocess, "run") as process:
             process.side_effect = FileNotFoundError("missing")

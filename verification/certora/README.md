@@ -1,9 +1,9 @@
 # Certora Sunbeam prover run report
 
-Results of running the ported Certora Sunbeam harness against this fork's
-`main`. Setup, provenance and scope limits are in
-[`docs/formal-verification.md`](../../docs/formal-verification.md); this file
-is the run evidence.
+Archived results from the ported Certora Sunbeam harness. These records are
+source-scoped evidence, not the current verification status report. Current claims
+and limitations are in [`VERIFICATION.md`](../../VERIFICATION.md); operational
+instructions are in [`docs/verification/certora.md`](../../docs/verification/certora.md).
 
 Each `*.json` beside this file is the unmodified `output.json` fetched from
 `prover.certora.com/output/<userId>/<jobId>/output.json`.
@@ -279,39 +279,13 @@ monotonicity, interest accrual safety, liquidation correctness, the oracle
 circuit breaker, the supply and utilization caps, and value conservation. No
 rule among the 26 configured here speaks to any of them.
 
-Some are covered elsewhere, each more narrowly than the property name
-suggests. Rules added after the audit establish that `load_price` rejects
-every invalid quote the modelled feed can report — the guard, not the real
-`PriceFeedClient`, cross-call consistency or price accuracy — and the
-rejection behaviour of both utilization guards over a bounded reserve domain;
-see [`docs/formal-verification.md`](../../docs/formal-verification.md), which
-gives the scope limits on each. The Kani suite covers the liquidation
-arithmetic and decision logic rather than end-to-end liquidation correctness,
-plus the conversion-rounding obligations and most of interest accrual; see
-[`docs/kani.md`](../../docs/kani.md). Solvency, health-factor monotonicity
-and value conservation are unaddressed by either suite — the rounding
-obligations constrain which way each conversion rounds, which is a
-prerequisite for value conservation and not the property itself, and as
-stated above no value-conservation property is expressible without a balance
-model.
+For coverage provided by the other proof sets and the limits of current claims,
+see [`VERIFICATION.md`](../../VERIFICATION.md).
 
 Authorization, the Soroban host and wasm runtime, ledger atomicity and
 deployment behaviour are all outside the Prover's scope by construction.
 
 ## Reproducing
 
-```sh
-pip3 install certora-cli          # verified against 8.19.2
-export CERTORAKEY=<key>
-cd pool                           # build_script resolves against the cwd
-certoraSorobanProver confs/user_rules.conf
-```
-
-Per-rule verdicts live at `output/<userId>/<jobId>/output.json`.
-`jobData?attr=rules` returns `{}` even after a job succeeds, and a job whose
-status is SUCCEEDED can still contain TIMEOUT and UNKNOWN rules, so the job
-status is never a substitute for reading `output.json`.
-
-Monitoring a job needs the `anonymousKey` that the CLI strips from the URL it
-prints; it is recoverable from `pool/.certora_internal/`, and the data
-endpoints return 403 without it.
+See the [Certora operational guide](../../docs/verification/certora.md) for
+configuration, archived-verdict inspection and authorized hosted invocation.
