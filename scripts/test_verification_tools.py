@@ -72,9 +72,9 @@ class ToolBoundaryTest(unittest.TestCase):
     def test_changed_extraction_compiler_cannot_reach_charon(self):
         pin = json.loads((ROOT / 'verification/extraction/evaluation.json').read_text())['toolchain']['rust']
         with tempfile.TemporaryDirectory(prefix='charon-pin-check-') as temporary:
-            sandbox = Path(temporary)
+            sandbox = Path(temporary) / 'extraction'
             tools = sandbox / 'tools'
-            tools.mkdir()
+            tools.mkdir(parents=True)
             expected = {}
             for name in extraction.EXPECTED:
                 data = f'tool fixture {name}'.encode()
@@ -83,10 +83,53 @@ class ToolBoundaryTest(unittest.TestCase):
             compiler = sandbox / pin['toolchain_directory'] / 'bin/rustc'
             compiler.parent.mkdir(parents=True)
             compiler.write_bytes(b'existing but wrong compiler')
+            (sandbox / 'cargo-home').mkdir()
             with (mock.patch.object(extraction, 'SANDBOX', sandbox),
                   mock.patch.object(extraction, 'TOOLS', tools),
                   mock.patch.object(extraction, 'EXPECTED', expected),
                   mock.patch.object(extraction.subprocess, 'run', side_effect=AssertionError('program launched'))):
+                with self.assertRaises(ValueError):
+                    extraction.checked_toolchain()
+
+    def test_untrusted_tool_parent_or_home_blocks_before_hashing(self):
+        for backend in ('verus', 'extraction'):
+            for component in ('parent', 'home'):
+                with self.subTest(backend=backend, component=component):
+                    with tempfile.TemporaryDirectory(prefix='tool-custody-check-') as temporary:
+                        parent = Path(temporary) / 'tool-parent'
+                        home = parent / backend
+                        tools = home / 'tools'
+                        tools.mkdir(parents=True)
+                        (home / 'rustup').mkdir()
+                        (home / 'cargo-home').mkdir()
+                        for name in extraction.EXPECTED:
+                            (tools / name).write_bytes(b'tool fixture')
+                        (parent if component == 'parent' else home).chmod(0o777)
+                        if backend == 'verus':
+                            with (mock.patch.dict(os.environ, {'VERUS_HOME': str(home)}),
+                                  mock.patch.object(verify_verus, 'hash_file', side_effect=AssertionError('hashing started'))):
+                                with self.assertRaises(ValueError):
+                                    verify_verus.verify(lambda *_: self.fail('prover launched'), Path(temporary))
+                        else:
+                            with (mock.patch.object(extraction, 'SANDBOX', home),
+                                  mock.patch.object(extraction, 'TOOLS', tools),
+                                  mock.patch.object(extraction, 'digest', side_effect=AssertionError('hashing started'))):
+                                with self.assertRaises(ValueError):
+                                    extraction.checked_toolchain()
+
+    def test_writable_extraction_binary_blocks_before_hashing(self):
+        with tempfile.TemporaryDirectory(prefix='tool-binary-custody-') as temporary:
+            sandbox = Path(temporary) / 'extraction'
+            tools = sandbox / 'tools'
+            tools.mkdir(parents=True)
+            (sandbox / 'rustup').mkdir()
+            (sandbox / 'cargo-home').mkdir()
+            for name in extraction.EXPECTED:
+                (tools / name).write_bytes(b'tool fixture')
+            (tools / 'charon-driver').chmod(0o666)
+            with (mock.patch.object(extraction, 'SANDBOX', sandbox),
+                  mock.patch.object(extraction, 'TOOLS', tools),
+                  mock.patch.object(extraction, 'digest', side_effect=AssertionError('hashing started'))):
                 with self.assertRaises(ValueError):
                     extraction.checked_toolchain()
 

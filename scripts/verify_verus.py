@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from kani_release import hash_file, unique_object
+from kani_release import hash_file, require_directory, unique_object
 
 ROOT = Path(__file__).resolve().parent.parent
 REQUIRED = {
@@ -34,6 +34,8 @@ def report(path):
 def verify(contained, output):
     pin = json.loads((ROOT / "verification/verus/toolchain.json").read_text())
     home = Path(os.environ.get("VERUS_HOME", "/tmp/blend-verification-tools/verus"))
+    require_directory(home.parent, "Verus tool parent", recursive=False)
+    home = require_directory(home, "Verus home")
     bundle = home / "verus-x86-linux"
     hashes = {
         bundle / "verus": pin["verus"]["executable_sha256"],

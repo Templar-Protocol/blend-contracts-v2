@@ -23,6 +23,14 @@ SWAP = 0
 TASKS = 256
 CPU_PERCENT = 200
 MAX_SECONDS = 3600
+# Keep the acceptance contract independent of the editable execution inventory.
+REQUIRED_HARNESSES = {
+    "pool::reserve::verification::prove_accrual_conserves_value_debt_000",
+    "pool::actions::verification::prove_supply_chain_contract",
+    "pool::actions::verification::prove_supply_cap_decides_on_post_state",
+    "prove_price_boundary_and_rejection",
+    "prove_decimals_boundary_and_cache",
+}
 TARGETS = {
     "pool": ["-p", "pool"],
     "contracts": ["-p", "pool", "--features", "local-contracts",
@@ -127,6 +135,12 @@ def load_inventory():
             raise ValueError("each local proof must require reachable witnesses")
         if type(entry["seconds"]) is not int or not 1 <= entry["seconds"] <= MAX_SECONDS:
             raise ValueError("invalid proof deadline")
+    if identifiers != REQUIRED_HARNESSES:
+        raise ValueError(
+            f"proof inventory differs from the required set: "
+            f"missing={sorted(REQUIRED_HARNESSES - identifiers)}, "
+            f"unexpected={sorted(identifiers - REQUIRED_HARNESSES)}"
+        )
     return entries
 
 

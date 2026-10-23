@@ -32,8 +32,10 @@ Kani and Certora proof portfolio remains documented in `VERIFICATION.md`.
 | Floor-to-ceil mint mutation control | Both intended assertion failures detected | Demonstrates rejection of the incorrect mint rounding in a sandbox copy |
 
 `verification/local-proofs.json` fixes exact Kani selectors, deadlines, cover counts
-and dependency order. A caller cannot be accepted without its verified callee
-preceding it. Kani must finish exactly one selected harness with `SUCCESSFUL` and
+and dependency order. The runner independently requires the complete set of five
+documented Kani selectors: a proper subset or an unexpected selector is rejected
+before launch. A caller cannot be accepted without its verified callee preceding
+it. Kani must finish exactly one selected harness with `SUCCESSFUL` and
 all required covers; process exit zero is insufficient. The authoritative parser
 is `scripts/kani_release.py::parse_log`. Verus must report the exact nine successful
 function names, full-crate verification, zero errors and the pinned verifier commit.
@@ -65,6 +67,13 @@ in the runner and workers (`RUSTUP_AUTO_INSTALL=0`). The extraction driver also
 disables Charon's fallback installer. Tools installed for this campaign stayed in
 the approved sandbox; no system-wide prover installation was performed.
 
+Before hashing or execution, the runners check that the tool parent and sandbox
+are owned by the current user and not group-/world-writable. Verus also validates
+its tool tree. Extraction validates its executable files and compiler/Cargo trees
+separately, leaving unrelated bundled Lean/source symlinks outside that traversal.
+The checks reuse the release tooling's custody policy; they do not change tool
+pins or proof domains, and the current operator/OS remain trusted.
+
 ### Containment and failure controls
 
 Every prover/build subprocess is serialized under the shared lock and checks its
@@ -86,8 +95,23 @@ Exercised controls include:
 - Invalid selectors, deadlines, row types and dependency ordering: rejected before
   proof launch. Altered verifier/compiler components and stale/conflicting LLBC
   receipts are covered by fail-closed regression fixtures.
+- Regression cases reject every nonempty proper subset of the five-entry
+  inventory, unexpected selectors, writable tool parents/homes and writable
+  extraction executables before hashing or prover launch.
 
 ### Verification checkpoints
+
+After the CodeRabbit inventory/custody fixes, `make verify-local` passed again:
+17 regression tests, all five Kani harnesses and 21 covers, all nine Verus
+functions, and both intended mutation failures (108.62 seconds wall time).
+A fresh Charon/Aeneas run also completed successfully through the hardened
+entrypoints. Its source-stable receipts and generated artifacts are retained in
+`/tmp/blend-verification-tools/extraction/results/wasm-seam-coderabbit-final`
+and `wasm-lean-coderabbit-final`; both record the Wasm target, 78 source/build
+inputs and 60 dependency files. These are tooling fixes; the proof definitions,
+domains, required covers and pinned verifier versions are unchanged.
+
+Earlier checkpoint checks:
 
 - `make verify-local` rerun at `3df0fe2`: PASS in 67.96 seconds wall time;
   13 Python regression tests, five Kani harnesses with all 21 covers, nine Verus

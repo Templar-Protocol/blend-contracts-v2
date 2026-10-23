@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SANDBOX = Path('/tmp/blend-verification-tools/extraction')
 TOOLS = SANDBOX / 'tools'
 sys.path.insert(0, str(ROOT / 'scripts'))
-from kani_release import unique_object
+from kani_release import require_directory, require_owned_path, unique_object
 from verify_local import OUTPUT, contained
 
 METHODS = (
@@ -54,6 +54,15 @@ def dependency_sources():
 
 
 def checked_toolchain():
+    require_directory(SANDBOX.parent, 'Extraction tool parent', recursive=False)
+    require_directory(SANDBOX, 'Extraction sandbox', recursive=False)
+    # Bundled Lean/source trees contain legitimate, unused symlinks. Check the
+    # executable inputs and compiler/cache trees rather than traversing those.
+    require_directory(TOOLS, 'Extraction tool directory', recursive=False)
+    for name in EXPECTED:
+        require_owned_path(TOOLS / name, 'Extraction executable')
+    require_directory(SANDBOX / 'rustup', 'Extraction compiler')
+    require_directory(SANDBOX / 'cargo-home', 'Extraction Cargo home')
     for name, expected in EXPECTED.items():
         if digest(TOOLS / name) != expected:
             raise ValueError(f'Pinned tool hash mismatch: {name}')

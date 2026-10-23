@@ -79,7 +79,23 @@ def command(argv, *, cwd=None, capture=False, check=True):
         raise ValueError(f"command failed ({' '.join(argv)}): {detail}") from error
 
 
-def require_directory(path, label):
+def require_owned_path(path, label):
+    """Check one file/directory node; callers must also secure its parents."""
+    metadata = path.lstat()
+    if stat.S_ISLNK(metadata.st_mode):
+        raise ValueError(f"{label} contains a symlink: {path}")
+    if not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode)):
+        raise ValueError(f"{label} contains a special file: {path}")
+    if metadata.st_uid != os.geteuid() or metadata.st_mode & (
+        stat.S_IWGRP | stat.S_IWOTH
+    ):
+        raise ValueError(
+            f"{label} is not exclusively writable by the current user: {path}"
+        )
+    return path
+
+
+def require_directory(path, label, *, recursive=True):
     path = path.expanduser()
     if path.is_symlink():
         raise ValueError(f"{label} must not be a symlink: {path}")
@@ -89,18 +105,10 @@ def require_directory(path, label):
         raise ValueError(f"cannot resolve {label}: {error}") from error
     if not path.is_dir():
         raise ValueError(f"{label} is not a directory: {path}")
-    for entry in (path, *path.rglob("*")):
-        metadata = entry.lstat()
-        if stat.S_ISLNK(metadata.st_mode):
-            raise ValueError(f"{label} contains a symlink: {entry}")
-        if not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode)):
-            raise ValueError(f"{label} contains a special file: {entry}")
-        if metadata.st_uid != os.geteuid() or metadata.st_mode & (
-            stat.S_IWGRP | stat.S_IWOTH
-        ):
-            raise ValueError(
-                f"{label} is not exclusively writable by the current user: {entry}"
-            )
+    require_owned_path(path, label)
+    if recursive:
+        for entry in path.rglob("*"):
+            require_owned_path(entry, label)
     return path
 
 
