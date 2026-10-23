@@ -59,6 +59,10 @@ jobs:
         key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
     - run: cargo install --locked kani-verifier --version "$KANI_VERSION"
     - run: test -d "$HOME/.kani/kani-$KANI_VERSION" || cargo-kani setup
+    # sccache, which stellar/actions/rust-cache installs as RUSTC_WRAPPER, probes
+    # the compiler with -E and kani-compiler rejects it, so it cannot wrap Kani.
+    # Cleared here rather than job-wide so make build and the install keep it.
+    - run: echo "RUSTC_WRAPPER=" >> "$GITHUB_ENV"
     - run: cargo kani --version
     - run: cargo kani -p pool --lib --only-codegen
 
@@ -84,6 +88,10 @@ jobs:
         key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
     - run: cargo install --locked kani-verifier --version "$KANI_VERSION"
     - run: test -d "$HOME/.kani/kani-$KANI_VERSION" || cargo-kani setup
+    # sccache, which stellar/actions/rust-cache installs as RUSTC_WRAPPER, probes
+    # the compiler with -E and kani-compiler rejects it, so it cannot wrap Kani.
+    # Cleared here rather than job-wide so make build and the install keep it.
+    - run: echo "RUSTC_WRAPPER=" >> "$GITHUB_ENV"
     - name: Verify the per-PR harness set
       run: |
         set -uo pipefail
