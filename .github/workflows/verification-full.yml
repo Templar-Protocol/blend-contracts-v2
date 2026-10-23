@@ -58,7 +58,13 @@ jobs:
           ~/.cargo/bin/kani-driver
           ~/.kani
         key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
-    - run: cargo install --locked kani-verifier --version "$KANI_VERSION"
+    # The cache restores cargo-kani without cargo's install record, so a plain
+    # cargo install refuses to overwrite it ("binary already exists"). Skip when
+    # the cached binary is already the right version; force it when it is not.
+    - run: |
+        if ! cargo-kani --version 2>/dev/null | grep -qF "$KANI_VERSION"; then
+          cargo install --locked kani-verifier --version "$KANI_VERSION" --force
+        fi
     - run: test -d "$HOME/.kani/kani-$KANI_VERSION" || cargo-kani setup
     # sccache, which stellar/actions/rust-cache installs as RUSTC_WRAPPER, probes
     # the compiler with -E and kani-compiler rejects it, so it cannot wrap Kani.
