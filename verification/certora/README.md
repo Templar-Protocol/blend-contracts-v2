@@ -3,7 +3,7 @@
 Archived results from the ported Certora Sunbeam harness. These records are
 source-scoped evidence, not the current verification status report. Current claims
 and limitations are in [`VERIFICATION.md`](../../VERIFICATION.md); operational
-instructions are in [`docs/verification/fv-certora.md`](../../docs/verification/fv-certora.md).
+instructions are in [`docs/verification/certora.md`](../../docs/verification/certora.md).
 
 Each `*.json` beside this file is the unmodified `output.json` fetched from
 `prover.certora.com/output/<userId>/<jobId>/output.json`.
@@ -287,5 +287,5 @@ deployment behaviour are all outside the Prover's scope by construction.
 
 ## Reproducing
 
-See the [Certora operational guide](../../docs/verification/fv-certora.md) for
+See the [Certora operational guide](../../docs/verification/certora.md) for
 configuration, archived-verdict inspection and authorized hosted invocation.

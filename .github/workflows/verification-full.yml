@@ -85,7 +85,7 @@ jobs:
           2>&1 | tee "$log"
         # A FAILED verdict means one of three different things and the exit
         # status separates none of them, so the log is the source of truth.
-        # See "Reading verdicts" in docs/verification/fv-kani.md.
+        # See "Reading verdicts" in docs/verification/kani.md.
         if [ "$(grep -cE 'VERIFICATION:-' "$log" || true)" -ne 1 ]; then
           echo "::error::$HARNESS did not match exactly one harness"
           exit 1
