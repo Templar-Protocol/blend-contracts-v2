@@ -716,16 +716,17 @@ harness: `spec/token.rs` is a `cvlr_mock_client` mock, so the balance it
 reports is unconstrained.
 
 What is provable is part of the induction. A solvent pool stays solvent if
-every transition preserves the inequality, and three transitions are
-discharged here. Supply and withdraw leave `debt` and `credit` untouched, so
-those terms cancel and preservation reduces to a single inequality between the
-claims delta and the transfer amount, rather than the two-sided form that
-forced `d_supply` to be pinned in "Accrual value conservation" above.
+every transition preserves the inequality, and three are discharged here --
+withdraw only on its uncapped path, as the table says. Supply and withdraw
+leave `debt` and `credit` untouched, so those terms cancel and preservation
+reduces to a single inequality between the claims delta and the transfer
+amount, rather than the two-sided form that forced `d_supply` to be pinned in
+"Accrual value conservation" above.
 
 | Transition | Obligation | Harness | Verdict | Covers | Time (s) |
 | --- | --- | --- | --- | --- | --- |
 | supply | `claims_after - claims_before <= tokens_in` | `prove_supply_claims_bounded_by_tokens_in` | SUCCESSFUL | 1 of 1 | 2441.74 |
-| withdraw | `tokens_out <= claims_before - claims_after` | `prove_withdraw_tokens_out_bounded_by_claims_released` | SUCCESSFUL | 1 of 1 | 1366.42 |
+| withdraw, uncapped path | `tokens_out <= claims_before - claims_after` | `prove_withdraw_tokens_out_bounded_by_claims_released` | SUCCESSFUL | 1 of 1 | 1366.42 |
 
 Both ran on this checkout under Kani 0.68.0 with `--solver kissat` and a
 7200 s harness budget. As in the rerun campaign above, timings are not
@@ -771,9 +772,10 @@ solvency.
   reach `b_rate == 0`: `default_b_rate` subtracts a ceiled loss and clamps at
   zero, so a reserve that has absorbed a default is outside the domain.
 - The withdraw harness assumes `shares <= b_supply` and takes `tokens_out` as
-  the free variable. `plan_withdraw`'s capped branch instead derives
-  `tokens_out` from the capped share count, which is not an instance of this
-  parameterisation.
+  the free variable, which is the uncapped path. `plan_withdraw`'s capped
+  branch instead derives `tokens_out` from the capped share count, so it is not
+  an instance of this parameterisation and the withdraw transition is not
+  discharged for it.
 - The harnesses drive the two mutators, `ReserveData::mint_supply` and
   `burn_supply`, not the handlers: `User::add_supply` and
   `User::add_collateral` reach them through an `Env`, a Soroban `Map` and
