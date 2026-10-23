@@ -61,6 +61,10 @@ kani-release:
 		--run-dir "$(KANI_RELEASE_RUN_DIR)" \
 		--output-dir "$(KANI_RELEASE_OUTPUT_DIR)" $(if $(KANI_RELEASE_DRY_RUN),--dry-run)
 
+.PHONY: verify-local
+verify-local:
+	python3 scripts/verify_local.py
+
 fmt:
 	cargo fmt --all
 

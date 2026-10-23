@@ -13,8 +13,8 @@ and under stated assumptions. Two are proven against a faithful model rather
 than the live component. Solvency is the partial one: it covers three of the
 seven ways the reserve book can change, and it bounds how those three move the
 pool's position rather than establishing the `assets >= liabilities` inequality
-outright. Two individual results are vacuous — they pass without exercising
-their property — and both are named below rather than counted as wins.
+outright. Two historical results were vacuous; both remain recorded below. The
+zero-debt accrual harness now has a separately verified zero-growth proof.
 
 This is the entry point; the per-tool detail lives in
 [`docs/kani.md`](docs/kani.md),
@@ -105,9 +105,13 @@ left visible rather than quietly counted as wins:
   the 24 SUCCESS column and the property is untested. This is inherited verbatim
   from the auditor's harness, so it is equally a limitation of the June 2025
   report's Verified status, not something introduced here.
-- **`prove_accrual_conserves_value_debt_000`** (Kani) satisfies 0 of its 2
-  reachability checks, so it proves nothing about the property; the same harness
-  at three other debt levels satisfies 2 of 2 and does.
+- **`prove_accrual_conserves_value_debt_000`** (Kani) historically satisfied 0
+  of its 2 positive-growth reachability checks. The replacement zero-debt proof
+  establishes zero accrued value and unchanged supplier claims/credit, with
+  **4/4 covers satisfied** under Kani 0.68.0. It retains the stated grid domain;
+  it does not establish full-width arithmetic or the Soroban I256 bridge.
+  See [`docs/verification-local.md`](docs/verification-local.md) for the local
+  acceptance command and exact scope. The historical campaign is not rewritten.
 
 Every other result quoted above satisfies its reachability checks, which is how
 a non-vacuous pass is distinguished from a vacuous one. Vacuity is tracked

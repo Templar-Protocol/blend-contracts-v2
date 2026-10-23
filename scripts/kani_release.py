@@ -260,7 +260,7 @@ def parse_log(record, log_bytes):
         verdict = "COMPILE_FAILURE"
     elif re.search(r"timed out|timeout|time limit", text, re.IGNORECASE):
         verdict = "TIMEOUT"
-    elif "VERIFICATION:- FAILED" in text or "failures, 1 total" in text:
+    elif "FAILED" in verification or any(int(failures) > 0 for _, failures, _ in terminals):
         verdict = "SEMANTIC_FAILURE"
     elif exit_code != 0:
         verdict = "EXECUTION_FAILURE"

@@ -298,13 +298,18 @@ of unity, so `b_rate` covers 0 to 2.55x and the two growth factors 1.00x to
 Intermediate rates, rates above 2.55x unity, and take rates off a percentage
 point are therefore not covered.
 
-**`debt_000` is a vacuous pass and is not evidence for the property.** Zero of
-its two covers are satisfied: at `d_supply == 0` there is no debt, `accrued` is
-0, `accrue` takes its no-op branch and every assertion holds trivially. An
-unsatisfied `kani::cover!` does not fail a harness, so the row reports
-SUCCESSFUL regardless. It is kept as the boundary case. The three remaining
-rows satisfy both covers, so the backstop-credit branch and the supplier-rate
-branch are reached in each.
+**Historical result:** `debt_000` above is a vacuous pass, with neither
+positive-growth cover satisfied. The three positive-debt rows satisfy both.
+Those campaign rows remain unchanged.
+
+**Local repair (2026-10-23):** the zero-debt harness now proves zero accrued
+value and unchanged supplier claims/credit, rather than demanding growth.
+Its four covers witness empty supply, positive supply at zero b_rate, positive
+claims, and an increased d_rate despite zero accrued debt value. Kani 0.68.0
+returned SUCCESSFUL with 4/4 covers (30.20 s solver time). `make verify-local`
+enforces the exact selector and cover count. See
+[`verification-local.md`](verification-local.md) for scope and reproduction.
+This remains grid-domain checked-i128 evidence, not an I256/host proof.
 
 `d_supply` is pinned because it is the multiplicand in the debt conversion and
 the established cost driver -- `astra_grow_debt_exact_delta` leaves it symbolic

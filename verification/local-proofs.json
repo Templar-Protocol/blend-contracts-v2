@@ -1,0 +1,7 @@
+[
+  {
+    "harness": "pool::reserve::verification::prove_accrual_conserves_value_debt_000",
+    "expected_covers": 4,
+    "seconds": 900
+  }
+]
