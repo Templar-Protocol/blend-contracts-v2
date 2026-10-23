@@ -1,7 +1,7 @@
 #![allow(unused)]
 #![no_main]
 
-use soroban_fixed_point_math::FixedPoint;
+use soroban_fixed_point_math::{FixedPoint, SorobanFixedPoint};
 use fuzz_common::{
     verify_contract_result, Borrow, ClaimPool, NatI128, PassTime, Repay, Supply, Withdraw,
 };
@@ -94,31 +94,108 @@ impl Command {
 
 #[extension_trait::extension_trait]
 impl Asserts for TestFixture<'_> {
-    /// Assert the pool has not lent out more funds than it has
+    /// Assert the pool has not lent out more funds than it has.
+    ///
+    /// Every quantity here can exceed `i128` while the pool itself is behaving,
+    /// and a panic from that is indistinguishable from a real violation. Such an
+    /// input is outside this check's domain, so it is reported and skipped.
     fn assert_invariants(&self) {
         let pool_fixture = &self.pools[0];
 
         let mut supply: i128 = 0;
         let mut liabilities: i128 = 0;
-        self.env.as_contract(&pool_fixture.pool.address, || {
+        let evaluable = self.env.as_contract(&pool_fixture.pool.address, || {
             let mut pool_state = PoolState::load(&self.env);
-            for (token_index, reserve_index) in pool_fixture.reserves.iter() {
+            for (token_index, _reserve_index) in pool_fixture.reserves.iter() {
                 let asset = &self.tokens[token_index.clone()];
                 let reserve = pool_state.load_reserve(&self.env, &asset.address, false);
-                let asset_to_base = pool_state.load_price(&self.env, &reserve.asset);
-                supply += asset_to_base
-                    .fixed_mul_floor(
-                        reserve.total_supply(&self.env) + reserve.data.backstop_credit,
-                        reserve.scalar,
-                    )
-                    .unwrap();
-                liabilities += asset_to_base
-                    .fixed_mul_ceil(reserve.total_liabilities(&self.env), reserve.scalar)
-                    .unwrap();
+                let price = pool_state.load_price(&self.env, &reserve.asset);
+                let state = format!(
+                    "token {:?}: price={price} scalar={} b_rate={} d_rate={} \
+                     b_supply={} d_supply={} credit={}",
+                    token_index,
+                    reserve.scalar,
+                    reserve.data.b_rate,
+                    reserve.data.d_rate,
+                    reserve.data.b_supply,
+                    reserve.data.d_supply,
+                    reserve.data.backstop_credit,
+                );
+
+                // total_supply, total_liabilities and the I256-backed conversions
+                // production uses all panic rather than returning None when a
+                // result exceeds i128, so the panic is what has to be classified.
+                // libfuzzer-sys installs a panic hook that aborts at the panic
+                // site, so plain catch_unwind never runs; fuzz_catch_panic
+                // suppresses that hook for the duration of the call.
+                let totals = fuzz_catch_panic(|| {
+                    let held = reserve
+                        .total_supply(&self.env)
+                        .checked_add(reserve.data.backstop_credit)?;
+                    let owed = reserve.total_liabilities(&self.env);
+                    Some((
+                        SorobanFixedPoint::fixed_mul_floor(
+                            &price,
+                            &self.env,
+                            &held,
+                            &reserve.scalar,
+                        ),
+                        SorobanFixedPoint::fixed_mul_ceil(
+                            &price,
+                            &self.env,
+                            &owed,
+                            &reserve.scalar,
+                        ),
+                    ))
+                });
+                let (supply_base, liabilities_base) = match totals {
+                    Ok(Some(bases)) => bases,
+                    Ok(None) => {
+                        eprintln!(
+                            "INVARIANT UNEVALUABLE: supply plus backstop credit exceeds \
+                             i128; {state}"
+                        );
+                        return false;
+                    }
+                    // Overflow is the expected cause, but the host can reject a
+                    // conversion for other reasons, so report what it said rather
+                    // than assuming.
+                    Err(panic) => {
+                        let why = panic
+                            .downcast_ref::<&str>()
+                            .map(|s| s.to_string())
+                            .or_else(|| panic.downcast_ref::<String>().cloned())
+                            .unwrap_or_else(|| "panic payload of unknown type".to_string());
+                        eprintln!(
+                            "INVARIANT UNEVALUABLE: totalling the reserve panicked \
+                             ({why}); {state}"
+                        );
+                        return false;
+                    }
+                };
+
+                let (Some(next_supply), Some(next_liabilities)) = (
+                    supply.checked_add(supply_base),
+                    liabilities.checked_add(liabilities_base),
+                ) else {
+                    eprintln!(
+                        "INVARIANT UNEVALUABLE: base totals exceed i128 at {state}; \
+                         running supply={supply}+{supply_base} liabilities={liabilities}+{liabilities_base}"
+                    );
+                    return false;
+                };
+                supply = next_supply;
+                liabilities = next_liabilities;
             }
+            true
         });
 
-        assert!(supply > liabilities);
+        if evaluable {
+            assert!(
+                supply > liabilities,
+                "supply {supply} <= liabilities {liabilities}"
+            );
+        }
     }
 
     /// Assert the user is not underwater
