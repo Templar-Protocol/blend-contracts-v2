@@ -287,10 +287,11 @@ fn prove_supply_credit_monotonic() {
 /// supply, which is the state the cap check runs against; flooring is not
 /// additive, so it does not follow from the single-deposit result.
 ///
-/// `RATE_H` fixes `b_rate` at `RATE_H` hundredths of `SCALAR_12`. The bound
-/// puts a quotient inside the third conversion's dividend, and with a symbolic
-/// divisor there the solver does not finish — `prove_supply_credit_monotonic`
-/// keeps the symbolic rate because it needs no such nesting.
+/// `RATE_H` fixes `b_rate` at `RATE_H` hundredths of `SCALAR_12`, keeping the
+/// quotient in the third conversion's dividend cheap.
+/// `reserve::verification::prove_supply_claims_bounded_by_tokens_in` discharges
+/// the same bound at a symbolic rate on a larger budget, subsuming these fixed
+/// cases at `u8` width.
 fn supply_credit_no_inflation<const RATE_H: u8>() {
     let b_supply = kani::any::<u8>() as i128;
     let amount = kani::any::<u8>() as i128;

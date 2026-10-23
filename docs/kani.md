@@ -438,18 +438,23 @@ while the true total sat above the cap.
 | `prove_supply_cap_decides_on_post_state` | SUCCESSFUL | 25.49 |
 
 `prove_supply_credit_monotonic` and `prove_supply_cap_decides_on_post_state`
-hold over a symbolic rate. The upper bound does not: it puts a quotient inside
-the third conversion's dividend, and with a symbolic divisor there the solver
-does not finish, so it is split across three fixed rates. `h001` is far below
-the initial `SCALAR_12`, the region a reserve enters after `default_b_rate`
-subtracts a loss; `h100` is the initial rate exactly; `h255` tops the
-`hundredths` range. Supplies and amounts are `u8`, as elsewhere in this
-module, and that is the ceiling rather than a convention. Four shapes of the
-bound were attempted and every one exhausted its budget:
+hold over a symbolic rate. The upper bound is split across three fixed rates
+because it puts a quotient inside the third conversion's dividend, which is
+expensive with a symbolic divisor. That split is a budget artefact and not a
+limit: `prove_supply_claims_bounded_by_tokens_in` states both bounds together
+at a symbolic rate over the same `u8` domain and verifies, at a budget well
+above the 900 s tried here -- see "Solvency, as an induction over the reserve
+kernel" below. The three fixed-rate cases are subsumed at `u8` width and kept
+as the cheaper check. `h001` is far below the initial `SCALAR_12`, the region a
+reserve enters after `default_b_rate` subtracts a loss; `h100` is the initial
+rate exactly; `h255` tops the `hundredths` range. Supplies and amounts are
+`u8`, as elsewhere in this module, and that is the ceiling rather than a
+convention. Five shapes of the bound were attempted; each exhausted the budget
+it was given, and only the first has since been discharged at a larger one:
 
 | Attempt | Domain | Budget |
 | --- | --- | --- |
-| bound and monotonicity together, symbolic rate | `u8` | 900 s |
+| bound and monotonicity together, symbolic rate | `u8` | 900 s (since discharged above that budget) |
 | same, direct division | `i128` to 1e18 | 3600 s |
 | restated division-free, quotients named and constrained | `i128` to 1e18 | 1800 s |
 | same, division-free | `u32` | 1200 s |
@@ -468,9 +473,10 @@ floor inequalities runs in 2.18 s at `u8`
 between the arithmetic and the implementation is itself only machine-checked
 at `u8` width.
 
-The bound is therefore established exhaustively over `u8` supplies at the
-three rates above, and the general argument is sound but unchecked at
-production scale, by either tool.
+The bound is therefore established over `u8` supplies at a symbolic rate, and
+the general argument is sound but unchecked at production scale, by either
+tool. Every measurement in the table above is at `i128` or `u32` width except
+the first, and nothing here bears on those: full width remains undecided.
 
 `confs/supply_credit.conf` states the bound over `bounded_reserve` with no
 storage, no handler and no loops, on the reasoning that Certora works over
@@ -699,6 +705,85 @@ The 0.68.0 run reproduces the 0.67.0 campaign's verdicts, cover counts and
 failure modes on the soroban-sdk 25.3.0 / Rust 1.98 tree: 35 SUCCESSFUL, the same
 2 budget-limited TIMEOUTs, no counterexamples, no tool crashes, no harness
 required a change. Timings differ in both directions and are not part of the claim.
+
+## Solvency, as an induction over the reserve kernel
+
+Solvency is `balance + debt >= claims + credit`, where
+`claims = to_asset_from_b_token(b_supply)`,
+`debt = to_asset_from_d_token(d_supply)`, `credit` is `backstop_credit` and
+`balance` is the pool's token holding. It is not statable against the Certora
+harness: `spec/token.rs` is a `cvlr_mock_client` mock, so the balance it
+reports is unconstrained.
+
+What is provable is part of the induction. A solvent pool stays solvent if
+every transition preserves the inequality, and three are discharged here --
+withdraw only on its uncapped path, as the table says. Supply and withdraw
+leave `debt` and `credit` untouched, so those terms cancel and preservation
+reduces to a single inequality between the claims delta and the transfer
+amount, rather than the two-sided form that forced `d_supply` to be pinned in
+"Accrual value conservation" above.
+
+| Transition | Obligation | Harness | Verdict | Covers | Time (s) |
+| --- | --- | --- | --- | --- | --- |
+| supply | `claims_after - claims_before <= tokens_in` | `prove_supply_claims_bounded_by_tokens_in` | SUCCESSFUL | 1 of 1 | 2441.74 |
+| withdraw, uncapped path | `tokens_out <= claims_before - claims_after` | `prove_withdraw_tokens_out_bounded_by_claims_released` | SUCCESSFUL | 1 of 1 | 1366.42 |
+
+Both ran on this checkout under Kani 0.68.0 with `--solver kissat` and a
+7200 s harness budget. As in the rerun campaign above, timings are not
+comparable across hosts or campaigns and the verdicts are the claim. The
+accrual transition is the four `prove_accrual_conserves_value_debt_*` rows in
+"Accrual value conservation" above.
+
+Neither harness holds vacuously. The rounding is what carries them:
+`to_b_token_down` floors the shares a supplier receives and `to_b_token_up`
+ceils the shares a withdrawal burns, so both round against the user.
+
+The two halves are not equally novel. The withdraw bound also follows from
+`prove_b_round_trip_up_conservative` together with superadditivity of `floor`,
+so its harness discharges a hand step rather than proving something new. The
+supply bound does not follow from the single-deposit result, because flooring
+is not additive in the direction it needs.
+
+**The induction does not close.** `ReserveData` has four further
+valuation-relevant transitions in production, none of them covered here:
+
+| Write | Transition |
+| --- | --- |
+| `user.rs:100`, `d_supply += amount` | borrow |
+| `user.rs:120`, `d_supply -= amount` | repay |
+| `user.rs:133`, `b_rate = default_b_rate(..)` | a default absorbed into `b_rate` |
+| `backstop_interest_auction.rs:111`, `backstop_credit -= lot_amount` | backstop credit paid out |
+
+Borrow and repay are the same shape as the two rows above with `d_supply` in
+place of `b_supply`, and are the next step. Until all four are discharged this
+is a result about the supplier side of the book plus accrual, not about
+solvency.
+
+**Assumptions.**
+
+- `balance` is never a modelled quantity. Each obligation is stated as a
+  claims delta against the transfer amount, and solvency preservation follows
+  by adding the unchanged terms to both sides -- given that the handler moves
+  `balance` by exactly that amount, which nothing here checks.
+- Supplies, rates and amounts are `u8`-derived: supplies and amounts 0 to 255,
+  `b_rate` in hundredths of unity and so capped at 2.55x. Production `b_rate`
+  exceeds that after sustained accrual.
+- `b_rate > 0` is assumed because both conversions divide by it. Production can
+  reach `b_rate == 0`: `default_b_rate` subtracts a ceiled loss and clamps at
+  zero, so a reserve that has absorbed a default is outside the domain.
+- The withdraw harness assumes `shares <= b_supply` and takes `tokens_out` as
+  the free variable, which is the uncapped path. `plan_withdraw`'s capped
+  branch instead derives `tokens_out` from the capped share count, so it is not
+  an instance of this parameterisation and the withdraw transition is not
+  discharged for it.
+- The harnesses drive the two mutators, `ReserveData::mint_supply` and
+  `burn_supply`, not the handlers: `User::add_supply` and
+  `User::add_collateral` reach them through an `Env`, a Soroban `Map` and
+  `update_b_emissions`, none of which Kani can drive. Linking them is an
+  enumeration argument held by `test_b_supply_writers_are_enumerated` rather
+  than by the compiler, since `b_supply` stays `pub` under `#[contracttype]`;
+  making the field private would convert that step into a compiler guarantee.
+
 
 ## Claim boundary
 
