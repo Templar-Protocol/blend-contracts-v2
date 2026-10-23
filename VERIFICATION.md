@@ -219,13 +219,14 @@ The gate runs regression tests, the exact local Kani inventory and the Verus
 proofs/negative control. It requires complete verdicts, covers and witnesses,
 not just prover exit zero. Proofs run serially under a 4 GiB process-tree memory
 limit, zero swap, 256 tasks, CPU quota at most 200%, bounded runtimes and
-whole-unit cleanup. Missing containment or failed cleanup is an error.
-Logs are in `target/verification-local/`.
+whole-unit cleanup. Missing containment or failed cleanup is an error. Guarded
+Cargo commands disable compiler wrappers so an external cache daemon cannot
+compile outside the unit. Logs are in `target/verification-local/`.
 On a cold cache, `verify-local-codegen` compiles each configuration under a
 separate bounded deadline; it does not verify assertions or relax proof deadlines.
 
-For fuzz regressions, use the standalone
-[fuzz toolchain](test-suites/fuzz/rust-toolchain.toml) and the same Wasm imports:
+Fuzz regressions use the pinned [fuzz toolchain](test-suites/fuzz/rust-toolchain.toml)
+(lint uses the root toolchain) and the same Wasm imports:
 
 ```sh
 python3 scripts/verify_local.py --seconds 1800 -- make fuzz-lint

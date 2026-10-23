@@ -26,7 +26,7 @@ MAX_SECONDS = 3600
 # Transient services inherit their manager's environment, not the invoking shell.
 # Keep required tool/build settings explicit without importing CI credentials.
 WORKER_ENVIRONMENT = (
-    "PATH", "CARGO_BUILD_JOBS", "CARGO_HOME", "RUSTUP_HOME", "RUSTC_WRAPPER",
+    "PATH", "CARGO_BUILD_JOBS", "CARGO_HOME", "RUSTUP_HOME",
     "VERUS_HOME", "XDG_CACHE_HOME",
 )
 # Keep the acceptance contract independent of the editable execution inventory.
@@ -82,6 +82,8 @@ def contained(command, seconds, log):
         "--property=KillMode=control-group", "--property=TimeoutStopSec=5s",
         f"--property=RuntimeMaxSec={seconds}s",
         *(f"--setenv={name}={os.environ[name]}" for name in WORKER_ENVIRONMENT if name in os.environ),
+        # A compiler-cache broker may already run outside this unit's cgroup.
+        "--setenv=RUSTC_WRAPPER=", "--setenv=RUSTC_WORKSPACE_WRAPPER=",
         sys.executable, str(Path(__file__).resolve()), "_worker", *command,
     ]
     with ExitStack() as cleanup:
