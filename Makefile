@@ -63,6 +63,7 @@ kani-release:
 
 .PHONY: verify-local
 verify-local:
+	python3 -m unittest scripts/test_verify_local.py scripts/test_kani_release.py scripts/test_verification_tools.py
 	python3 scripts/verify_local.py
 
 fmt:

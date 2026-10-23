@@ -23,6 +23,13 @@ SWAP = 0
 TASKS = 256
 CPU_PERCENT = 200
 MAX_SECONDS = 3600
+TARGETS = {
+    "pool": ["-p", "pool"],
+    "contracts": ["-p", "pool", "--features", "local-contracts",
+                  "-Z", "function-contracts", "-Z", "stubbing"],
+    "oracle": ["--manifest-path", "verification/local-host/Cargo.toml",
+               "--target-dir", str(OUTPUT / "host-target")],
+}
 
 
 def check_limits():
@@ -91,18 +98,28 @@ def contained(command, seconds, log):
                 raise ValueError(f"could not stop solver service: {stopped.stderr.decode().strip()}")
 
 
-def run_inventory():
+def load_inventory():
     entries = json.loads(INVENTORY.read_text(), object_pairs_hook=unique_object)
     if not isinstance(entries, list) or not entries:
         raise ValueError("proof inventory must be nonempty")
     identifiers = set()
     for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != {"harness", "expected_covers", "seconds"}:
+        if not isinstance(entry, dict) or set(entry) != {
+            "target", "harness", "expected_covers", "seconds", "depends_on"
+        }:
             raise ValueError("invalid Kani proof inventory fields")
+        if not isinstance(entry["target"], str) or entry["target"] not in TARGETS:
+            raise ValueError("unknown local proof target")
         if not isinstance(entry["harness"], str) or not re.fullmatch(
-            r"pool(?:::[A-Za-z_][A-Za-z_0-9]*)+", entry["harness"]
+            r"[A-Za-z_][A-Za-z_0-9]*(?:::[A-Za-z_][A-Za-z_0-9]*)*", entry["harness"]
         ):
-            raise ValueError("invalid pool harness selector")
+            raise ValueError("invalid Rust harness selector")
+        dependencies = entry["depends_on"]
+        if (not isinstance(dependencies, list)
+                or not all(isinstance(name, str) for name in dependencies)
+                or len(set(dependencies)) != len(dependencies)
+                or not set(dependencies) <= identifiers):
+            raise ValueError("proof dependencies must name earlier checked inventory entries")
         if entry["harness"] in identifiers:
             raise ValueError("duplicate proof selector")
         identifiers.add(entry["harness"])
@@ -110,14 +127,20 @@ def run_inventory():
             raise ValueError("each local proof must require reachable witnesses")
         if type(entry["seconds"]) is not int or not 1 <= entry["seconds"] <= MAX_SECONDS:
             raise ValueError("invalid proof deadline")
-    version = subprocess.run(["cargo", "kani", "--version"], capture_output=True, text=True, check=True)
+    return entries
+
+
+def run_inventory():
+    entries = load_inventory()
+    version = subprocess.run(["cargo", "kani", "--version"], capture_output=True,
+                             text=True, check=True, timeout=15)
     if "Kani Rust Verifier 0.68.0 (cargo plugin)" not in version.stdout:
         raise ValueError("Kani 0.68.0 is required")
     for entry in entries:
         harness = entry["harness"]
-        log = OUTPUT / f"{harness.replace('::', '_')}.log"
+        log = OUTPUT / f"{entry['target']}_{harness.replace('::', '_')}.log"
         command = [
-            "env", "RUSTC_WRAPPER=", "cargo", "kani", "-p", "pool", "--lib", "--exact",
+            "env", "RUSTC_WRAPPER=", "cargo", "kani", *TARGETS[entry["target"]], "--lib", "--exact",
             "--harness", harness, "--solver", "kissat", "-Z", "unstable-options",
             "--harness-timeout", f"{entry['seconds']}s",
         ]
@@ -128,9 +151,13 @@ def run_inventory():
         print(f"{harness}: {verdict}; covers={covers}; log={log}", flush=True)
         if verdict != "PASS":
             raise ValueError(f"proof acceptance failed: {harness}")
+    from verify_verus import verify
+    verify(contained, OUTPUT)
 
 
 def main():
+    # Setup is explicit; neither cargo proxies nor workers may install a toolchain.
+    os.environ["RUSTUP_AUTO_INSTALL"] = "0"
     if len(sys.argv) > 1 and sys.argv[1] == "_worker":
         check_limits()
         os.execvp(sys.argv[2], sys.argv[2:])
@@ -148,7 +175,7 @@ def main():
                 raise ValueError("empty experimental command")
             log = OUTPUT / f"experiment-{uuid.uuid4().hex}.log"
             result = contained(command, args.seconds, log)
-            print(log.read_text(), end="", flush=True)
+            print(f"experiment: exit={result}; log={log}", flush=True)
             return result
         run_inventory()
     return 0

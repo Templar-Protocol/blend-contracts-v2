@@ -1,25 +1,23 @@
 # Formal verification status
 
-All seven of the safety invariants this protocol commits to are backed by
-machine-checked proof, and across the whole campaign — two independent provers
-and a fuzzer — **no counterexample has ever been produced and no rule has ever
-been violated.** Where a prover did not finish it either exhausted its budget
-or returned undecided, and those are different things; in neither case did it
-find a way to break a property.
+All seven safety claims have machine-checked **component evidence**, not
+unconditional end-to-end production proofs. The scopes differ: bounded arithmetic,
+substituted components and incomplete transition coverage remain explicit gaps.
+Solvency does not yet establish the absolute `assets >= liabilities` inequality.
+One historical health rule is vacuous; the historical zero-debt accrual vacuity
+now has a reachable replacement proof.
 
-What each proof covers differs, and this document is explicit about it rather
-than leaving it to the footnotes. Every invariant is proven over a stated scope
-and under stated assumptions. Two are proven against a faithful model rather
-than the live component. Solvency is the partial one: it covers three of the
-seven ways the reserve book can change, and it bounds how those three move the
-pool's position rather than establishing the `assets >= liabilities` inequality
-outright. Two historical results were vacuous; both remain recorded below. The
-zero-debt accrual harness now has a separately verified zero-growth proof.
+The historical campaigns below reported no production counterexample. Timeouts
+and UNKNOWN results are not proofs. Intentional negative controls do fail and
+are recorded separately from production findings.
 
 This is the entry point; the per-tool detail lives in
 [`docs/kani.md`](docs/kani.md),
 [`docs/formal-verification.md`](docs/formal-verification.md) and
-[`verification/certora/README.md`](verification/certora/README.md).
+[`verification/certora/README.md`](verification/certora/README.md). The current
+local-only strengthening campaign, accepted inventory and stuck/open outcomes are
+in [`docs/verification-local.md`](docs/verification-local.md). It does not close
+all seven claims or reclassify historical campaigns as current-tree full runs.
 
 ## The seven invariants
 
@@ -31,7 +29,7 @@ This is the entry point; the per-tool detail lives in
 | **Health factor monotonicity** | Adding collateral can only improve a position; borrowing more can only worsen it. No action has a perverse effect. | Kani | proven | **D**, **S** |
 | **Borrow cap** | Deposits and utilization cannot exceed the limits the pool is configured with. | Kani | proven | **D**, **T** |
 | **Liquidation correctness** | Liquidation auctions price, discount and time correctly, and bad debt is handled without creating value. | Kani + Certora | proven | **S** |
-| **Oracle circuit breaker** | The pool refuses a price that is missing, zero, negative, future-dated or more than 24 hours stale. | Certora | proven, 13/13 rules | **T** |
+| **Oracle circuit breaker** | The pool refuses a price that is missing, zero, negative, future-dated or more than 24 hours stale. | Certora (historical), Kani (local) | historical 13/13 rules; local first-read and decimals rules | **T**, **S** |
 
 The protocol has no borrow cap as such; it has a supply cap and a maximum
 utilization, which is what the audit property list calls "borrow caps".
@@ -44,9 +42,9 @@ the same three gaps, and each row names the ones that apply.
 - **D — domain narrowed.** The property is proven exhaustively, but over a
   restricted range of inputs rather than every value the type allows. Typically
   balances from 0 to 255 and interest rates in hundredths up to 2.55×. The
-  arithmetic is checked for *every* combination in that range, with no sampling;
-  what is not checked is behaviour at full 128-bit width, which is beyond what
-  either prover can decide today.
+  arithmetic is checked for *every* combination in that range, with no sampling.
+  Full-width production arithmetic remains unproved here. New arbitrary-integer
+  lemmas do not remove this gap without the production i128/I256/host refinement.
 - **T — target substituted.** The property is proven about a faithful model of a
   component rather than the component itself. The oracle rules, for instance, are
   proven against a mock price feed that can return any value, which is the right
@@ -84,9 +82,10 @@ what makes each claim checkable.
 
 | | |
 | --- | --- |
-| Kani (bounded model checking) | 110 proof harnesses plus 1,678 generated fixed-parameter instances. Published campaign: 3,197 of 3,197 obligations PASS at commit `753b1ae`. Current tree: the documented property-mapped set re-run under Kani 0.68.0 — 35 SUCCESSFUL, 2 budget-limited, 0 counterexamples — plus the solvency pair. |
+| Kani (bounded model checking) | Historical inventory: 110 proof harnesses plus 1,678 generated fixed-parameter instances. Published campaign: 3,197 of 3,197 obligations PASS at commit `753b1ae`. The previously documented property-mapped rerun was 35 SUCCESSFUL, 2 budget-limited, 0 counterexamples, plus the solvency pair; it is not a full rerun of the strengthened tree. |
 | Certora Sunbeam | The auditor's rule set replicated: 24 SUCCESS, 2 UNKNOWN, **0 VIOLATED**. Beyond it: oracle circuit breaker 13/13, utilization caps 9/10. |
 | Fuzzing | A libFuzzer target drives randomised request sequences against a full pool fixture and asserts the pool's supply exceeds its liabilities after every one. |
+| Local strengthening | `make verify-local`: five Kani harnesses, all 21 required covers; nine Verus mathematical proof functions; intended ceil-mint mutation failures detected. Exact production arithmetic extraction/translation succeeded, but no Lean refinement theorem was proved. Stuck initializer, borrow/repay and price-cache probes are excluded from acceptance and documented explicitly. |
 | Third-party audit | See [`audits/`](audits/). Formal verification complements an audit; it does not replace one. |
 
 ### What a passing verdict does not always mean

@@ -254,12 +254,39 @@ fn supply_data(b_rate: i128, b_supply: i128) -> ReserveData {
 /// `apply_supply` passes exactly `to_b_token_down(amount)`, so the sequence
 /// here matches the handler's. It is still a transcription: nothing makes this
 /// follow the handler if the handler's order changes.
+#[cfg_attr(
+    feature = "local-contracts",
+    kani::requires(
+        (0..=255).contains(&b_supply)
+            && (0..=255).contains(&amount)
+            && b_rate > 0
+            && b_rate <= 255 * (SCALAR_12 / 100)
+            && b_rate % (SCALAR_12 / 100) == 0
+    )
+)]
+#[cfg_attr(
+    feature = "local-contracts",
+    kani::ensures(|out| out.0 >= 0 && out.1 >= out.0 && out.2 >= 0)
+)]
 fn supply_chain(b_supply: i128, amount: i128, b_rate: i128) -> (i128, i128, i128) {
     let before = supply_data(b_rate, b_supply);
     let total_before = before.to_asset_from_b_token(&(), b_supply);
     let minted = before.to_b_token_down(&(), amount);
     let total_after = before.to_asset_from_b_token(&(), b_supply + minted);
     (total_before, total_after, minted)
+}
+
+#[cfg(feature = "local-contracts")]
+#[kani::proof_for_contract(supply_chain)]
+fn prove_supply_chain_contract() {
+    let balance = kani::any::<u8>() as i128;
+    let amount = kani::any::<u8>() as i128;
+    let rate = kani::any::<u8>();
+    kani::assume(rate > 0);
+    supply_chain(balance, amount, hundredths(rate));
+    kani::cover!(balance > 0 && amount > 0 && rate < 100);
+    kani::cover!(balance > 0 && amount > 0 && rate == 100);
+    kani::cover!(balance > 0 && amount > 0 && rate > 100);
 }
 
 /// Supplying never lowers the reserve's accounted supply, at any rate.
@@ -335,6 +362,7 @@ proof_case!(
 /// over-cap reserve stays rejected for every amount, rather than being admitted
 /// on a stale pre-state reading.
 #[kani::proof]
+#[cfg_attr(feature = "local-contracts", kani::stub_verified(supply_chain))]
 fn prove_supply_cap_decides_on_post_state() {
     let rate_h = kani::any::<u8>();
     kani::assume(rate_h >= 1);
@@ -410,3 +438,6 @@ fn prove_supply_credit_bound_product_space() {
     assert!(total_after <= total_before + amount);
     assert!(total_after >= total_before);
 }
+
+#[path = "../../../verification/experiments/accounting.rs"]
+mod accounting;
