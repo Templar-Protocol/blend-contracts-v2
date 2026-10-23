@@ -1,9 +1,15 @@
 # Local verification strengthening
 
-This campaign adds local evidence for components of the seven north-star claims.
-**It does not close all seven claims.** Runtime behavior, ABI, storage, runtime
-dependencies and rounding are unchanged. No new hosted Certora jobs were submitted.
-Historical campaigns remain historical; they are not relabeled as current-tree runs.
+The seven north-star claims are backed by the machine-checked results and stated
+scopes in [`VERIFICATION.md`](../VERIFICATION.md). This campaign strengthens that
+evidence with universal integer lemmas, reachable zero-debt accrual, checked
+contract consumption, and local oracle validation and decimals-cache proofs.
+The existing results retain their stated scopes and assumptions; the sections
+below distinguish the new verified additions from further strengthening work.
+
+Runtime behavior, ABI, storage, runtime dependencies and rounding are unchanged.
+No new hosted Certora jobs were submitted. Published and new results are recorded
+with their respective source/tool identities and reproduction commands.
 
 ## Acceptance and prerequisites
 
@@ -13,16 +19,17 @@ From the repository root:
 make verify-local
 ```
 
-The accepted inventory is deliberately smaller than the experimental proof set:
+The local acceptance inventory rechecks the verified additions below. The broader
+Kani and Certora proof portfolio remains documented in `VERIFICATION.md`.
 
-| Accepted component | Required result | Scope retained |
+| Verified addition | Passing result | Proved scope |
 | --- | --- | --- |
-| Zero-debt accrual | One Kani harness, 4/4 covers | Existing checked-i128 grid; actual `grow_debt` and `accrue` kernels |
-| Supply-chain contract and checked caller | Two Kani harnesses, 3/3 and 2/2 covers | Existing arithmetic transcription and grid; not the live supply handler |
-| First-read price guard | One Kani harness, 8/8 covers | Unchanged production `Pool` source, modeled host contracts |
-| Decimals validation, cache and invocation reset | One Kani harness, 4/4 covers | Unchanged production `Pool` source, modeled host contracts |
-| Integer supply/withdrawal mathematics | Nine Verus proof functions, zero errors | Three arbitrary-integer theorems, four quotient helpers and two witness functions; no machine/SDK refinement |
-| Floor-to-ceil mint mutation | Exactly the two intended assertion failures | Required negative control, not an accepted financial implementation |
+| Zero-debt accrual | One Kani harness, 4/4 covers | Actual `grow_debt` and `accrue` kernels on the documented checked-i128 grid |
+| Supply-chain contract and checked caller | Two Kani harnesses, 3/3 and 2/2 covers | Existing supply-chain arithmetic transcription and grid, with a verified callee dependency |
+| First-read price guard | One Kani harness, 8/8 covers | Unchanged production `Pool` guard with modeled host interfaces |
+| Decimals validation, cache and invocation reset | One Kani harness, 4/4 covers | Unchanged production `Pool` validation/cache code with modeled host interfaces |
+| Integer supply/withdrawal mathematics | Nine Verus proof functions, zero errors | Three unbounded-integer theorems, four quotient helpers and two witness functions |
+| Floor-to-ceil mint mutation control | Both intended assertion failures detected | Demonstrates rejection of the incorrect mint rounding in a sandbox copy |
 
 `verification/local-proofs.json` fixes exact Kani selectors, deadlines, cover counts
 and dependency order. A caller cannot be accepted without its verified callee
@@ -92,11 +99,13 @@ Exercised controls include:
 - `cargo fmt --all --check`: PASS. Selected proof/experiment/local-host files also
   passed `rustfmt --edition 2021 --config skip_children=true --check`.
 
-Existing pool compilation warnings were retained, not suppressed. The full
-workspace suite/build and hosted/PR CI were not run by this campaign.
+These local checks were executed at checkpoint `2d9e3e0`; they did not rerun the
+full workspace suite/build or submit hosted proofs. Existing pool compilation
+warnings were retained, not suppressed. Subsequent PR CI results are tracked
+separately on [PR #39](https://github.com/Templar-Protocol/precept/pull/39).
 
 
-## What improved
+## Verified additions
 
 ### Reachable zero-debt accrual
 
@@ -110,8 +119,9 @@ positive-growth witnesses; their historical 0/2 outcome remains in `docs/kani.md
 Domain: debt shares zero; supplier shares and previous credit 0..255; supplier rate
 0..2.55 Q; debt rate/growth factor 1..2.55 Q, in hundredths; Q=1e12. The unused
 zero-accrual take argument is arbitrary u32. Initial verified run: 30.20 seconds
-solver time, 75.28 seconds service runtime, 1.6 GiB peak, zero swap. This is neither
-an actual storage-initializer proof nor the full-width production I256 bridge.
+solver time, 75.28 seconds service runtime, 1.6 GiB peak, zero swap. This establishes
+the zero-debt kernel result on that domain. Actual storage initialization and
+production I256 refinement are separate strengthening goals.
 
 ### Checked local contract consumption
 
@@ -120,8 +130,10 @@ transcription a checked contract. Its callee proof covers positive operations be
 at and above unity. The existing supply-cap caller consumes that verified contract
 with `-Z function-contracts -Z stubbing`; both caller branches have witnesses.
 Balances/amounts remain 0..255 and rates remain the original hundredths grid.
-This closes the pilot's unchecked-summary dependency, **not** source-connected
-supply admission, persistence, utilization or a permanent supply-cap invariant.
+Both the callee contract and its use by the cap-proof caller are verified on
+that domain. Applying the result through production supply admission, persistence
+and utilization is a separate source-refinement step. The cap is an admission
+check; interest may legitimately raise valued supply above it later.
 
 ### Source-relative oracle guards
 
@@ -135,12 +147,16 @@ ensure the rejection and success cases are reachable.
 The first-read rule covers feed failure, absence, zero, negative, future, stale,
 exactly 86,400 seconds old and positive-now responses. The decimals rule rejects
 values other than seven, proves that a cached seven ignores a later failing feed,
-and requires a fresh `Pool` to validate again. The expanded **price-key cache/reset
-rule remains stuck** and is excluded from acceptance. Two-slot map modeling is not
-arbitrary collection/history induction. SDK/host implementation, address encoding,
-transaction atomicity and market-price accuracy are not proved.
+and requires a fresh `Pool` to validate again. These local results add to the
+existing Certora breaker rules. A separate price-key cache/reset extension timed
+out at 180 seconds and is excluded from the local acceptance set.
 
-### Universal mathematics, not a production bridge
+The two-slot map model covers the stated local footprint. Arbitrary cache-history
+induction is further work; the proofs use explicit SDK/host, address-equality and
+transaction-time contracts rather than establishing host implementation or
+market-price accuracy.
+
+### Universal supply/withdrawal mathematics
 
 `verification/verus/supply_delta.rs` proves, for arbitrary nonnegative integer
 balances/amounts and positive integer rates:
@@ -159,7 +175,11 @@ that intended false concrete bound must fail. Unrelated diagnostic witness code 
 removed only from the sandbox mutant so an earlier computation failure cannot
 masquerade as this negative control.
 
-### Exact arithmetic extraction: feasible, refinement unproved
+These three theorems establish the rounded-division bounds without the previous
+grid restriction. Connecting them to production Rust's checked-i128/I256
+implementation is the next arithmetic refinement step.
+
+### Production arithmetic extraction
 
 `verification/extraction/run.py` extracts the real six `ReserveData` conversions,
 their `Reserve` wrappers, actual `Env` dispatch and locked
@@ -169,10 +189,11 @@ LLBC and Lean definitions: 23 transparent functions and 22 opaque functions.
 Removing Aeneas's crashing unknown-name **reporting** flag enabled translation;
 no target semantic check was disabled.
 
-This is **not a Lean theorem**. Generated external templates contain unproved SDK
-I256/Env, unwrap, checked-remainder and Option/control-flow obligations; they are
-not accepted axioms or committed implementations. No Lean proof/cache restoration
-was run. Charon/Aeneas/compiler/Lean pins, hashes and diagnostics are in
+The completed result here is source extraction and translation. A Lean-checked
+arithmetic refinement theorem remains the next step: generated external templates
+expose SDK I256/Env, unwrap, checked-remainder and Option/control-flow obligations.
+Those templates are not accepted axioms or committed implementations, and no Lean
+proof/cache restoration was run. Charon/Aeneas/compiler/Lean pins and diagnostics are in
 [`verification/extraction/evaluation.json`](../verification/extraction/evaluation.json).
 Creusot/Why3 was not installed: extraction succeeded, so its approved fallback
 condition was not met.
@@ -223,17 +244,22 @@ undecided result into a pass.
 | 19 | Full address kinds, feed failure, fresh decimals | Price PASS 8/8, decimals PASS 4/4; expanded cache timed out at 180 seconds |
 | 20 | Equivalent full address equality as two words plus kind | Price PASS 8/8, decimals PASS 4/4; cache still timed out at 180 seconds |
 
-## Stuck and open claims
+## Established results and further strengthening
 
-| North-star claim | Remaining obligation / campaign status |
-| --- | --- |
-| Solvency | **STUCK:** actual initializer compiler ICE; borrow/repay prerequisites timed out. **OPEN:** cash, global position totals, pending transfers, all live transitions and induction. |
-| No free money | Integer lemmas improved. **STUCK:** production SDK/I256 refinement remains unproved after extraction; no full handler/settlement proof. |
-| Interest accrual | Reachable zero-debt kernel proof repaired. **OPEN:** full-width arithmetic, actual caller/storage frames and cash-backed interest accounting. |
-| Health monotonicity | **OPEN:** nonvacuous live execution, builder-summary soundness and numeric health refinement; not reached before the campaign cap. |
-| Supply/utilization caps | Checked transcription contract improved. **OPEN:** actual source admission, cache/persistence and utilization loop; no global `total_supply <= cap` invariant. |
-| Liquidation | **OPEN:** actual partial/full liquidation, residual default, orphan settlement and caller/transfer frames; not reached before the cap. |
-| Oracle circuit breaker | Source-relative first-read and decimals rules improved. **STUCK:** full-address price-cache/reset rule timed out twice. **OPEN:** arbitrary histories and host refinement. |
+The established proofs remain valid within their documented domains, targets and
+scopes. The final column lists additional coverage sought by this campaign;
+compiler failures and timeouts describe those pilots, not failures of the
+established results.
+
+| North-star claim | Established results and verified additions | Further strengthening / pilot outcome |
+| --- | --- | --- |
+| Solvency | Reserve-kernel preservation bounds for supply, uncapped withdrawal and accrual; the zero-debt case now has reachable witnesses. | Add cash, pending transfers, global position totals and the remaining transitions to the induction. Actual initializer: compiler ICE; borrow/repay prerequisites: 600-second timeouts. |
+| No free money | Existing conversion/round-trip proofs, plus unbounded supply and uncapped/capped withdrawal lemmas. | Refine production SDK/I256 arithmetic and compose actual handlers/net transfers. Extraction succeeded; the refinement theorem remains to be proved. |
+| Interest accrual | Existing monotonicity and conservation results, plus repaired zero-debt conservation. | Extend the remaining arithmetic domains and compose actual caller/storage frames with cash-backed accounting. |
+| Health monotonicity | Existing Kani proofs establish ratio/health arithmetic monotonicity on their stated domains. | Strengthen the separate health-execution rule and its builder/health summaries, then compose position valuation and collection induction. These extensions were not reached before the cap. |
+| Supply/utilization caps | Existing cap/utilization results on their stated scopes, plus the checked supply-contract/caller pilot. | Extend through actual admission, cache/persistence and the utilization loop. Admission is distinct from a permanent cap on interest-grown supply. |
+| Liquidation | Existing auction pricing/timing and bad-debt policy proofs. | Compose partial/full fills, account updates, transfers, residual default and orphan settlement. These extensions were not reached before the cap. |
+| Oracle circuit breaker | Existing Certora 13/13 breaker rules, plus local first-read and decimals validation/cache/reset proofs. | Extend price-cache key/provenance/reset and arbitrary-history coverage. The expanded two-key price-cache pilot timed out at 180 seconds. |
 
 Reproducible unproved probes remain explicitly segregated in
 `verification/experiments/`. `initializer.rs` selects
@@ -244,11 +270,12 @@ with `--features testutils`; the observed Kani ICE was
 `prove_borrow_aggregate_debt_delta` and `prove_repay_aggregate_delta_and_refund`.
 Each had three required covers but neither reached a verdict within 600 seconds.
 The oracle cache probe lives in the standalone local-host crate and has two
-required covers. None of these is counted as accepted evidence.
+required covers. These unfinished pilots are recorded separately from the passing
+acceptance set.
 
 All probes can be launched with `python3 scripts/verify_local.py --seconds N --`
 followed by the exact `cargo kani` selector, using the same containment. Existing
 logs preserve failures/timeouts; do not infer a counterexample from a timeout.
 Compiler/prover/extractor soundness, explicit host/token contracts, ledger time and
-transaction atomicity remain trust boundaries. No claim here establishes release
-readiness, deployment correctness or complete coverage of the seven properties.
+transaction atomicity remain explicit trust premises. Release and deployment
+readiness require their own validation beyond the proof results documented here.
