@@ -121,12 +121,12 @@ def provision(home, pin):
             download(pin["rust"]["release_manifest_url"], stage / "rust-manifest.toml",
                      pin["rust"]["published_release_manifest_sha256"])
             subprocess.run([launcher, "set", "auto-self-update", "disable"],
-                           env=env, check=True, timeout=30)
+                           env=env, check=True, timeout=30, umask=0o077)
             command = [launcher, "toolchain", "install", pin["rust"]["toolchain"],
                        "--profile", "minimal", "--no-self-update"]
             for component in pin["rust"]["installed_components"]:
                 command.extend(["--component", component])
-            subprocess.run(command, env=env, check=True, timeout=540)
+            subprocess.run(command, env=env, check=True, timeout=540, umask=0o077)
     require_owned_path(home, "Verus home")
     checked_toolchain(pin, home)
     print(f"Pinned Verus provisioned: {home}")

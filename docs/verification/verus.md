@@ -31,7 +31,8 @@ elsewhere; version-specific homes preserve existing verified installations:
 
 The home and its parent must be owned by the operator and not group-/world-writable.
 The runner validates custody, file hashes and compiler identity before execution.
-Tool installation is explicit; verification does not install a missing toolchain.
+Provisioning uses a private Rustup umask; unsafe existing homes are rejected, not
+repaired. Installation is explicit; verification does not install missing tools.
 
 ## Execution and verdicts
 
