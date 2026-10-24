@@ -1,24 +1,19 @@
 {
   "schema_version": 1,
-  "status": "source_extracted_and_translated_bridge_unproved",
-  "claim": "Real production arithmetic bodies were extracted and translated without rewriting them. This establishes feasibility for this pinned seam, not a Lean-checked arithmetic theorem, SDK/host refinement or north-star closure.",
+  "claim": "Source-preserving Charon/Aeneas extraction. Translation and generated external templates do not establish arithmetic, SDK or host refinement.",
   "sandbox": "/tmp/blend-verification-tools/extraction",
   "toolchain": {
     "aeneas": {
       "revision": "fdebf20d78e8007bb92fc17068f17fc2e6cfbbbf",
       "release": "nightly-2026.10.23-fdebf20",
-      "observed_version": "aeneas nightly-2026.10.23-fdebf20",
       "release_url": "https://github.com/AeneasVerif/aeneas/releases/tag/nightly-2026.10.23-fdebf20",
       "download_url": "https://github.com/AeneasVerif/aeneas/releases/download/nightly-2026.10.23-fdebf20/aeneas-linux-x86_64.tar.gz",
       "archive_sha256": "7601054b3cdd6b1af312057ead9490b93afbd8d466aac371cbaba26ddf6397eb",
-      "archive_digest_matches_github_release_metadata": true,
       "binary": "tools/aeneas",
-      "binary_sha256": "d968af5e01e50cef84add48a75cf2af8f80751458cab931066d05f42098d934c",
-      "installed": true
+      "binary_sha256": "d968af5e01e50cef84add48a75cf2af8f80751458cab931066d05f42098d934c"
     },
     "charon": {
       "revision": "de8736f7c995ac54dc490345cef9ea5143c06c62",
-      "observed_version": "0.1.293 (de8736f7c995ac54dc490345cef9ea5143c06c62)",
       "pairing_authority": "https://raw.githubusercontent.com/AeneasVerif/aeneas/fdebf20d78e8007bb92fc17068f17fc2e6cfbbbf/charon-pin",
       "distribution": "Bundled in the hash-pinned Aeneas release archive, including charon-driver and rust-toolchain. Do not substitute the independently published latest Charon release.",
       "binary": "tools/charon",
@@ -26,13 +21,10 @@
       "driver_binary": "tools/charon-driver",
       "driver_sha256": "0bbfebd1e1cc5715e9b3b85cea8a321c13fb07d218847b692243c9cad054a96d",
       "source_download_url": "https://codeload.github.com/AeneasVerif/charon/tar.gz/de8736f7c995ac54dc490345cef9ea5143c06c62",
-      "source_archive_sha256": "216351fbc24334b704ddf3953f13cb01b0141cb3c426a9bde5b9aa2b7a0e9627",
-      "installed": true,
-      "built_locally": false
+      "source_archive_sha256": "216351fbc24334b704ddf3953f13cb01b0141cb3c426a9bde5b9aa2b7a0e9627"
     },
     "rust": {
       "channel": "nightly-2026-09-17",
-      "observed_version": "rustc 1.100.0-nightly (923c95cdf 2026-09-16)",
       "revision": "923c95cdf5ba65cea505aa2ea829f578e1506ed8",
       "llvm": "23.1.1",
       "host": "x86_64-unknown-linux-gnu",
@@ -40,36 +32,37 @@
       "compiler_sha256": "f6636ed825b134896bdbff0b433a0d064df766971b8b6610db5e18165d166aee",
       "distribution_manifest_url": "https://static.rust-lang.org/dist/2026-09-17/channel-rust-nightly.toml",
       "distribution_manifest_sha256": "9cec46bc6224bd0ff346b0a01a951ba07f9ccb806f89842b897a5a182d0aaccd",
-      "installation_requested": ["minimal profile", "rustc-dev", "rust-src", "llvm-tools-preview", "wasm32v1-none target"],
-      "installed": true,
-      "installation_diagnostic": "The isolated rustup command installed nightly and 7 components, then exited 1 with: error: rustup is not installed at '/tmp/blend-verification-tools/extraction/cargo-home'. The subsequent direct pinned rustc -vV succeeded. Isolated auto-self-update was then set to disable; no second toolchain installation was run. The driver reuses the existing rustup launcher from PATH but sets RUSTUP_HOME and CARGO_HOME to the sandbox.",
-      "installation_containment": "systemd-run user service; 4 GiB MemoryMax, zero swap, TasksMax=256, CPUQuota=200%, OOMPolicy=kill, KillMode=control-group, RuntimeMaxSec=900; observed memory peak 2.3G and zero swap.",
-      "miri": "Not installed. The prepared first attempt uses --sysroot=default explicitly, preventing implicit full-MIR sysroot compilation. Missing standard-library bodies remain explicit extraction/model obligations. A later full-MIR sysroot experiment requires the pinned miri component and a separately recorded contained build, not an implicit fallback."
+      "profile": "minimal",
+      "components": [
+        "rustc-dev",
+        "rust-src",
+        "llvm-tools-preview"
+      ],
+      "targets": [
+        "wasm32v1-none"
+      ]
     },
     "lean": {
       "version": "4.35.0",
       "revision": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc",
-      "observed_version": "Lean (version 4.35.0, x86_64-unknown-linux-gnu, commit eb6cafb7290e8bd5f2937522d8d804f58f02bafc, Release)",
       "pairing_authority": "tools/backends/lean/lean-toolchain from the Aeneas archive",
       "download_url": "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst",
       "archive_sha256": "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d",
-      "archive_digest_matches_github_release_metadata": true,
       "binary": "tools/lean-4.35.0-linux/bin/lean",
       "binary_sha256": "bf8d54e4714cc4b03d3f6bb34c83b7202b87e49c8bfcbff6895c085bb90ceb38",
-      "installed": true,
       "aeneas_library": "tools/backends/lean",
       "bundled_olean_archive": "tools/backends/lean/.lake/lean-build-aeneas-x86_64-unknown-linux-gnu.tar.gz",
       "bundled_olean_archive_sha256": "e38e52af90ebe86e81de6034a0387dbe57ffe6b84e084071e3ae5364e3cb8e06",
       "lake_manifest_sha256": "14e04fb0abf42c95fabccc050f11715f9cb7e86316a26a55a87c89b95a72a5a3",
-      "library_dependencies": "Bundled lake-manifest.json pins the transitive package revisions; lakefile.lean requires mathlib v4.35.0. Aeneas translation succeeded. Packages/olean caches have not been restored or compiled, and no Lean theorem was checked."
+      "library_dependencies": "Use the bundled lake-manifest.json revisions and mathlib v4.35.0."
     }
   },
   "source_boundary": {
-    "crate": "The real pool/Cargo.toml, unchanged; Rust modules, contract macros and dependencies compile normally. No reduced fake crate, copied conversion bodies, replacement FixedMath implementation or patched dependency is used.",
+    "crate": "Actual pool/Cargo.toml and production Rust modules; no copied conversions, replacement arithmetic or patched dependencies.",
     "reserve_data": "pool/src/pool/reserve.rs:229-252, actual six conversion bodies, plus their real Reserve forwarding methods in the same module.",
     "dispatch": "pool/src/math.rs:9-22, actual FixedMath trait and impl for soroban_sdk::Env calling SorobanFixedPoint.",
     "arithmetic": "Locked soroban-fixed-point-math 1.5.0, src/i128.rs:24-115 and src/i256.rs:23-51, explicitly transparent via --include=soroban_fixed_point_math.",
-    "external_boundary": "soroban_sdk is explicitly opaque. This first attempt does not claim extraction/proof of SDK wrappers or the Soroban host. Unknown external signatures/templates are obligations, not trusted target implementations. SDK primitive refinement must be established before calling this a production arithmetic bridge.",
+    "external_boundary": "soroban_sdk is opaque. External templates are refinement obligations, not trusted implementations.",
     "selection": [
       "--start-from=crate::math",
       "--start-from=crate::pool::reserve::_::to_asset_from_b_token",
@@ -79,7 +72,7 @@
       "--start-from=crate::pool::reserve::_::to_d_token_down",
       "--start-from=crate::pool::reserve::_::to_d_token_up"
     ],
-    "selector_justification": "Pinned name_matcher/mod.rs:269-271 explicitly returns false for inherent-impl pattern matching. Its one-component wildcard matches the inherent impl segment instead; exact method suffixes select both ReserveData conversions and live Reserve wrappers. This is a documented selector limitation, not evidence that source extraction failed. --start-from (not --start-from-if-exists) requires actual matches; generated declarations and source spans still require inspection.",
+    "selector_justification": "The pinned name matcher needs a one-component wildcard for inherent impls. Exact method suffixes select ReserveData conversions and Reserve wrappers; --start-from requires matches. Inspect generated declarations and source spans.",
     "configuration": "--locked --release --lib --no-default-features; no cfg(kani), test, testutils or certora; production release overflow-checks=true retained.",
     "targets": {
       "wasm32v1-none": "Default, matching production target-family selection. The locked SDK uses Wasm host bindings; those external functions are not proved. MIR extraction with a different compiler is not optimized/deployed Wasm equivalence.",
@@ -88,96 +81,18 @@
     "package_checksums": {
       "soroban-fixed-point-math-1.5.0": "671e84e393a03992963c8763f8f5d8998c99e5079e03a56ab23e5dd9f7d99db5",
       "soroban-sdk-25.3.0": "5fb27e93f8d3fc3a815d24c60ec11e893c408a36693ec9c823322f954fa096ae"
-    },
-    "inspected_source_sha256": {
-      "pool/src/math.rs": "9ff93d969dc4bcb4401d6e4d2f1dd0f18edf4033a76131345a9a3687d8ca31ae",
-      "pool/src/pool/reserve.rs": "3a3d753f2bd9d4b4807414e15949f19d8631e6070ebacaf1964510b4b731c596",
-      "pool/src/storage.rs": "b3024dc3dee9089e3f73de1139f76101571d0c837b811d39df2576dde00f8cc0",
-      "Cargo.lock": "30384bbff40d7ca26884decddc7592bf54fb8106d31cba755b9a3e77a19427ba",
-      "soroban-fixed-point-math-1.5.0/src/i128.rs": "f9a45c082fae98f669cae450d39b228794128be59c186edeaafc1ae8df0badd3",
-      "soroban-fixed-point-math-1.5.0/src/i256.rs": "892eb33ca646a70b11a3d2d4c9765b138087da5319cd6690ae2ee0de275f9a90",
-      "soroban-sdk-25.3.0/src/num.rs": "92d3f0e1188973cacd607017e62d2795f0c134de50dc2b06d2769cde73a6a243"
     }
   },
   "commands": {
-    "prerequisites": "Python >=3.11, existing rustup launcher in PATH, systemd user manager enforcing the listed limits, downloaded hash-pinned sandbox tools and usable pinned compiler. Compiler identity is checked before Charon, CHARON_TOOLCHAIN_IS_IN_PATH=1 disables its fallback installer, and RUSTUP_AUTO_INSTALL=0 disables rustup proxy installation. Cargo may fetch exact Cargo.lock dependencies into the sandbox cargo-home.",
+    "prerequisites": "Python >=3.11, existing rustup launcher, working user-systemd/cgroup-v2 containment, and hash-pinned sandbox tools/compiler. RUSTUP_AUTO_INSTALL=0 and CHARON_TOOLCHAIN_IS_IN_PATH=1 prevent implicit installation.",
     "charon": "python3 verification/extraction/run.py charon --output /tmp/blend-verification-tools/extraction/results/wasm-seam-new",
     "native_optional": "python3 verification/extraction/run.py charon --target x86_64-unknown-linux-gnu --output /tmp/blend-verification-tools/extraction/results/native-seam-new",
     "aeneas_after_real_llbc": "python3 verification/extraction/run.py aeneas --llbc /tmp/blend-verification-tools/extraction/results/wasm-seam-new/pool.llbc --output /tmp/blend-verification-tools/extraction/results/wasm-lean-new",
-    "bounds": "Driver reuses scripts/verify_local.py::contained and its shared serialization lock: actual cgroup-v2 limit checks, 4 GiB memory, zero swap, 256 tasks, CPU at most 200%, OOM group killing, whole-unit cleanup and a 600-second deadline. No uncontained fallback.",
-    "artifacts": "Each new output directory contains command.log and invocation.json with exact argv, compiler identity, tool hashes, source hashes before/after, generated hashes and dependency source hashes. Charon emits pool.llbc. Aeneas requires the matching successful/current-source Charon receipt, checks LLBC target information, inherits that target unless explicitly matched, and consumes a hashed immutable input snapshot. It emits Lean definitions plus unproved external templates. Existing output directories and stale/conflicting receipts are rejected.",
-    "flags_justification": "Installed help and the first real runs justify the selected flags. Charon's --preset=aeneas, --start-from, --include, --opaque, --sysroot=default, --dest-file and --error-on-warnings are retained. Aeneas uses -backend lean, -split-files, -warnings-as-errors, -sequential and -dest. Its supported -print-unknown-externals reporting flag crashed on tuple names and was removed; no source algorithm, borrow/type check or target semantic check was disabled.",
-    "lean_checking": "Not automated by this feasibility driver: first inspect actual generated external templates and signatures. Build a Lean package with the bundled lean-toolchain and require aeneas from the exact sandbox tools/backends/lean path, preserving its lake-manifest pins. Restore/compile dependency caches and run lake build only under the same parent containment policy. Unimplemented external templates are a stop outcome; do not fill them with sorry, axioms, admits or copied target financial implementations."
+    "bounds": "Shared verify_local.py containment and serialization: 4 GiB memory, zero swap, 256 tasks, CPU at most 200%, group cleanup, 600-second deadline; no uncontained fallback.",
+    "artifacts": "New output directories contain command.log and invocation.json with argv, tool/compiler identities, source/dependency hashes and artifact hashes. Aeneas requires a successful current-source Charon receipt, matching target and immutable LLBC snapshot. Existing paths and stale/conflicting receipts are rejected.",
+    "lean_checking": "Use the pinned Lean/Aeneas libraries and lake-manifest under containment. Generated external templates remain obligations; do not use sorry, admits, axioms or copied financial implementations to fill them."
   },
-  "observed_runs": [
-    {
-      "stage": "charon",
-      "output": "/tmp/blend-verification-tools/extraction/results/wasm-seam-1",
-      "exit": 0,
-      "llbc_has_errors": false,
-      "llbc_sha256": "31425d16fd4b19c9da70cd5b367612eb73f377eae4c3b900a6f3cd422d721455",
-      "service_runtime_seconds": 60.804,
-      "peak_memory_reported": "1.5G; zero swap"
-    },
-    {
-      "stage": "aeneas-with-unknown-name-reporting",
-      "output": "/tmp/blend-verification-tools/extraction/results/wasm-lean-1",
-      "exit": 2,
-      "diagnostic": "Failure: Can't convert the name of a tuple to a pattern; stack reaches Main.ml unknown-external name formatting."
-    },
-    {
-      "stage": "aeneas-without-unknown-name-reporting",
-      "output": "/tmp/blend-verification-tools/extraction/results/wasm-lean-2",
-      "exit": 0,
-      "transparent_functions_reported": 23,
-      "opaque_functions_reported": 22,
-      "funs_lean_sha256": "11a1ca9f9b8ba69a20767ce0db206dda1043dac13a24e73e1d01415ce109d964",
-      "external_function_template_sha256": "8140013210d251c6977aaca5cc076c6d89855c05ceb05a029785f5d837568607",
-      "types_lean_sha256": "7ba56a585b9c1f3859ba2de090be4c408e27e912aeac959b7a44c08e8b592f96",
-      "external_type_template_sha256": "2bebef01d8e5fdc17451287b7dc07e27508a717ff940d83edbb5377587c088af",
-      "audit": "Parent inspected source spans and all six ReserveData conversion definitions, actual Env dispatch, checked-product branches and I256 fallback calls. External templates contain axioms for SDK types/arithmetic, unwrap, checked_rem_euclid and Option control flow; these were not accepted as proved implementations."
-    },
-    {
-      "stage": "charon-reviewed-provenance-driver",
-      "output": "/tmp/blend-verification-tools/extraction/results/wasm-seam-reviewed",
-      "exit": 0,
-      "target": "wasm32v1-none",
-      "source_hashes_unchanged": true,
-      "llbc_sha256": "61bebeb66a235afe91f7612d132b6c1b21a4967b2e11e60fa5b57ac26c64630f",
-      "service_runtime_seconds": 40.714,
-      "peak_memory_reported": "1.2G; zero swap"
-    },
-    {
-      "stage": "aeneas-reviewed-provenance-driver",
-      "output": "/tmp/blend-verification-tools/extraction/results/wasm-lean-reviewed",
-      "exit": 0,
-      "target": "wasm32v1-none",
-      "source_hashes_unchanged": true,
-      "llbc_input_sha256": "61bebeb66a235afe91f7612d132b6c1b21a4967b2e11e60fa5b57ac26c64630f",
-      "funs_lean_sha256": "c5f874be1fa97b1c16d5fabe6464a77568ba168a5790dfdb8ce0e1f67748c125",
-      "external_function_template_sha256": "87fa93fe729b7938062466c9171928371f67085df73af4b46997f5fdcdaad9b8",
-      "types_lean_sha256": "b8fc95322d81c1dcc460e57e883e94a25b2c960f114621ee86a9ece65cf5c7f4",
-      "external_type_template_sha256": "2bebef01d8e5fdc17451287b7dc07e27508a717ff940d83edbb5377587c088af",
-      "transparent_functions_reported": 23,
-      "opaque_functions_reported": 22,
-      "service_runtime_seconds": 0.871,
-      "peak_memory_reported": "90.6M; zero swap",
-      "claim": "Reproduced extraction/translation with source-target custody checks; not a Lean theorem."
-    }
-  ],
-  "unclosed_obligations": [
-    "Extraction and translation succeeded at this exact pinned seam; no arithmetic/source-refinement theorem was proved.",
-    "Generated external templates are unproved obligations, not permission to introduce target axioms or trusted stubs. No Lean theorem was checked against them.",
-    "SDK Env and I256 signatures/wrappers remain opaque. To refine them inspect SDK num.rs:345-396,399-435 and the shared numeric comparison implementation: exact byte sign-extension/round-trip, from_i32/from_i128, to_i128 representability, obj_cmp, i256_mul/div/rem_euclid/add/sub, byte construction/append/slice/read and conversion all require host/SDK contracts or further source-connected proofs.",
-    "For both signs, prove checked i128 multiplication selection, truncating division plus Euclidean-remainder adjustment, exact/inexact quotient, denominator zero rejection, i128::MIN / -1 rejection and representability. Do not assume the product fits i128 merely because the result does.",
-    "The concrete MAX*2/(MAX-1) production fixture ran through math::tests::rounding_keeps_i256_fallback and passed (floor=2, ceil=3). This is smoke evidence, not a universal bridge. Denominator-zero and unrepresentable-result cases were not exercised by this campaign.",
-    "Default distributed sysroot lacks some standard-library MIR. Missing bodies must remain visible, justified by existing checked backend models or separately extracted; no missing-body diagnostic was observed yet.",
-    "Aeneas --help states drops are not evaluated by default. Any drop, allocation, panic/unwind or unsafe behavior relevant to Env/host state needs an explicit semantic argument or a separately recorded supported extraction configuration. Charon's Aeneas preset performs its documented lowering passes; compiler/Charon/Aeneas correctness remains trusted.",
-    "Host transaction atomicity, accepted-call overflow/rejection behavior and no committed mutation on traps remain explicit separate premises, not a conclusion of source extraction.",
-    "Lean runtime is installed; package caches/Aeneas olean restoration and Lean checking were not run. Generated definitions exist, but the external-model and arithmetic proof obligations remain open.",
-    "No production source, runtime dependency, ABI, storage, rounding or user-owned docs/verification-design.md was modified. No hosted proof was submitted. Campaign commits and the authorized branch push are tracked separately; no PR or deployment is part of this work."
-  ],
-  "stop_policy": "Retain exact command.log, invocation.json, compiler/extractor diagnostic and generated partial artifacts on compilation failure, unmatched selectors, missing body/model, unsupported construct, timeout, OOM or translation failure. Do not infer source incompatibility from a tool download/setup failure. Do not replace target bodies with handwritten models, narrow numeric domains, trust external templates or increase the timeout to manufacture a pass. Creusot/Why3 has not been installed or proposed as an automatic migration: evaluate it against this same exact seam only after an actual extraction blocker has been recorded.",
+  "stop_policy": "Retain command logs, receipts and partial artifacts on failure. Do not replace target bodies, trust generated templates, narrow domains, raise budgets or silently switch tools to manufacture success.",
   "primary_sources": [
     "https://github.com/AeneasVerif/aeneas/blob/fdebf20d78e8007bb92fc17068f17fc2e6cfbbbf/README.md",
     "https://github.com/AeneasVerif/aeneas/blob/fdebf20d78e8007bb92fc17068f17fc2e6cfbbbf/.github/workflows/release.yml",
@@ -186,5 +101,11 @@
     "https://github.com/AeneasVerif/charon/blob/de8736f7c995ac54dc490345cef9ea5143c06c62/charon/src/options.rs",
     "https://github.com/AeneasVerif/charon/blob/de8736f7c995ac54dc490345cef9ea5143c06c62/charon/src/name_matcher/mod.rs",
     "https://github.com/AeneasVerif/charon/blob/de8736f7c995ac54dc490345cef9ea5143c06c62/charon/src/bin/charon/toolchain.rs"
+  ],
+  "semantic_boundaries": [
+    "Default sysroot extraction may omit standard-library MIR; missing bodies require checked models or separate extraction.",
+    "SDK/I256 primitives, signed rounding, fast/wide dispatch, rejection and representability require explicit refinement.",
+    "Drops, allocation, panic/unwind and unsafe behavior relevant to host state require a semantic argument; compiler/translator correctness remains trusted.",
+    "Host transaction atomicity, authorization and exact external token effects are not established by extraction."
   ]
 }

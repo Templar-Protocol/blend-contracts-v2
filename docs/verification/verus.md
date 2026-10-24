@@ -9,11 +9,19 @@ and their invocation through the [shared local gate](../../VERIFICATION.md#repro
 Use Linux and Python 3.11+. Provision the Verus release, bundled solver/libraries
 and isolated Rust compiler pinned in
 [`verification/verus/toolchain.json`](../../verification/verus/toolchain.json).
-That file contains the download URLs, checksums and Rust setup commands; do not
-substitute a newer release or the workspace compiler.
+That file contains immutable downloads, checksums and compiler/component pins.
+Provision explicitly under containment; existing verified installations are reused:
 
-The default home is `/tmp/blend-verification-tools/verus`; `VERUS_HOME` may select
-the same layout elsewhere:
+```sh
+python3 scripts/verify_local.py --seconds 900 -- python3 scripts/provision_verus.py
+```
+
+Do not substitute a newer release or the workspace compiler.
+
+The default home is `$XDG_CACHE_HOME/blend-verification-tools/verus/<pinned-version>`
+(`~/.cache` when `XDG_CACHE_HOME` is unset). Use disk-backed storage, not a
+memory-backed `/tmp`, for the compiler. `VERUS_HOME` may select the same layout
+elsewhere; version-specific homes preserve existing verified installations:
 
 ```text
 <VERUS_HOME>/verus-x86-linux/   # verifier, solver and bundled libraries
@@ -23,7 +31,8 @@ the same layout elsewhere:
 
 The home and its parent must be owned by the operator and not group-/world-writable.
 The runner validates custody, file hashes and compiler identity before execution.
-Tool installation is explicit; verification does not install a missing toolchain.
+Provisioning uses a private Rustup umask; unsafe existing homes are rejected, not
+repaired. Installation is explicit; verification does not install missing tools.
 
 ## Execution and verdicts
 

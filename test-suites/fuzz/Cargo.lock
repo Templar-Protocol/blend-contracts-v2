@@ -674,17 +674,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40404c3f5f511ec4da6fe866ddf6a717c309fdbb69fbbad7b0f3edab8f2e835f"
 
 [[package]]
-name = "extension-trait"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd65f1b59dd22d680c7a626cc4a000c1e03d241c51c3e034d2bc9f1e90734f9b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "ff"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1853,9 +1842,13 @@ dependencies = [
 name = "test-suites-fuzz"
 version = "0.0.0"
 dependencies = [
- "extension-trait",
  "libfuzzer-sys",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
  "pool",
+ "serde",
+ "serde_json",
  "soroban-fixed-point-math",
  "soroban-sdk",
  "test-suites",

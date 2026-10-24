@@ -10,14 +10,24 @@ on:
     - cron: '0 3 * * 0'
   workflow_dispatch:
     inputs:
+      scope:
+        description: Full scheduled campaign or bounded local acceptance/replay
+        type: choice
+        options: [full, local]
+        default: full
       harness_timeout:
         description: Per-harness budget, e.g. 10800s
         required: false
         default: 10800s
 
 jobs:
+  local-verification:
+    if: github.event_name == 'workflow_dispatch' && inputs.scope == 'local'
+    uses: ./.github/workflows/verification-local.yml
+
 
   harnesses:
+    if: github.event_name != 'workflow_dispatch' || inputs.scope != 'local'
     runs-on: ubuntu-latest
     outputs:
       list: ${{ steps.read.outputs.list }}
@@ -83,28 +93,22 @@ jobs:
         cargo kani -p pool --lib --exact --harness "$HARNESS" \
           --solver kissat -Z unstable-options --harness-timeout "$BUDGET" \
           2>&1 | tee "$log"
-        # A FAILED verdict means one of three different things and the exit
-        # status separates none of them, so the log is the source of truth.
-        # See "Reading verdicts" in docs/verification/kani.md.
-        if [ "$(grep -cE 'VERIFICATION:-' "$log" || true)" -ne 1 ]; then
-          echo "::error::$HARNESS did not match exactly one harness"
-          exit 1
-        fi
-        if grep -qF 'VERIFICATION:- SUCCESSFUL' "$log"; then
-          # A SUCCESSFUL verdict with an unreachable kani::cover! is vacuous.
-          if grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | awk '$2 != $4' | grep -q .; then
-            echo "::error::$HARNESS verified but left a cover unsatisfied, so the pass is vacuous"
-            exit 1
-          fi
-          echo "::notice::$HARNESS SUCCESSFUL"
-          exit 0
-        fi
-        grep -qF 'CBMC timed out' "$log" && echo "::error::$HARNESS exhausted its $BUDGET budget (no counterexample)"
-        grep -qE 'Trace for|Counterexample' "$log" && echo "::error::$HARNESS was refuted -- counterexample printed"
-        grep -qE 'invariant violation|failed with status' "$log" && echo "::error::$HARNESS crashed CBMC"
-        exit 1
+        result=("${PIPESTATUS[@]}")
+        if [ "${result[1]}" -ne 0 ]; then exit 1; fi
+        python3 scripts/check_kani_ci.py \
+          --selection verification/kani-full-harnesses.txt --harness "$HARNESS" \
+          --log "$log" --exit-code "${result[0]}"
+    - name: Retain proof log
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: kani-full-${{ strategy.job-index }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/kani.log
+        if-no-files-found: warn
+        retention-days: 14
 
   fuzz:
+    if: github.event_name != 'workflow_dispatch' || inputs.scope != 'local'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -119,10 +123,20 @@ jobs:
     - run: make build
     - run: rustup toolchain install --profile minimal "$(sed -n 's/^channel = "\(.*\)"/\1/p' test-suites/fuzz/rust-toolchain.toml)"
     - run: cargo install --locked cargo-fuzz --version 0.13.2
+    - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: test-suites/fuzz/corpus/fuzz_pool_general
+        key: fuzz-corpus-${{ runner.os }}-${{ hashFiles('test-suites/fuzz/rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          fuzz-corpus-${{ runner.os }}-${{ hashFiles('test-suites/fuzz/rust-toolchain.toml') }}-
     - run: cargo fuzz run fuzz_pool_general -- -max_total_time=3600 -print_final_stats=1
       working-directory: test-suites/fuzz
-    # A crash is only actionable with the input that produced it, and the corpus
-    # is not persisted, so the reproducer cannot be regenerated from a rerun.
+    - name: Retain successful corpus growth
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: test-suites/fuzz/corpus/fuzz_pool_general
+        key: fuzz-corpus-${{ runner.os }}-${{ hashFiles('test-suites/fuzz/rust-toolchain.toml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+    # Failure artifacts retain the reproducer independently of the success cache.
     - if: failure()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
@@ -135,10 +149,19 @@ jobs:
 
   complete:
     if: always()
-    needs: [harnesses, kani, fuzz]
+    needs: [harnesses, kani, fuzz, local-verification]
     runs-on: ubuntu-latest
     steps:
-    # A failed harnesses job skips kani, and a skipped job's result is neither
-    # failure nor cancelled, so complete would otherwise pass with nothing verified.
-    - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-      run: exit 1
+    - name: Require the selected verification scope
+      env:
+        SCOPE: ${{ inputs.scope || 'full' }}
+        LOCAL: ${{ needs.local-verification.result }}
+        HARNESSES: ${{ needs.harnesses.result }}
+        KANI: ${{ needs.kani.result }}
+        FUZZ: ${{ needs.fuzz.result }}
+      run: |
+        if [ "$SCOPE" = local ]; then
+          test "$LOCAL" = success
+        else
+          test "$HARNESSES" = success && test "$KANI" = success && test "$FUZZ" = success
+        fi

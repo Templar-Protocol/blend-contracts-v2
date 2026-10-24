@@ -1,20 +1,15 @@
 //! Common code for fuzzing test suites.
-#![allow(unused)]
-#![no_main]
 
-use soroban_fixed_point_math::FixedPoint;
-use pool::{PoolState, PositionData, Request, RequestType};
-use libfuzzer_sys::fuzz_target;
-use soroban_sdk::testutils::arbitrary::{fuzz_catch_panic, arbitrary::{self, Arbitrary, Unstructured}};
-use soroban_sdk::{testutils::Address as _, vec, Address, token::TokenClient};
-use test_suites::{
-    assertions::assert_approx_eq_abs,
-    create_fixture_with_data,
-    test_fixture::{PoolFixture, TestFixture, TokenIndex, SCALAR_7, SCALAR_12},
-};
-use test_suites::all_events;
+pub mod pool_general;
+mod valuation;
 
-#[derive(Arbitrary, Debug)]
+use pool::{Request, RequestType};
+use serde::{Deserialize, Serialize};
+use soroban_sdk::testutils::arbitrary::arbitrary::{self, Arbitrary, Unstructured};
+use soroban_sdk::vec;
+use test_suites::{all_events, test_fixture::TestFixture};
+
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct NatI128(
     #[arbitrary(with = |u: &mut Unstructured| u.int_in_range(0..=(i64::MAX as i128)))] pub i128,
 );
@@ -30,27 +25,23 @@ type ContractResult<T> = Result<T, Result<soroban_sdk::Error, soroban_sdk::Invok
 /// Other rare types of internal exception can return `InvalidAction`.
 #[track_caller]
 pub fn verify_contract_result<T>(env: &soroban_sdk::Env, r: &ContractResult<T>) {
-    use soroban_sdk::testutils::Events;
     use soroban_sdk::xdr::{ScErrorCode, ScErrorType};
-    use soroban_sdk::{ConversionError, Error};
-    match r {
-        Err(Ok(e)) => {
-            if e.is_type(ScErrorType::WasmVm) && e.is_code(ScErrorCode::InvalidAction) {
-                let msg = "contract failed with InvalidAction - unexpected panic?";
-                eprintln!("{msg}");
-                eprintln!("recent events (10):");
-                for (i, event) in all_events(&env).iter().rev().take(10).enumerate() {
-                    eprintln!("{i}: {event:?}");
-                }
-                panic!("{msg}");
+    if let Err(Ok(e)) = r {
+        if e.is_type(ScErrorType::WasmVm) && e.is_code(ScErrorCode::InvalidAction) {
+            let msg = "contract failed with InvalidAction - unexpected panic?";
+            eprintln!("{msg}");
+            eprintln!("recent events (10):");
+            for (i, event) in all_events(env).iter().rev().take(10).enumerate() {
+                eprintln!("{i}: {event:?}");
             }
+            panic!("{msg}");
         }
-        _ => {}
     }
 }
 
 /// The set of tokens that the pool supports.
-#[derive(Arbitrary, Debug, Clone, Copy)]
+#[derive(Arbitrary, Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PoolReserveToken {
     WETH = 2,
     XLM = 3,
@@ -60,53 +51,42 @@ pub enum PoolReserveToken {
 /// Jump the Env `timestamp` forward by `amount` seconds.
 ///
 /// Does not change the `sequence` to prevent any ledger expirations.
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct PassTime {
     pub amount: u64,
 }
 
-/// Jump the Env `timestamp` forward by `amount` seconds and the Env
-/// `sequence` by `amount` / 5 blocks.
-#[derive(Arbitrary, Debug)]
-pub struct PassTimeAndBlocks {
-    pub amount: u64,
-}
-
 /// Supply `amount` of `token` into the pool.
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct Supply {
     pub amount: i128,
     pub token: PoolReserveToken,
 }
 
 /// Withdraw `amount` of `token` out of the pool for `user`.
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct Withdraw {
     pub amount: i128,
     pub token: PoolReserveToken,
 }
 
 /// Borrow `amount` of `token` out of the pool for `user`.
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct Borrow {
     pub amount: i128,
     pub token: PoolReserveToken,
 }
 
 /// Repay `amount` of `token` into the pool for `user`.
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct Repay {
     pub amount: i128,
     pub token: PoolReserveToken,
 }
 
 /// Claim emissions from the pool for `user`.
-#[derive(Arbitrary, Debug)]
+#[derive(Arbitrary, Debug, Deserialize, Serialize)]
 pub struct ClaimPool {}
-
-/// Claim emissions from the backstop for `user`.
-#[derive(Arbitrary, Debug)]
-pub struct ClaimBackstop {}
 
 impl PassTime {
     pub fn run(&self, fixture: &TestFixture) {
@@ -114,15 +94,9 @@ impl PassTime {
     }
 }
 
-impl PassTimeAndBlocks {
-    pub fn run(&self, fixture: &TestFixture) {
-        fixture.jump_with_sequence(self.amount);
-    }
-}
-
 impl Supply {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
+    pub fn run(&self, fixture: &TestFixture, user_index: usize) -> bool {
+        let pool_fixture = fixture.pools.first().unwrap();
         let token = fixture
             .tokens
             .get(self.token as usize)
@@ -131,9 +105,9 @@ impl Supply {
             .clone();
         let user = fixture.users.get(user_index).unwrap();
         let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
+            user,
+            user,
+            user,
             &vec![
                 &fixture.env,
                 Request {
@@ -144,12 +118,13 @@ impl Supply {
             ],
         );
         verify_contract_result(&fixture.env, &r);
+        matches!(r, Ok(Ok(_)))
     }
 }
 
 impl Withdraw {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
+    pub fn run(&self, fixture: &TestFixture, user_index: usize) -> bool {
+        let pool_fixture = fixture.pools.first().unwrap();
         let token = fixture
             .tokens
             .get(self.token as usize)
@@ -158,9 +133,9 @@ impl Withdraw {
             .clone();
         let user = fixture.users.get(user_index).unwrap();
         let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
+            user,
+            user,
+            user,
             &vec![
                 &fixture.env,
                 Request {
@@ -171,12 +146,13 @@ impl Withdraw {
             ],
         );
         verify_contract_result(&fixture.env, &r);
+        matches!(r, Ok(Ok(_)))
     }
 }
 
 impl Borrow {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
+    pub fn run(&self, fixture: &TestFixture, user_index: usize) -> bool {
+        let pool_fixture = fixture.pools.first().unwrap();
         let token = fixture
             .tokens
             .get(self.token as usize)
@@ -185,9 +161,9 @@ impl Borrow {
             .clone();
         let user = fixture.users.get(user_index).unwrap();
         let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
+            user,
+            user,
+            user,
             &vec![
                 &fixture.env,
                 Request {
@@ -198,12 +174,13 @@ impl Borrow {
             ],
         );
         verify_contract_result(&fixture.env, &r);
+        matches!(r, Ok(Ok(_)))
     }
 }
 
 impl Repay {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
+    pub fn run(&self, fixture: &TestFixture, user_index: usize) -> bool {
+        let pool_fixture = fixture.pools.first().unwrap();
         let token = fixture
             .tokens
             .get(self.token as usize)
@@ -212,9 +189,9 @@ impl Repay {
             .clone();
         let user = fixture.users.get(user_index).unwrap();
         let r = pool_fixture.pool.try_submit(
-            &user,
-            &user,
-            &user,
+            user,
+            user,
+            user,
             &vec![
                 &fixture.env,
                 Request {
@@ -225,29 +202,18 @@ impl Repay {
             ],
         );
         verify_contract_result(&fixture.env, &r);
+        matches!(r, Ok(Ok(_)))
     }
 }
 
 impl ClaimPool {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
+    pub fn run(&self, fixture: &TestFixture, user_index: usize) -> bool {
+        let pool_fixture = fixture.pools.first().unwrap();
         let user = fixture.users.get(user_index).unwrap();
         let r = pool_fixture
             .pool
-            .try_claim(&user, &vec![&fixture.env, 0, 3], &user);
+            .try_claim(user, &vec![&fixture.env, 0, 3], user);
         verify_contract_result(&fixture.env, &r);
-    }
-}
-
-impl ClaimBackstop {
-    pub fn run(&self, fixture: &TestFixture, user_index: usize) {
-        let pool_fixture = fixture.pools.get(0).unwrap();
-        let user = fixture.users.get(user_index).unwrap();
-        let r = fixture.backstop.try_claim(
-            &user,
-            &vec![&fixture.env, pool_fixture.pool.address.clone()],
-            &0,
-        );
-        verify_contract_result(&fixture.env, &r);
+        matches!(r, Ok(Ok(_)))
     }
 }

@@ -24,8 +24,7 @@ Run from the repository root after the [shared Wasm preparation](../../VERIFICAT
 Kani: the `sccache` compiler probe is incompatible with `kani-compiler`.
 
 ```sh
-python3 scripts/verify_local.py --seconds 900 -- env RUSTC_WRAPPER= \
-  cargo kani -p pool --lib --only-codegen
+make verify-local-codegen
 python3 scripts/verify_local.py --seconds 900 -- env RUSTC_WRAPPER= \
   cargo kani -p pool --lib list --format json
 python3 scripts/verify_local.py --seconds 900 -- env RUSTC_WRAPPER= \
@@ -44,25 +43,26 @@ Prefer Kani's harness timeout to an external kill, which may leave no verdict.
 The required PR jobs in
 [`pull_request.yml`](../../.github/workflows/pull_request.yml) compile the pool proof
 surface and verify [`kani-ci-harnesses.txt`](../../verification/kani-ci-harnesses.txt)
-with Kissat and a 600-second per-harness budget. To select that same subset in Bash
-(after preparation):
+with Kissat and a 600-second per-harness budget. Each harness runs separately;
+the checker consumes its actual exit status and complete log:
 
 ```sh
-mapfile -t harnesses < <(grep -v '^#' verification/kani-ci-harnesses.txt | grep -v '^[[:space:]]*$')
-args=()
-for h in "${harnesses[@]}"; do args+=(--harness "$h"); done
-python3 scripts/verify_local.py --seconds 3600 -- env RUSTC_WRAPPER= \
-  cargo kani -p pool --lib --exact "${args[@]}" \
-  --solver kissat -Z unstable-options --harness-timeout 600s
+python3 scripts/check_kani_ci.py \
+  --selection verification/kani-ci-harnesses.txt \
+  --harness pool::reserve::verification::prove_b_token_forward_floor \
+  --log /path/to/that-harness.log --exit-code 0
 ```
+
+Pass the real process status, not a constant zero, when automating execution.
 
 The weekly/manual
 [`verification-full.yml`](../../.github/workflows/verification-full.yml) selects
 [`kani-full-harnesses.txt`](../../verification/kani-full-harnesses.txt), one exact
 harness per matrix job, with a default 10800-second budget. Despite the filename,
 this is the expensive selected subset, not the complete released inventory.
-The CI workflows also enforce verdict counts and reject unsatisfied reported
-covers; retain equivalent checks when automating local runs.
+The [cover inventory](../../verification/kani-expected-covers.json) must match the
+union of both selections. CI requires exact cover counts, including zero, and
+rejects missing, extra, malformed or unsatisfied summaries.
 
 ## Reading verdicts
 

@@ -1,0 +1,99 @@
+name: verification-local
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  proofs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      KANI_VERSION: 0.68.0
+      CARGO_BUILD_JOBS: 1
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        persist-credentials: false
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6
+    - run: bash scripts/prepare_ci_containment.sh
+    - run: python3 scripts/verify_local.py --seconds 900 -- rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd
+      with:
+        version: 28.1.0
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: |
+          ~/.cargo/bin/cargo-kani
+          ~/.cargo/bin/kani-driver
+          ~/.kani
+        key: kani-${{ env.KANI_VERSION }}-${{ runner.os }}
+    - name: Provision pinned Kani
+      run: |
+        if ! cargo-kani --version 2>/dev/null | grep -qF "$KANI_VERSION"; then
+          python3 scripts/verify_local.py --seconds 900 -- \
+            cargo install --locked kani-verifier --version "$KANI_VERSION" --force
+        fi
+        if [ ! -d "$HOME/.kani/kani-$KANI_VERSION" ]; then
+          python3 scripts/verify_local.py --seconds 900 -- cargo-kani setup
+        fi
+    - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: ~/.cache/blend-verification-tools/verus
+        key: verus-${{ runner.os }}-${{ hashFiles('verification/verus/toolchain.json') }}
+    - name: Provision pinned Verus and isolated compiler
+      run: python3 scripts/verify_local.py --seconds 900 -- python3 scripts/provision_verus.py
+    - name: Prepare Wasm imports
+      run: python3 scripts/verify_local.py --seconds 900 -- make build
+    - name: Compile proof configurations without changing proof deadlines
+      run: make verify-local-codegen
+    - name: Verify the complete local acceptance set
+      run: make verify-local
+    - name: Retain proof and containment logs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: local-proof-logs-${{ github.run_id }}-${{ github.run_attempt }}
+        path: target/verification-local/*.log
+        if-no-files-found: warn
+        retention-days: 14
+
+  fuzz-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: 1
+    steps:
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      with:
+        persist-credentials: false
+    - uses: stellar/actions/rust-cache@97ffa3486f8d355535d989edfe78795f05ec11b6
+    - run: bash scripts/prepare_ci_containment.sh
+    - run: python3 scripts/verify_local.py --seconds 900 -- rustup toolchain install
+    - uses: stellar/stellar-cli@c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd
+      with:
+        version: 28.1.0
+    - run: python3 scripts/verify_local.py --seconds 900 -- make build
+    - name: Provision standalone fuzz toolchain
+      run: |
+        nightly=$(python3 -c 'import pathlib,tomllib; print(tomllib.loads(pathlib.Path("test-suites/fuzz/rust-toolchain.toml").read_text())["toolchain"]["channel"])')
+        python3 scripts/verify_local.py --seconds 900 -- rustup toolchain install --profile minimal "$nightly"
+        python3 scripts/verify_local.py --seconds 900 -- cargo install --locked cargo-fuzz --version 0.13.2
+    - name: Lint the standalone fuzz package
+      run: python3 scripts/verify_local.py --seconds 1800 -- make fuzz-lint
+    - name: Check fuzz arithmetic and failure classification
+      run: python3 scripts/verify_local.py --seconds 1800 -- make fuzz-test
+    - name: Replay committed financial regression seeds
+      run: python3 scripts/verify_local.py --seconds 1800 -- make fuzz-replay
+    - name: Build the mutation fuzz target
+      run: python3 scripts/verify_local.py --seconds 1800 -- make fuzz-build
+    - name: Retain replay and containment logs
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: fuzz-replay-logs-${{ github.run_id }}-${{ github.run_attempt }}
+        path: target/verification-local/*.log
+        if-no-files-found: warn
+        retention-days: 14
